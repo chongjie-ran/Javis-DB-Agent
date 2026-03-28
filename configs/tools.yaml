@@ -1,0 +1,407 @@
+# 工具定义配置
+
+query_tools:
+  - name: query_instance_status
+    description: 查询数据库实例的状态信息
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+      - name: metrics
+        type: array
+        required: false
+
+  - name: query_session
+    description: 查询数据库会话信息
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+      - name: limit
+        type: int
+        required: false
+        default: 10
+
+  - name: query_lock
+    description: 查询锁等待和阻塞链信息
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+
+  - name: query_slow_sql
+    description: 查询慢SQL和Top SQL
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+      - name: limit
+        type: int
+        required: false
+        default: 10
+
+  - name: query_replication
+    description: 查询主从复制状态
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+
+  - name: query_alert_detail
+    description: 查询告警详情
+    category: query
+    risk_level: 1
+    params:
+      - name: alert_id
+        type: string
+        required: true
+
+  - name: query_disk_usage
+    description: 查询磁盘/表空间使用率
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+
+  - name: query_parameters
+    description: 查询数据库参数配置
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+      - name: filter
+        type: string
+        required: false
+
+  - name: query_top_sql
+    description: 查询Top SQL（按CPU/IO/逻辑读排序）
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+      - name: sort_by
+        type: string
+        required: false
+      - name: limit
+        type: int
+        required: false
+        default: 10
+
+  - name: query_ha_status
+    description: 查询HA/主备状态
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+
+  - name: get_inspection_result
+    description: 获取巡检任务结果
+    category: query
+    risk_level: 1
+    params:
+      - name: task_id
+        type: string
+        required: true
+
+  - name: query_config_deviation
+    description: 查询配置与标准配置的偏差
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+
+  # 第二轮新增查询工具
+  - name: query_tablespace
+    description: 查询数据库表空间使用情况
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+      - name: tablespace_name
+        type: string
+        required: false
+
+  - name: query_processlist
+    description: 查询数据库当前运行的进程和连接信息
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+      - name: limit
+        type: int
+        required: false
+        default: 20
+
+  - name: query_audit_log
+    description: 查询数据库审计日志
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+      - name: limit
+        type: int
+        required: false
+        default: 50
+
+  - name: query_backup_status
+    description: 查询数据库备份状态和历史
+    category: query
+    risk_level: 1
+    params:
+      - name: instance_id
+        type: string
+        required: true
+      - name: backup_type
+        type: string
+        required: false
+
+analysis_tools:
+  - name: analyze_impact
+    description: 分析影响范围
+    category: analysis
+    risk_level: 2
+
+  - name: analyze_sql_pattern
+    description: 分析SQL模式
+    category: analysis
+    risk_level: 2
+    params:
+      - name: sql_text
+        type: string
+        required: true
+      - name: pattern_type
+        type: string
+        required: false
+
+  - name: diagnose_alert
+    description: 告警自动诊断
+    category: analysis
+    risk_level: 2
+
+  # 第二轮新增分析工具
+  - name: analyze_explain_plan
+    description: 获取并分析SQL执行计划，识别性能问题
+    category: analysis
+    risk_level: 2
+    params:
+      - name: sql_text
+        type: string
+        required: true
+      - name: instance_id
+        type: string
+        required: false
+
+action_tools:
+  - name: trigger_inspection
+    description: 触发巡检
+    category: action
+    risk_level: 3
+    params:
+      - name: instance_id
+        type: string
+        required: true
+      - name: inspection_type
+        type: string
+        required: false
+
+  - name: send_notification
+    description: 发送通知
+    category: action
+    risk_level: 3
+    params:
+      - name: channel
+        type: string
+        required: true
+      - name: recipient
+        type: string
+        required: true
+      - name: title
+        type: string
+        required: true
+      - name: content
+        type: string
+        required: true
+
+  - name: create_work_order
+    description: 创建工单
+    category: action
+    risk_level: 4
+    params:
+      - name: title
+        type: string
+        required: true
+      - name: description
+        type: string
+        required: true
+      - name: priority
+        type: string
+        required: false
+
+  # 第二轮新增高风险操作工具
+  - name: kill_session
+    description: 强制终止指定的数据库会话（高风险）
+    category: action
+    risk_level: 5
+    params:
+      - name: instance_id
+        type: string
+        required: true
+      - name: session_id
+        type: string
+        required: true
+      - name: reason
+        type: string
+        required: true
+      - name: confirm
+        type: bool
+        required: true
+
+# 告警规则知识库
+alert_rules:
+- alert_code: LOCK_WAIT_TIMEOUT
+  check_steps:
+  - '查询锁等待链: SELECT * FROM v$lock WHERE block > 0'
+  - 分析持有锁的SQL
+  - 评估影响范围
+  description: 实例发生锁等待超时
+  name: 锁等待超时
+  possible_causes:
+  - 长事务持有锁
+  - 未提交事务
+  - 锁冲突
+  resolution:
+  - 确认是否可以kill session
+  - 联系应用负责人
+  - 评估事务回滚影响
+  risk_level: L3
+  severity: warning
+  symptoms:
+  - 等待时间超过阈值
+  - 会话处于Waiting状态
+  - 业务请求响应缓慢
+- alert_code: SLOW_QUERY_DETECTED
+  check_steps:
+  - 查看SQL执行计划
+  - 检查相关表索引
+  - 分析表数据量
+  description: 检测到执行时间过长的SQL
+  name: 慢SQL告警
+  possible_causes:
+  - SQL缺少索引
+  - 统计信息过期
+  - 执行计划不当
+  resolution:
+  - 添加合适索引
+  - 重写SQL
+  - 更新统计信息
+  risk_level: L2
+  severity: info
+  symptoms:
+  - SQL执行时间超过阈值
+  - 系统响应变慢
+- alert_code: REPLICATION_LAG
+  check_steps:
+  - 检查从库负载
+  - 查看网络状态
+  - 分析binlog应用情况
+  description: 主从复制延迟超过阈值
+  name: 主从延迟告警
+  possible_causes:
+  - 从库负载过高
+  - 网络延迟
+  - 大事务同步
+  resolution:
+  - 优化从库性能
+  - 调整复制架构
+  - 拆分大事务
+  risk_level: L3
+  severity: warning
+  symptoms:
+  - 从库延迟超过阈值
+  - 数据同步不一致
+- alert_code: CPU_HIGH
+  check_steps:
+  - 查看当前活跃会话
+  - 分析高CPU占用的SQL
+  - 检查并发连接数
+  description: 数据库CPU使用率超过阈值
+  name: CPU使用率过高
+  possible_causes:
+  - 大量并发请求
+  - 存在CPU密集型SQL
+  - 系统资源不足
+  resolution:
+  - 优化高CPU的SQL
+  - 限制并发连接数
+  - 考虑扩容
+  risk_level: L3
+  severity: warning
+  symptoms:
+  - CPU使用率持续高于80%
+  - 系统响应变慢
+- alert_code: MEMORY_HIGH
+  check_steps:
+  - 检查InnoDB Buffer Pool使用率
+  - 查看当前大查询
+  - 分析内存分配
+  description: 数据库内存使用率超过阈值
+  name: 内存使用率过高
+  possible_causes:
+  - Buffer Pool配置不当
+  - 大查询占用过多内存
+  - 内存泄漏
+  resolution:
+  - 调整Buffer Pool大小
+  - 优化SQL减少内存占用
+  - 检查是否有内存泄漏
+  risk_level: L3
+  severity: warning
+  symptoms:
+  - 内存使用率持续高于85%
+  - 可能出现OOM
+- alert_code: INSTANCE_DOWN
+  check_steps:
+  - 检查实例进程状态
+  - 检查网络连通性
+  - 查看系统资源
+  description: 数据库实例无法连接
+  name: 实例不可用
+  possible_causes:
+  - 实例进程崩溃
+  - 网络不可达
+  - 资源耗尽
+  resolution:
+  - 重启实例
+  - 联系云平台
+  - 启动应急预案
+  risk_level: L5
+  severity: critical
+  symptoms:
+  - 无法连接数据库
+  - 健康检查失败

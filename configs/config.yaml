@@ -1,0 +1,49 @@
+# zCloudNewAgentProject 主配置
+app_name: zCloudNewAgentProject
+app_version: v1.0
+debug: false
+
+# API服务
+api:
+  host: 0.0.0.0
+  port: 8000
+
+# LLM - Ollama
+ollama:
+  base_url: http://localhost:11434
+  # 可用模型: glm4:latest (5.4GB, 当前配置), qwen3:30b-a3b (18.6GB)
+  # 推荐: glm4:latest 用于快速开发验证，qwen3:30b-a3b 用于生产推理质量要求高时
+  model: glm4:latest
+  timeout: 60
+
+# zCloud Mock API（本地开发测试用）
+zcloud_api:
+  base_url: http://localhost:18080
+  timeout: 30
+
+# 数据库
+database:
+  db_path: data/zcloud_agent.db
+  audit_db_path: data/audit.db
+
+# Redis
+redis:
+  url: redis://localhost:6379/0
+
+# ChromaDB (向量数据库)
+chroma:
+  db_path: data/chroma
+
+# 知识库路径
+knowledge:
+  base_path: knowledge/
+  alert_rules: knowledge/alert_rules.yaml
+  sop_path: knowledge/sop/
+  cases_path: knowledge/cases/
+
+# 安全策略
+security:
+  # L4及以上是否需要审批
+  require_approval_l4: true
+  # L5是否需要双人审批
+  require_dual_approval_l5: true

@@ -1,0 +1,321 @@
+alert_rules:
+- alert_type: LOCK_WAIT_TIMEOUT
+  name: 锁等待超时
+  description: 实例发生锁等待超时
+  severity: warning
+  risk_level: L3
+  symptoms:
+  - 等待时间超过阈值
+  - 会话处于Waiting状态
+  - 业务请求响应缓慢
+  possible_causes:
+  - 长事务持有锁
+  - 未提交事务
+  - 锁冲突
+  check_steps:
+  - '查询锁等待链: SELECT * FROM v$lock WHERE block > 0'
+  - 分析持有锁的SQL
+  - 评估影响范围
+  resolution:
+  - 确认是否可以kill session
+  - 联系应用负责人
+  - 评估事务回滚影响
+  alert_code: LOCK_WAIT_TIMEOUT
+- alert_type: DEADLOCK_DETECTED
+  name: 死锁检测
+  description: 数据库检测到死锁
+  severity: critical
+  risk_level: L4
+  symptoms:
+  - 数据库自动回滚部分事务
+  - 错误日志出现死锁信息
+  - 部分操作失败
+  possible_causes:
+  - 并发事务循环依赖
+  - 缺少适当的索引
+  - 事务顺序不一致
+  check_steps:
+  - 查看死锁日志
+  - 分析涉及的表和SQL
+  - 检查索引情况
+  resolution:
+  - 记录涉及的SQL
+  - 优化事务逻辑
+  - 添加必要索引
+  - 评估是否需要改写SQL
+  alert_code: DEADLOCK_DETECTED
+- alert_type: SLOW_QUERY_DETECTED
+  name: 慢SQL告警
+  description: 检测到执行时间过长的SQL
+  severity: info
+  risk_level: L2
+  symptoms:
+  - SQL执行时间超过阈值
+  - 系统响应变慢
+  possible_causes:
+  - SQL缺少索引
+  - 统计信息过期
+  - 执行计划不当
+  check_steps:
+  - 查看SQL执行计划
+  - 检查相关表索引
+  - 分析表数据量
+  resolution:
+  - 添加合适索引
+  - 重写SQL
+  - 更新统计信息
+  alert_code: SLOW_QUERY_DETECTED
+- alert_type: CPU_HIGH
+  name: CPU使用率过高
+  description: 数据库CPU使用率超过阈值
+  severity: warning
+  risk_level: L3
+  symptoms:
+  - CPU使用率持续高于80%
+  - 系统响应变慢
+  - 可能有慢SQL
+  possible_causes:
+  - 大量并发请求
+  - 存在CPU密集型SQL
+  - 系统资源不足
+  check_steps:
+  - 查看当前活跃会话
+  - 分析高CPU占用的SQL
+  - 检查并发连接数
+  resolution:
+  - 优化高CPU的SQL
+  - 限制并发连接数
+  - 考虑扩容
+  alert_code: CPU_HIGH
+- alert_type: MEMORY_HIGH
+  name: 内存使用率过高
+  description: 数据库内存使用率超过阈值
+  severity: warning
+  risk_level: L3
+  symptoms:
+  - 内存使用率持续高于85%
+  - 可能出现OOM
+  possible_causes:
+  - Buffer Pool配置不当
+  - 大查询占用过多内存
+  - 内存泄漏
+  check_steps:
+  - 检查InnoDB Buffer Pool使用率
+  - 查看当前大查询
+  - 分析内存分配
+  resolution:
+  - 调整Buffer Pool大小
+  - 优化SQL减少内存占用
+  - 检查是否有内存泄漏
+  alert_code: MEMORY_HIGH
+- alert_type: DISK_FULL
+  name: 磁盘空间不足
+  description: 数据库磁盘空间不足
+  severity: critical
+  risk_level: L4
+  symptoms:
+  - 磁盘使用率超过90%
+  - 无法写入数据
+  - 表空间无法扩展
+  possible_causes:
+  - 数据文件过大
+  - 日志文件过多
+  - 备份文件占用空间
+  check_steps:
+  - 检查各表空间使用率
+  - 查看日志文件大小
+  - 检查临时文件
+  resolution:
+  - 清理过期数据
+  - 删除无用日志
+  - 扩展磁盘或迁移数据
+  alert_code: DISK_FULL
+- alert_type: CONNECTION_HIGH
+  name: 连接数过高
+  description: 数据库连接数接近上限
+  severity: warning
+  risk_level: L3
+  symptoms:
+  - 连接数超过80%上限
+  - 新连接可能被拒绝
+  possible_causes:
+  - 业务流量增加
+  - 连接泄漏
+  - 连接池配置不当
+  check_steps:
+  - 查看当前连接数
+  - 分析连接来源
+  - 检查sleeping连接
+  resolution:
+  - 清理sleeping连接
+  - 检查连接泄漏
+  - 调整max_connections
+  alert_code: CONNECTION_HIGH
+- alert_type: CONNECTION_POOL_EXHAUSTED
+  name: 连接池耗尽
+  description: 应用连接池资源耗尽
+  severity: critical
+  risk_level: L4
+  symptoms:
+  - 应用无法获取数据库连接
+  - 连接超时错误
+  possible_causes:
+  - 数据库响应慢
+  - 连接泄漏
+  - 连接池配置过小
+  check_steps:
+  - 检查数据库状态
+  - 查看慢查询
+  - 检查连接池配置
+  resolution:
+  - 重启应用释放连接
+  - 排查慢SQL
+  - 调整连接池配置
+  alert_code: CONNECTION_POOL_EXHAUSTED
+- alert_type: REPLICATION_LAG
+  name: 主从延迟告警
+  description: 主从复制延迟超过阈值
+  severity: warning
+  risk_level: L3
+  symptoms:
+  - 从库延迟超过阈值
+  - 数据同步不一致
+  possible_causes:
+  - 从库负载过高
+  - 网络延迟
+  - 大事务同步
+  check_steps:
+  - 检查从库负载
+  - 查看网络状态
+  - 分析binlog应用情况
+  resolution:
+  - 优化从库性能
+  - 调整复制架构
+  - 拆分大事务
+  alert_code: REPLICATION_LAG
+- alert_type: REPLICATION_BROKEN
+  name: 复制中断
+  description: 主从复制中断
+  severity: critical
+  risk_level: L4
+  symptoms:
+  - 复制状态异常
+  - 从库数据停止同步
+  possible_causes:
+  - 网络中断
+  - 从库错误
+  - 主键冲突
+  check_steps:
+  - 检查复制状态
+  - 查看错误日志
+  - 检查网络连通性
+  resolution:
+  - 修复网络问题
+  - 跳过错误日志
+  - 重新建立复制
+  alert_code: REPLICATION_BROKEN
+- alert_type: INSTANCE_DOWN
+  name: 实例不可用
+  description: 数据库实例无法连接
+  severity: critical
+  risk_level: L5
+  symptoms:
+  - 无法连接数据库
+  - 健康检查失败
+  possible_causes:
+  - 实例进程崩溃
+  - 网络不可达
+  - 资源耗尽
+  check_steps:
+  - 检查实例进程状态
+  - 检查网络连通性
+  - 查看系统资源
+  resolution:
+  - 重启实例
+  - 联系云平台
+  - 启动应急预案
+  alert_code: INSTANCE_DOWN
+- alert_type: INSTANCE_SLOW
+  name: 实例响应慢
+  description: 数据库实例响应时间异常
+  severity: warning
+  risk_level: L3
+  symptoms:
+  - 数据库响应时间超过阈值
+  - 业务请求堆积
+  possible_causes:
+  - 大量慢查询
+  - 资源争用
+  - 锁等待
+  check_steps:
+  - 查看当前慢查询
+  - 检查锁等待
+  - 分析系统资源
+  resolution:
+  - 优化或Kill慢查询
+  - 解决锁等待
+  - 扩容资源
+  alert_code: INSTANCE_SLOW
+- alert_type: BACKUP_FAILED
+  name: 备份失败
+  description: 数据库备份任务失败
+  severity: warning
+  risk_level: L3
+  symptoms:
+  - 备份任务状态异常
+  - 备份文件未生成
+  possible_causes:
+  - 磁盘空间不足
+  - 备份进程异常
+  - 权限问题
+  check_steps:
+  - 检查备份日志
+  - 查看磁盘空间
+  - 检查备份进程
+  resolution:
+  - 清理磁盘空间
+  - 重试备份
+  - 检查备份脚本
+  alert_code: BACKUP_FAILED
+- alert_type: FAILED_LOGIN
+  name: 登录失败
+  description: 检测到多次登录失败
+  severity: warning
+  risk_level: L3
+  symptoms:
+  - 同一账户多次登录失败
+  - 可能存在暴力破解
+  possible_causes:
+  - 用户密码错误
+  - 暴力破解攻击
+  - 应用配置错误
+  check_steps:
+  - 查看登录失败记录
+  - 分析来源IP
+  - 检查账户状态
+  resolution:
+  - 锁定可疑账户
+  - 封禁攻击IP
+  - 通知相关人员
+  alert_code: FAILED_LOGIN
+- alert_type: PRIVILEGE_ESCALATION
+  name: 权限提升
+  description: 检测到异常权限操作
+  severity: critical
+  risk_level: L4
+  symptoms:
+  - 出现异常的高权限操作
+  - 权限变更未授权
+  possible_causes:
+  - 账户被盗
+  - 内部人员越权
+  - SQL注入攻击
+  check_steps:
+  - 审计权限变更记录
+  - 分析操作来源
+  - 检查异常SQL
+  resolution:
+  - 立即撤销异常权限
+  - 冻结相关账户
+  - 启动安全审计
+  alert_code: PRIVILEGE_ESCALATION
