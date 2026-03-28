@@ -761,4 +761,120 @@ class ZCloudClientFactory:
 
 ---
 
-*文档版本：v1.0 | 最后更新：2026-03-28*
+## 九、真实API对接详情（第九轮新增）
+
+### 9.1 真实API Endpoints
+
+> ⚠️ 以下为设计文档，实际endpoint以zCloud平台提供为准
+
+| 方法 | Endpoint | 模块 | 说明 |
+|------|----------|------|------|
+| GET | `/instances` | instances | 列出实例 |
+| GET | `/instances/{instance_id}` | instances | 获取实例详情 |
+| GET | `/instances/{instance_id}/metrics` | instances | 获取实例指标 |
+| GET | `/alerts` | alerts | 查询告警列表 |
+| GET | `/alerts/{alert_id}` | alerts | 获取告警详情 |
+| POST | `/alerts/{alert_id}/acknowledge` | alerts | 确认告警 |
+| POST | `/alerts/{alert_id}/resolve` | alerts | 解决告警 |
+| GET | `/sessions` | sessions | 查询会话列表 |
+| GET | `/sessions/{sid}/{serial}` | sessions | 会话详情 |
+| GET | `/locks` | locks | 查询锁等待 |
+| GET | `/sqls/slow` | sqls | 慢SQL列表 |
+| GET | `/sqls/{sql_id}/plan` | sqls | SQL执行计划 |
+| GET | `/replication` | replication | 复制状态 |
+| GET | `/parameters` | parameters | 参数列表 |
+| PUT | `/parameters/{param_name}` | parameters | 更新参数 |
+| GET | `/capacity/tablespaces` | capacity | 表空间 |
+| GET | `/capacity/backups` | capacity | 备份状态 |
+| GET | `/capacity/audit_logs` | capacity | 审计日志 |
+| GET | `/inspection` | inspection | 巡检结果 |
+| POST | `/inspection/trigger` | inspection | 触发巡检 |
+| GET | `/workorders` | workorders | 工单列表 |
+| GET | `/workorders/{workorder_id}` | workorders | 工单详情 |
+| GET | `/health` | - | 健康检查 |
+
+### 9.2 认证方式
+
+#### 方式一：API Key（推荐用于服务端）
+```
+Header: X-API-Key: <your-api-key>
+或
+Header: Authorization: ApiKey <your-api-key>
+```
+
+#### 方式二：OAuth2.0（推荐用于用户授权场景）
+```
+1. 获取Token:
+   POST https://zcloud.example.com/oauth/token
+   Content-Type: application/x-www-form-urlencoded
+   
+   grant_type=client_credentials&client_id=xxx&client_secret=xxx&scope=read write
+
+2. 使用Token:
+   Header: Authorization: Bearer <access_token>
+
+3. Token刷新:
+   POST /oauth/token
+   grant_type=refresh_token&refresh_token=<refresh_token>&client_id=xxx&client_secret=xxx
+```
+
+### 9.3 已知差异（Mock vs Real）
+
+| 差异项 | Mock实现 | 真实API | 处理方式 |
+|--------|----------|---------|----------|
+| 认证 | 无 | 必须 | RealClient带Auth header |
+| Base URL | localhost:18080 | zcloud.example.com | 通过config切换 |
+| 响应code字段 | 无 | 必有(code=0成功) | 统一检查code字段 |
+| 错误码 | 简版 | 详细(40001~50301) | RealClient处理429等 |
+| 重试 | 无 | HTTP 429触发重试 | RealClient内置 |
+| Token刷新 | 无 | 401触发刷新 | OAuth2Provider处理 |
+
+### 9.4 文件结构
+
+```
+src/real_api/
+├── __init__.py
+├── client.py          # ZCloudRealClient 主类
+├── auth.py            # OAuth2/APIKey认证
+├── config.py          # RealAPIConfig配置
+└── routers/
+    ├── __init__.py
+    ├── instances.py
+    ├── alerts.py
+    ├── sessions.py
+    ├── locks.py
+    ├── sqls.py
+    ├── replication.py
+    ├── parameters.py
+    ├── capacity.py
+    ├── inspection.py
+    └── workorders.py
+```
+
+### 9.5 切换方式
+
+```bash
+# 查看当前模式
+python scripts/switch_api_mode.py --status
+
+# 切换到Mock
+python scripts/switch_api_mode.py --mode mock
+
+# 切换到真实API
+python scripts/switch_api_mode.py --mode real \
+  --base-url https://zcloud.example.com/api/v1 \
+  --api-key your-api-key-here
+```
+
+### 9.6 Web管理界面
+
+访问 `http://localhost:8000/dashboard/` 可查看：
+- 当前API模式（Mock/Real）
+- Base URL、认证方式、API Key配置状态
+- 一键切换按钮
+- 健康检查（Ollama + Mock/Real API）
+
+---
+
+*文档版本：v1.1 | 最后更新：2026-03-28（第九轮）*
+

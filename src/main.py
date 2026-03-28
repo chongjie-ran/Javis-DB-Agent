@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from src.config import get_settings
 from src.api.routes import router
+from src.api.dashboard import router as dashboard_router
 from src.gateway.session import get_session_manager
 from src.gateway.tool_registry import get_tool_registry
 from src.gateway.policy_engine import get_policy_engine
@@ -76,6 +77,7 @@ def create_app() -> FastAPI:
     
     # 注册路由
     app.include_router(router)
+    app.include_router(dashboard_router)
     
     return app
 

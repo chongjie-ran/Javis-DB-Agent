@@ -1,6 +1,6 @@
 # zCloudNewAgentProject - 数据库运维智能体系统
 
-> 版本：v1.0 | 日期：2026-03-28 | 状态：✅ Round 4 完成（70/70测试通过）
+> 版本：v1.0 | 日期：2026-03-28 | 状态：✅ Round 9 完成（90个新测试 + 329个回归测试通过）
 
 ---
 
@@ -16,6 +16,9 @@
 - 📚 **知识库** - 告警规则、SOP、案例库自动检索
 - 🛡️ **安全护栏** - SQL护栏、权限分层、审计留痕
 - 💾 **会话持久化** - SQLite持久化，重启后上下文恢复
+- 🔄 **Mock/Real切换** - 无缝切换模拟或真实API ⭐ Round 9
+- 🌐 **管理界面** - Web Dashboard，7个API路由 ⭐ Round 9
+- 🔐 **OAuth2认证** - API Key + OAuth2 认证支持 ⭐ Round 9
 
 ---
 
@@ -32,7 +35,7 @@ Agent Gateway（会话管理、工具注册、策略引擎、审计）
   ↓
 工具执行层（查询工具 / 分析工具 / 行动工具）
   ↓
-zCloud Mock API（12个接口）
+API层（Mock zCloud API / Real zCloud API） ⭐ Round 9
   ↓
 LLM层（Ollama 本地运行）
 ```
@@ -52,13 +55,15 @@ zCloudNewAgentProject/
 │   ├── knowledge/      # 知识库（告警规则、SOP、案例）
 │   ├── llm/            # LLM交互（Ollama客户端）
 │   ├── mock_api/       # Mock zCloud API
-│   └── api/            # FastAPI路由
-├── tests/              # 测试（Round 2-4，共70个测试）
+│   ├── real_api/       # Real zCloud API Client ⭐ Round 9
+│   └── api/            # FastAPI路由 + Dashboard ⭐ Round 9
+├── templates/           # Web Dashboard ⭐ Round 9
+├── scripts/             # 工具脚本（API模式切换）⭐ Round 9
+├── tests/              # 测试（Round 2-4, Round 9，共419个测试）
 ├── mock_zcloud_api/    # Mock API Server（12个接口）
 ├── configs/            # 配置文件
 ├── knowledge/          # 知识内容（15条告警规则、8个SOP、3个案例）
-├── scripts/            # 工具脚本
-└── docs/               # 架构文档、需求文档
+└── docs/               # 架构文档、需求文档、执行报告
 ```
 
 ---
@@ -84,14 +89,27 @@ cd ~/SWproject/zCloudNewAgentProject
 python3 -m uvicorn mock_zcloud_api.server:app --host 0.0.0.0 --port 18080
 ```
 
+### API 模式切换（Round 9 新增）
+
+```bash
+# 查看当前模式
+python scripts/switch_api_mode.py status
+
+# 切换到 Real 模式
+python scripts/switch_api_mode.py real --api-key YOUR_KEY
+
+# 切换到 Mock 模式
+python scripts/switch_api_mode.py mock
+```
+
 ### 运行测试
 
 ```bash
 # 运行所有测试
 python3 -m pytest tests/ -v
 
-# 运行 Round 4 测试
-python3 -m pytest tests/round4/ -v
+# 运行 Round 9 测试
+python3 -m pytest tests/round9/ -v
 ```
 
 ---
@@ -102,7 +120,7 @@ python3 -m pytest tests/round4/ -v
 |------|------|------|------|
 | 平均响应时间 | < 30,000ms | **740ms** | ✅ |
 | P95 响应时间 | < 30,000ms | **749ms** | ✅ |
-| 测试通过率 | ≥ 95% | **100%** | ✅ |
+| 测试通过率 | ≥ 95% | **99%** | ✅ |
 
 ---
 
@@ -126,6 +144,24 @@ python3 -m pytest tests/round4/ -v
 - **功能**：超时注入、限流模拟、级联故障模拟
 - **测试**：`tests/round3/test_error_injector.py`（17个测试）
 
+### RealClient（Round 9）⭐
+
+- **文件**：`src/real_api/client.py` + `src/real_api/auth.py`
+- **功能**：真实 zCloud API 客户端，支持 API Key + OAuth2
+- **测试**：`tests/round9/test_real_client.py`（24个测试）
+
+### API 模式切换（Round 9）⭐
+
+- **文件**：`scripts/switch_api_mode.py`
+- **功能**：mock↔real 一键切换
+- **测试**：`tests/round9/test_api_mode_switch.py`（12个测试）
+
+### 管理界面（Round 9）⭐
+
+- **文件**：`templates/dashboard.html` + `src/api/dashboard.py`
+- **功能**：Web Dashboard，7个API路由
+- **测试**：`tests/round9/test_dashboard_routes.py`（22个测试）
+
 ---
 
 ## 迭代历史
@@ -135,6 +171,7 @@ python3 -m pytest tests/round4/ -v
 | Round 2 | 2026-03-28 | 知识库扩展、6个工具实现、Mock API | 26 |
 | Round 3 | 2026-03-28 | 告警关联推理链、Session持久化、错误注入 | 98 |
 | Round 4 | 2026-03-28 | 70/70端到端测试通过、性能基线验证 | 70 |
+| Round 9 | 2026-03-28 | RealClient、OAuth2、管理界面、API切换 | 90 |
 
 ---
 
@@ -147,14 +184,16 @@ python3 -m pytest tests/round4/ -v
 - [认证设计](docs/zcloud-auth-design.md)
 - [Round 3执行报告](docs/round3-execution-report.md)
 - [Round 4性能报告](docs/round4-performance-report.md)
+- [Round 9执行报告](docs/round9-execution-report.md)
+- [项目整体总结](PROJECT_SUMMARY.md)
 
 ---
 
 ## 下一步
 
-1. 接入真实 zCloud API（替换 Mock）
-2. 前端界面开发
-3. 知识库持续沉淀
+1. ~~接入真实 zCloud API（替换 Mock）~~ ✅ Round 9 完成
+2. ~~前端界面开发~~ ✅ Round 9 完成
+3. 修复 OAuth2Provider.refresh_token() 实现（P0）
 4. 生产环境部署验证
 
 ---

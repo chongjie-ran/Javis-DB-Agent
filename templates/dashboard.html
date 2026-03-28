@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zCloud Agent - 管理面板</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1419;
+            color: #e7e9ea;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+            color: #1d9bf0;
+        }
+        .subtitle { color: #71767b; margin-bottom: 30px; font-size: 0.9em; }
+        
+        .card {
+            background: #16181c;
+            border-radius: 16px;
+            border: 1px solid #2f3336;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #e7e9ea;
+        }
+        
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .mode-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+        .mode-mock { background: #273346; color: #1d9bf0; }
+        .mode-real { background: #1a3a1a; color: #00ba7c; }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .info-item {
+            background: #0f1419;
+            border-radius: 10px;
+            padding: 12px 16px;
+        }
+        .info-label { font-size: 0.8em; color: #71767b; margin-bottom: 4px; }
+        .info-value { font-size: 0.95em; font-weight: 500; word-break: break-all; }
+        
+        .btn-group { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+        .btn {
+            padding: 10px 24px;
+            border-radius: 24px;
+            border: none;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-mock {
+            background: #1d9bf0;
+            color: #fff;
+        }
+        .btn-mock:hover { background: #1a8cd8; }
+        .btn-real {
+            background: #00ba7c;
+            color: #fff;
+        }
+        .btn-real:hover { background: #00a36e; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .health-check {
+            margin-top: 12px;
+            padding: 12px;
+            background: #0f1419;
+            border-radius: 10px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85em;
+            line-height: 1.8;
+        }
+        
+        .log-area {
+            background: #0f1419;
+            border-radius: 10px;
+            padding: 16px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.85em;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            color: #71767b;
+        }
+        .log-success { color: #00ba7c; }
+        .log-error { color: #f4212e; }
+        .log-info { color: #1d9bf0; }
+        
+        .msg {
+            padding: 10px 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 0.9em;
+        }
+        .msg-success { background: #1a3a1a; color: #00ba7c; }
+        .msg-error { background: #3a1a1a; color: #f4212e; }
+        .msg-info { background: #1a2a3a; color: #1d9bf0; }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #71767b;
+            font-size: 0.8em;
+        }
+        a { color: #1d9bf0; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖥️ zCloud Agent 管理面板</h1>
+        <p class="subtitle">API模式切换 · 健康监控 · 配置管理</p>
+        
+        <!-- 当前模式 -->
+        <div class="card">
+            <div class="card-title">📡 当前 API 模式</div>
+            <div class="status-row">
+                <span id="mode-badge" class="mode-badge mode-mock">加载中...</span>
+                <span id="mode-desc" style="color: #71767b;"></span>
+            </div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Base URL</div>
+                    <div class="info-value" id="info-url">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">认证方式</div>
+                    <div class="info-value" id="info-auth">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">API Key</div>
+                    <div class="info-value" id="info-apikey">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Ollama 状态</div>
+                    <div class="info-value" id="info-ollama">-</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 切换控制 -->
+        <div class="card">
+            <div class="card-title">🔄 切换 API 模式</div>
+            <div id="message-area"></div>
+            <div class="btn-group">
+                <button class="btn btn-mock" id="btn-mock" onclick="switchMode('mock')">
+                    切换到 Mock
+                </button>
+                <button class="btn btn-real" id="btn-real" onclick="switchMode('real')">
+                    切换到 真实API
+                </button>
+                <button class="btn" style="background:#2f3336;color:#e7e9ea" onclick="healthCheck()">
+                    🔍 健康检查
+                </button>
+                <button class="btn" style="background:#2f3336;color:#e7e9ea" onclick="refreshStatus()">
+                    🔄 刷新状态
+                </button>
+            </div>
+        </div>
+        
+        <!-- 健康检查结果 -->
+        <div class="card">
+            <div class="card-title">🏥 健康检查</div>
+            <div class="health-check" id="health-check">
+                点击「健康检查」按钮查看详细状态...
+            </div>
+        </div>
+        
+        <!-- 切换日志 -->
+        <div class="card">
+            <div class="card-title">📋 操作日志</div>
+            <div class="log-area" id="log-area">等待操作...</div>
+        </div>
+        
+        <div class="footer">
+            zCloudNewAgentProject v1.0 &nbsp;|&nbsp;
+            <a href="/api/v1/health">API Health</a> &nbsp;|&nbsp;
+            <a href="/api/v1/tools">Tools</a> &nbsp;|&nbsp;
+            <a href="/docs">Docs</a>
+        </div>
+    </div>
+    
+    <script>
+        const API_BASE = '/dashboard';
+        
+        function log(msg, type='info') {
+            const area = document.getElementById('log-area');
+            const now = new Date().toLocaleTimeString();
+            const cls = type === 'error' ? 'log-error' : type === 'success' ? 'log-success' : 'log-info';
+            area.innerHTML = `<span class="${cls}">[${now}] ${msg}</span>\n` + area.innerHTML;
+        }
+        
+        function showMsg(msg, type='info') {
+            const area = document.getElementById('message-area');
+            area.innerHTML = `<div class="msg msg-${type}">${msg}</div>`;
+            setTimeout(() => area.innerHTML = '', 4000);
+        }
+        
+        async function refreshStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/status`);
+                const data = await res.json();
+                
+                const badge = document.getElementById('mode-badge');
+                badge.textContent = data.mode;
+                badge.className = `mode-badge ${data.use_mock ? 'mode-mock' : 'mode-real'}`;
+                
+                document.getElementById('mode-desc').textContent = 
+                    data.use_mock ? '（本地Mock服务，无需网络）' : '（连接真实zCloud平台）';
+                document.getElementById('info-url').textContent = data.base_url || '-';
+                document.getElementById('info-auth').textContent = data.auth_type || '-';
+                document.getElementById('info-apikey').textContent = data.api_key_configured ? '✅ 已配置' : '❌ 未配置';
+                
+                const ollama = document.getElementById('info-ollama');
+                ollama.textContent = data.ollama_status === 'connected' ? '✅ 已连接' : 
+                                     data.ollama_status === 'disconnected' ? '❌ 未连接' : '⚠️ ' + data.ollama_status;
+                ollama.style.color = data.ollama_status === 'connected' ? '#00ba7c' : '#f4212e';
+                
+                // 更新按钮状态
+                document.getElementById('btn-mock').disabled = data.use_mock;
+                document.getElementById('btn-real').disabled = !data.use_mock;
+                
+            } catch (e) {
+                log(`刷新状态失败: ${e.message}`, 'error');
+            }
+        }
+        
+        async function switchMode(mode) {
+            try {
+                log(`正在切换到 ${mode} 模式...`);
+                const res = await fetch(`${API_BASE}/switch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    log(`✅ ${data.message}`, 'success');
+                    showMsg(data.message, 'success');
+                    await refreshStatus();
+                } else {
+                    log(`❌ 切换失败: ${JSON.stringify(data)}`, 'error');
+                    showMsg(data.detail || data.message || '切换失败', 'error');
+                }
+            } catch (e) {
+                log(`❌ 切换异常: ${e.message}`, 'error');
+                showMsg(`切换异常: ${e.message}`, 'error');
+            }
+        }
+        
+        async function healthCheck() {
+            const area = document.getElementById('health-check');
+            area.textContent = '正在检查...';
+            try {
+                const res = await fetch(`${API_BASE}/health-check`);
+                const data = await res.json();
+                
+                let text = `[${new Date(data.timestamp * 1000).toLocaleString()}] 模式: ${data.mode}\n`;
+                text += '─'.repeat(40) + '\n';
+                for (const [k, v] of Object.entries(data.checks)) {
+                    text += `${v}  ${k}\n`;
+                }
+                area.textContent = text;
+                log('✅ 健康检查完成', 'success');
+            } catch (e) {
+                area.textContent = `检查失败: ${e.message}`;
+                log(`❌ 健康检查失败: ${e.message}`, 'error');
+            }
+        }
+        
+        // 初始化
+        refreshStatus();
+        log('管理面板已加载', 'success');
+    </script>
+</body>
+</html>
