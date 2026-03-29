@@ -1,8 +1,9 @@
-"""审计日志 - 哈希链防篡改"""
+"""审计日志 - 哈希链防篡改 + 敏感数据脱敏"""
 import json
 import time
 import uuid
 import hashlib
+import copy
 from typing import Optional, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field, asdict
@@ -28,6 +29,76 @@ class AuditAction(Enum):
 
 # 创世哈希（第一个哈希基准）
 GENESIS_HASH = "0" * 64
+
+
+def _mask_ip(ip: str) -> str:
+    """脱敏IP地址（前两段）"""
+    if not ip:
+        return ip
+    parts = ip.split(".")
+    if len(parts) == 4:
+        return f"{parts[0]}.{parts[1]}.*.{parts[3]}"
+    return ip[:max(0, len(ip)-4)] + "****"
+
+
+# 敏感字段模式
+_SENSITIVE_KEYS = frozenset({
+    "password", "passwd", "secret", "token", "api_key", "api-key",
+    "credential", "auth", "private_key", "access_token", "refresh_token",
+    "bearer", "authorization", "ssn", "credit_card", "card_number",
+    "cvv", "pin", "salt", "client_secret", "oauth_client_secret",
+})
+
+
+def _sanitize_value(value: Any, key: str) -> Any:
+    """对单个值进行脱敏（如果key是敏感字段）"""
+    key_lower = key.lower()
+    for sensitive_key in _SENSITIVE_KEYS:
+        if sensitive_key in key_lower:
+            if isinstance(value, str):
+                if len(value) <= 4:
+                    return "***"
+                return "***" + value[-4:]
+            return "***REDACTED***"
+    return value
+
+
+def _sanitize_audit_record(record: dict) -> dict:
+    """
+    对审计日志记录进行敏感数据脱敏
+    
+    脱敏规则：
+    1. params中的敏感字段值部分掩码（保留后4位）
+    2. IP地址部分掩码（前两段）
+    3. metadata中的敏感数据脱敏
+    """
+    record = copy.deepcopy(record)
+    
+    # 脱敏params
+    if "params" in record and isinstance(record["params"], dict):
+        for key, value in record["params"].items():
+            record["params"][key] = _sanitize_value(value, key)
+    
+    # 脱敏metadata
+    if "metadata" in record and isinstance(record["metadata"], dict):
+        for key, value in record["metadata"].items():
+            record["metadata"][key] = _sanitize_value(value, key)
+    
+    # 脱敏IP
+    if "ip_address" in record and record["ip_address"]:
+        record["ip_address"] = _mask_ip(record["ip_address"])
+    
+    # 脱敏error_message（可能包含敏感信息）
+    if "error_message" in record and record["error_message"]:
+        em = record["error_message"]
+        # 掩码可能的token/key
+        import re
+        em = re.sub(r"(token[key]?['\"]?[:=]\s*['\"]?)([a-zA-Z0-9_\-\.]{8,})", r"\1***REDACTED***", em)
+        em = re.sub(r"(api[_-]?key['\"]?[:=]\s*['\"]?)([a-zA-Z0-9_\-\.]{8,})", r"\1***REDACTED***", em)
+        em = re.sub(r"(password['\"]?[:=]\s*['\"]?)([^\s'\"]{6,})", r"\1***REDACTED***", em)
+        record["error_message"] = em
+    
+    return record
 
 
 @dataclass
@@ -127,11 +198,16 @@ class AuditLogger:
                     pass
 
     def _persist(self, log: AuditLog):
-        """持久化到文件"""
+        """持久化到文件（敏感数据脱敏）"""
         import os
         os.makedirs(os.path.dirname(self._log_file), exist_ok=True)
+        
+        # 敏感数据脱敏处理
+        record_dict = log.to_dict()
+        sanitized = _sanitize_audit_record(record_dict)
+        
         with open(self._log_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log.to_dict(), ensure_ascii=False) + "\n")
+            f.write(json.dumps(sanitized, ensure_ascii=False) + "\n")
 
     def log(self, log: AuditLog) -> str:
         """记录日志（自动密封哈希链）"""
