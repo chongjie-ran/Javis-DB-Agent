@@ -17,7 +17,7 @@ from src.api.chat_stream import router as chat_stream_router
 from src.api.wecom_routes import router as wecom_router
 from src.real_api.routers.knowledge import router as knowledge_router
 from src.api.dependency_routes import router as dependency_router, init_dependency_routes
-from src.api.routes.evolution_routes import router as evolution_router
+from src.api.knowledge_routes.evolution_routes import router as evolution_router
 from src.api.metrics import setup_metrics_middleware, get_metrics
 from src.gateway.session import get_session_manager
 from src.gateway.tool_registry import get_tool_registry
