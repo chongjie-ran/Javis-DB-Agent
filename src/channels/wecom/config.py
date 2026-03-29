@@ -1,5 +1,6 @@
 """企业微信通道配置"""
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from typing import Optional
 import os
 
@@ -51,11 +52,12 @@ class WecomChannelConfig(BaseSettings):
     # 消息发送限流（条/秒）
     send_rate_limit: int = 10
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        env_prefix = "WECOM_"
-        extra = "allow"
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="WECOM_",
+        extra="allow"
+    )
 
 
 # 全局单例

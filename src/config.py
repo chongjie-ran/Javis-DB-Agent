@@ -1,5 +1,6 @@
 """配置管理"""
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from typing import Optional
 import os
 
@@ -49,9 +50,10 @@ class Settings(BaseSettings):
     sop_path: str = "knowledge/sop/"
     cases_path: str = "knowledge/cases/"
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8"
+    )
 
 
 # 全局单例

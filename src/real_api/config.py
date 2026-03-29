@@ -1,5 +1,6 @@
 """Real API 配置"""
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from typing import Optional
 
 
@@ -30,10 +31,11 @@ class RealAPIConfig(BaseSettings):
     # Mock开关（运行时可覆盖）
     use_mock: bool = True
     
-    class Config:
-        env_prefix = "ZCLOUD_"
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = ConfigDict(
+        env_prefix="ZCLOUD_",
+        env_file=".env",
+        env_file_encoding="utf-8"
+    )
 
 
 _config: Optional[RealAPIConfig] = None
