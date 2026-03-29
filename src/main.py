@@ -8,6 +8,9 @@ from contextlib import asynccontextmanager
 from src.config import get_settings
 from src.api.routes import router
 from src.api.dashboard import router as dashboard_router
+from src.api.auth_routes import router as auth_router
+from src.api.monitoring_routes import router as monitoring_router
+from src.api.audit_routes import router as audit_router
 from src.api.metrics import setup_metrics_middleware, get_metrics
 from src.gateway.session import get_session_manager
 from src.gateway.tool_registry import get_tool_registry
@@ -92,6 +95,9 @@ def create_app() -> FastAPI:
     # 注册路由
     app.include_router(router)
     app.include_router(dashboard_router)
+    app.include_router(auth_router)
+    app.include_router(monitoring_router)
+    app.include_router(audit_router)
     
     # 设置指标中间件
     setup_metrics_middleware(app)
