@@ -147,32 +147,110 @@ class AuthManager:
                     return user
         return None
 
-    def create_token(self, user: User, expires_in: int = 86400) -> str:
+    def create_token(self, user: User, expires_in: int = 86400, token_type: str = "access") -> tuple[str, Optional[str]]:
         """
         创建JWT token
-        expires_in: 秒数，默认24小时
+        
+        Args:
+            user: 用户对象
+            expires_in: 有效期（秒），默认24小时
+            token_type: token类型，"access"或"refresh"
+        
+        Returns:
+            tuple: (access_token, refresh_token)
+                   access_token有效期24小时
+                   refresh_token有效期7天
         """
         import jwt
         now = time.time()
-        payload = {
+        
+        # Access Token
+        access_payload = {
             "sub": user.user_id,
             "username": user.username,
             "role": user.role,
             "iat": now,
             "exp": now + expires_in,
             "jti": secrets.token_hex(16),
+            "type": "access",
         }
-        token = jwt.encode(payload, self._secret, algorithm="HS256")
+        access_token = jwt.encode(access_payload, self._secret, algorithm="HS256")
+        
+        # Refresh Token（有效期7天）
+        refresh_payload = {
+            "sub": user.user_id,
+            "username": user.username,
+            "iat": now,
+            "exp": now + (7 * 86400),
+            "jti": secrets.token_hex(16),
+            "type": "refresh",
+        }
+        refresh_token = jwt.encode(refresh_payload, self._secret, algorithm="HS256")
+        
         # 存储到本地token列表（用于登出/失效）
-        self._tokens[token] = {
+        self._tokens[access_token] = {
             "user_id": user.user_id,
-            "expires_at": payload["exp"],
+            "expires_at": access_payload["exp"],
+            "type": "access",
+        }
+        self._tokens[refresh_token] = {
+            "user_id": user.user_id,
+            "expires_at": refresh_payload["exp"],
+            "type": "refresh",
         }
         self._save_tokens()
-        return token
+        return access_token, refresh_token
+    
+    def refresh_access_token(self, refresh_token: str) -> Optional[tuple[str, str]]:
+        """
+        使用refresh_token刷新access_token
+        
+        Returns:
+            tuple: (new_access_token, new_refresh_token) 或 None（刷新失败）
+        """
+        import jwt
+        try:
+            payload = jwt.decode(refresh_token, self._secret, algorithms=["HS256"], options={"verify_exp": False})
+        except jwt.InvalidTokenError:
+            return None
+        
+        # 验证是refresh token
+        if payload.get("type") != "refresh":
+            return None
+        
+        # 检查是否已撤销
+        jti = payload.get("jti")
+        if jti and jti in self._revoked:
+            return None
+        
+        # 检查是否过期
+        exp = payload.get("exp", 0)
+        if exp < time.time():
+            return None
+        
+        # 获取用户
+        user_id = payload.get("sub")
+        user = self.get_user(user_id)
+        if not user:
+            return None
+        
+        # 作废旧refresh token（防止replay attack）
+        if jti:
+            self._revoked.add(jti)
+        if refresh_token in self._tokens:
+            del self._tokens[refresh_token]
+        
+        # 生成新token对
+        return self.create_token(user, expires_in=86400)
 
-    def verify_token(self, token: str) -> Optional[dict]:
-        """验证并解析JWT token"""
+    def verify_token(self, token: str, require_type: Optional[str] = "access") -> Optional[dict]:
+        """
+        验证并解析JWT token
+        
+        Args:
+            token: JWT token字符串
+            require_type: 要求的token类型，"access"/"refresh"/None（不限制）
+        """
         import jwt
         # 解码以获取jti（不验证exp，因为我们自己检查）
         try:
@@ -188,6 +266,10 @@ class AuthManager:
         # 检查是否过期
         exp = payload.get("exp", 0)
         if exp < time.time():
+            return None
+        
+        # 检查token类型
+        if require_type and payload.get("type") != require_type:
             return None
 
         return payload

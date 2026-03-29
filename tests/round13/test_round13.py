@@ -152,13 +152,14 @@ class TestAuthModule:
             auth.register_user("charlie", "charlie123", role="admin")
 
             user = auth.authenticate("charlie", "charlie123")
-            token = auth.create_token(user, expires_in=3600)
+            access_token, refresh_token = auth.create_token(user, expires_in=3600)
 
-            assert token is not None
-            assert len(token) > 50  # JWT token长度
+            assert access_token is not None
+            assert len(access_token) > 50  # JWT token长度
+            assert refresh_token is not None
 
             # 验证token
-            payload = auth.verify_token(token)
+            payload = auth.verify_token(access_token)
             assert payload is not None
             assert payload["username"] == "charlie"
             assert payload["role"] == "admin"
@@ -175,7 +176,7 @@ class TestAuthModule:
             )
             auth.register_user("dave", "dave123", role="user")
             user = auth.authenticate("dave", "dave123")
-            token = auth.create_token(user)
+            token, _ = auth.create_token(user)
 
             assert auth.verify_token(token) is not None
 

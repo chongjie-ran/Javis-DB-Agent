@@ -32,7 +32,8 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     code: int = 0
     message: str = "success"
-    token: str = ""
+    token: str = ""  # access_token
+    refresh_token: str = ""  # refresh_token（有效期7天）
     token_type: str = "Bearer"
     expires_in: int = 86400
     user_id: str = ""
@@ -47,6 +48,19 @@ class TokenInfo(BaseModel):
     username: str = ""
     role: str = ""
     exp: float = 0
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(..., description="刷新令牌")
+
+
+class RefreshTokenResponse(BaseModel):
+    code: int = 0
+    message: str = "success"
+    access_token: str = ""
+    refresh_token: str = ""
+    token_type: str = "Bearer"
+    expires_in: int = 86400
 
 
 class RegisterRequest(BaseModel):
@@ -67,13 +81,34 @@ async def login(request: LoginRequest):
     if not user:
         raise HTTPException(status_code=401, detail="用户名或密码错误")
     
-    token = auth.create_token(user)
+    token, refresh_token = auth.create_token(user)
     return LoginResponse(
         token=token,
+        refresh_token=refresh_token,
         expires_in=86400,
         user_id=user.user_id,
         username=user.username,
         role=user.role,
+    )
+
+
+@router.post("/refresh", response_model=RefreshTokenResponse)
+async def refresh_token(request: RefreshTokenRequest):
+    """
+    使用refresh_token刷新access_token
+    
+    刷新成功后旧的refresh_token会失效（防止replay攻击）。
+    返回新的access_token和refresh_token对。
+    """
+    auth = get_auth_manager()
+    result = auth.refresh_access_token(request.refresh_token)
+    if not result:
+        raise HTTPException(status_code=401, detail="Refresh token无效或已过期")
+    new_access, new_refresh = result
+    return RefreshTokenResponse(
+        access_token=new_access,
+        refresh_token=new_refresh,
+        expires_in=86400,
     )
 
 
