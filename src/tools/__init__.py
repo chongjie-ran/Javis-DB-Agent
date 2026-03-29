@@ -52,6 +52,13 @@ from src.tools.capacity_tools import (
     CapacityReportTool,
     CapacityAlertTool,
 )
+from src.tools.alert_tools import (
+    register_alert_tools,
+    AlertAnalysisTool,
+    AlertDeduplicationTool,
+    RootCauseAnalysisTool,
+    PredictiveAlertTool,
+)
 
 
 def register_all_tools(registry):
@@ -63,6 +70,7 @@ def register_all_tools(registry):
     register_high_risk_tools(registry)
     register_session_tools(registry)
     register_capacity_tools(registry)
+    register_alert_tools(registry)
     return registry
 
 
@@ -115,6 +123,12 @@ __all__ = [
     "GrowthPredictionTool",
     "CapacityReportTool",
     "CapacityAlertTool",
+    # 告警工具 (Round 15)
+    "register_alert_tools",
+    "AlertAnalysisTool",
+    "AlertDeduplicationTool",
+    "RootCauseAnalysisTool",
+    "PredictiveAlertTool",
     # 全量注册
     "register_all_tools",
 ]

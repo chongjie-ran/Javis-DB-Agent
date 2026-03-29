@@ -10,6 +10,7 @@ from src.agents.inspector import InspectorAgent
 from src.agents.reporter import ReporterAgent
 from src.agents.session_analyzer_agent import SessionAnalyzerAgent
 from src.agents.capacity_agent import CapacityAgent
+from src.agents.alert_agent import AlertAgent
 
 
 class Intent(Enum):
@@ -25,6 +26,10 @@ class Intent(Enum):
     ANALYZE_CAPACITY = "analyze_capacity"  # 容量分析
     PREDICT_GROWTH = "predict_growth"      # 增长预测
     CAPACITY_REPORT = "capacity_report"    # 容量报告
+    ANALYZE_ALERT = "analyze_alert"        # 告警分析 (Round 15)
+    DEDUPLICATE_ALERTS = "deduplicate_alerts"  # 告警去重 (Round 15)
+    ROOT_CAUSE = "root_cause"            # 根因分析 (Round 15)
+    PREDICTIVE_ALERT = "predictive_alert"  # 预测性告警 (Round 15)
     GENERAL = "general"            # 通用问答
 
 
@@ -50,6 +55,7 @@ class OrchestratorAgent(BaseAgent):
 5. reporter: 报告Agent - 报告生成
 6. session_analyzer: 会话分析Agent - 会话状态、连接池、死锁检测
 7. capacity: 容量管理Agent - 存储分析、增长预测、容量报告、阈值告警
+8. alert: 告警专家Agent - 告警分析、去重压缩、根因分析、预测性告警 (Round 15新增)
 
 工作流程：
 1. 理解用户目标
@@ -89,6 +95,7 @@ class OrchestratorAgent(BaseAgent):
             "reporter": ReporterAgent(),
             "session_analyzer": SessionAnalyzerAgent(),
             "capacity": CapacityAgent(),
+            "alert": AlertAgent(),
         }
     
     def get_agent(self, name: str) -> Optional[BaseAgent]:
@@ -140,6 +147,10 @@ class OrchestratorAgent(BaseAgent):
 - inspect: 健康巡检、状态检查
 - report: 报告生成
 - risk_assess: 风险评估
+- analyze_alert: 告警分析、告警详情分析 (Round 15)
+- deduplicate_alerts: 告警去重、告警压缩 (Round 15)
+- root_cause: 根因分析、定位根本原因 (Round 15)
+- predictive_alert: 预测性告警、趋势预测预警 (Round 15)
 - general: 通用问答
 
 请只输出意图名称（如：diagnose）。
@@ -166,6 +177,10 @@ class OrchestratorAgent(BaseAgent):
             Intent.ANALYZE_CAPACITY: ["capacity"],
             Intent.PREDICT_GROWTH: ["capacity"],
             Intent.CAPACITY_REPORT: ["capacity"],
+            Intent.ANALYZE_ALERT: ["alert"],         # Round 15: 告警分析
+            Intent.DEDUPLICATE_ALERTS: ["alert"],     # Round 15: 告警去重
+            Intent.ROOT_CAUSE: ["alert", "diagnostic"],  # Round 15: 根因分析
+            Intent.PREDICTIVE_ALERT: ["alert"],      # Round 15: 预测性告警
             Intent.GENERAL: [],
         }
         
@@ -249,6 +264,10 @@ class OrchestratorAgent(BaseAgent):
                 "analyze_capacity": "容量分析",
                 "predict_growth": "增长预测",
                 "capacity_report": "容量报告",
+                "analyze_alert": "告警分析",
+                "deduplicate_alerts": "告警去重",
+                "root_cause": "根因分析",
+                "predictive_alert": "预测性告警",
                 "general": "通用问答",
             }.get(intent.value, "通用问答")
             yield {"type": "thinking", "content": f"📋 识别为「{intent_label}」任务，准备调用专业Agent..."}

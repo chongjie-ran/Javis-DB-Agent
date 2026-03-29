@@ -319,3 +319,106 @@ alert_rules:
   - 冻结相关账户
   - 启动安全审计
   alert_code: PRIVILEGE_ESCALATION
+# ============================================================
+# PostgreSQL特有告警规则 - Round 15 新增
+# ============================================================
+- alert_type: PG_CONNECTION_LIMIT
+  name: PostgreSQL连接数超限
+  description: PostgreSQL连接数接近或超过max_connections限制
+  severity: critical
+  risk_level: L4
+  symptoms:
+  - 无法建立新数据库连接
+  - 连接超时错误
+  - 应用无法响应
+  possible_causes:
+  - 连接泄漏(应用未释放连接)
+  - 连接池配置不当
+  - 恶意连接攻击
+  - max_connections设置过小
+  check_steps:
+  - 查询pg_stat_activity统计连接数
+  - 检查idle连接数量和时长
+  - 查看最大连接数设置: show max_connections
+  - 分析连接来源(应用/IP)
+  resolution:
+  - 清理长时间idle的连接: SELECT pg_terminate_backend(pid)
+  - 检查应用连接池配置
+  - 扩大max_connections(如需临时缓解)
+  - 排查连接泄漏的应用代码
+  alert_code: PG_CONNECTION_LIMIT
+- alert_type: WAL_ACCUMULATION
+  name: WAL日志堆积
+  description: PostgreSQL WAL日志持续堆积,归档可能受阻
+  severity: warning
+  risk_level: L3
+  symptoms:
+  - pg_wal目录占用空间持续增长
+  - 归档进程状态异常
+  - 复制延迟可能增加
+  possible_causes:
+  - 归档进程崩溃或配置错误
+  - 归档目录磁盘满
+  - 大量更新操作产生过多WAL
+  - checkpoint配置不当
+  check_steps:
+  - 检查pg_wal目录大小: du -sh $PGDATA/pg_wal
+  - 查看归档状态: SELECT * FROM pg_stat_archiver
+  - 检查归档目标目录磁盘空间
+  - 查看WAL产生速率: pg_current_wal_lsn
+  resolution:
+  - 检查并修复归档进程
+  - 清理归档目录磁盘空间
+  - 调整checkpoint相关参数
+  - 评估是否需要扩大pg_wal保留时间
+  alert_code: PG_WAL_ACCUMULATION
+- alert_type: REPLICATION_DELAY
+  name: 流复制延迟告警
+  description: PostgreSQL流复制从库延迟超过阈值
+  severity: warning
+  risk_level: L3
+  symptoms:
+  - 从库延迟秒数持续增长
+  - 数据同步不一致风险
+  - 切换时可能丢数据
+  possible_causes:
+  - 从库资源不足(CPU/IO)
+  - 大事务在主库执行
+  - 网络带宽不足
+  - 从库应用进程异常
+  check_steps:
+  - 检查从库延迟: SELECT now() - pg_last_xact_replay_timestamp()
+  - 查看从库资源使用情况
+  - 检查主库WAL产生速率
+  - 查看pg_stat_replication详细状态
+  resolution:
+  - 优化从库性能(增加资源)
+  - 拆分主库大事务
+  - 检查网络连接质量
+  - 如复制断开,重新建立复制
+  alert_code: PG_REPLICATION_DELAY
+- alert_type: BLOAT_EXCEEDED
+  name: 表膨胀率超限
+  description: PostgreSQL表膨胀率超过阈值,需要VACUUM
+  severity: warning
+  risk_level: L3
+  symptoms:
+  - 表占用空间异常增大
+  - 查询性能下降
+  - 磁盘空间浪费
+  possible_causes:
+  - autovacuum被长事务阻塞
+  - 频繁UPDATE/DELETE产生大量dead tuples
+  - 膨胀率阈值设置过低
+  check_steps:
+  - 查询表膨胀率: SELECT * FROM pg_stat_user_tables
+  - 检查长事务: SELECT * FROM pg_stat_activity WHERE state = 'idle in transaction'
+  - 查看autovacuum最近执行时间
+  - 分析高膨胀率表的访问模式
+  resolution:
+  - 执行手动VACUUM: VACUUM (VERBOSE) tablename
+  - 严重时执行VACUUM FULL: VACUUM FULL tablename
+  - 检查并终止阻塞vacuum的长事务
+  - 调整autovacuum相关参数
+  - 评估是否需要调整vacuum_cost_delay
+  alert_code: PG_BLOAT_EXCEEDED
