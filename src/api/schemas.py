@@ -74,3 +74,4 @@ class HealthResponse(BaseModel):
     version: str = ""
     ollama_status: str = ""
     timestamp: float = 0
+    metadata: dict = {}

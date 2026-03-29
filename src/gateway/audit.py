@@ -18,6 +18,7 @@ class AuditAction(Enum):
     TOOL_RESULT = "tool.result"
     POLICY_PASS = "policy.pass"
     POLICY_DENY = "policy.deny"
+    POLICY_CHANGE = "policy.change"
     APPROVAL_REQUEST = "approval.request"
     APPROVAL_GRANT = "approval.grant"
     APPROVAL_REJECT = "approval.reject"

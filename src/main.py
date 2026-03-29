@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from src.config import get_settings
 from src.api.routes import router
 from src.api.dashboard import router as dashboard_router
+from src.api.metrics import setup_metrics_middleware, get_metrics
 from src.gateway.session import get_session_manager
 from src.gateway.tool_registry import get_tool_registry
 from src.gateway.policy_engine import get_policy_engine
@@ -44,6 +45,19 @@ async def lifespan(app: FastAPI):
     register_analysis_tools(registry)
     register_action_tools(registry)
     
+    # 更新指标初始状态
+    metrics = get_metrics()
+    stats = session_mgr.get_stats()
+    metrics.set_session_count(stats["total_sessions"])
+    
+    try:
+        from src.models.approval import get_approval_store
+        approval_store = get_approval_store()
+        pending = approval_store.list_pending()
+        metrics.set_approvals_pending(len(pending))
+    except Exception:
+        pass
+    
     logger.info("app.started", 
                 tools_count=len(registry.list_tools(enabled_only=True)),
                 categories=["query", "analysis", "action"])
@@ -78,6 +92,9 @@ def create_app() -> FastAPI:
     # 注册路由
     app.include_router(router)
     app.include_router(dashboard_router)
+    
+    # 设置指标中间件
+    setup_metrics_middleware(app)
     
     return app
 

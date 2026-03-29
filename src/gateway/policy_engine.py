@@ -1,4 +1,5 @@
 """策略引擎 - 安全策略执行"""
+import time
 from typing import Optional
 from enum import IntEnum
 from dataclasses import dataclass, field
@@ -54,6 +55,8 @@ class PolicyEngine:
         self._require_approval_l4 = True
         self._require_dual_approval_l5 = True
         self._approval_gate = approval_gate
+        self._version: int = 1
+        self._version_history: list[dict] = [{"version": 1, "timestamp": time.time(), "change": "initial"}]
 
     @property
     def approval_gate(self) -> ApprovalGate:
@@ -62,14 +65,56 @@ class PolicyEngine:
             self._approval_gate = get_approval_gate()
         return self._approval_gate
     
-    def add_rule(self, rule: callable):
-        """添加自定义规则"""
-        self._custom_rules.append(rule)
-    
     def set_approval_config(self, l4: bool = True, l5: bool = True):
         """设置审批配置"""
+        old_l4 = self._require_approval_l4
+        old_l5 = self._require_dual_approval_l5
         self._require_approval_l4 = l4
         self._require_dual_approval_l5 = l5
+        
+        # 记录变更
+        if old_l4 != l4 or old_l5 != l5:
+            self._version += 1
+            self._version_history.append({
+                "version": self._version,
+                "timestamp": time.time(),
+                "change": f"approval_config: l4={old_l4}->{l4}, l5={old_l5}->{l5}",
+                "l4_required": l4,
+                "l5_dual_required": l5,
+            })
+            # 记录到审计日志
+            try:
+                from src.gateway.audit import get_audit_logger, AuditAction
+                audit = get_audit_logger()
+                audit.log_action(
+                    action=AuditAction.POLICY_CHANGE,
+                    user_id="system",
+                    metadata={
+                        "l4_required": {"old": old_l4, "new": l4},
+                        "l5_dual_required": {"old": old_l5, "new": l5},
+                        "new_version": self._version,
+                    }
+                )
+            except Exception:
+                pass
+    
+    def get_version(self) -> int:
+        """获取当前策略版本"""
+        return self._version
+    
+    def get_version_history(self, limit: int = 50) -> list[dict]:
+        """获取策略版本历史"""
+        return self._version_history[-limit:]
+    
+    def add_rule(self, rule: callable):
+        """添加自定义规则（同时增加版本号）"""
+        self._custom_rules.append(rule)
+        self._version += 1
+        self._version_history.append({
+            "version": self._version,
+            "timestamp": time.time(),
+            "change": f"added_custom_rule: {rule.__name__ if hasattr(rule, '__name__') else 'anonymous'}",
+        })
     
     def check(self, context: PolicyContext, action: str, risk_level: RiskLevel) -> PolicyResult:
         """安全检查"""
