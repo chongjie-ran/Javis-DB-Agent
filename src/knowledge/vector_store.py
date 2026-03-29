@@ -15,6 +15,24 @@ class KnowledgeItem:
     metadata: dict
 
 
+def _format_list_field(items: list) -> str:
+    """格式化列表字段，处理dict和str混合类型
+    - str: 直接使用
+    - dict: 格式化为 "描述: 命令"
+    """
+    formatted = []
+    for item in items:
+        if isinstance(item, dict):
+            # 格式: "描述: 命令"
+            for desc, cmd in item.items():
+                formatted.append(f"{desc}: {cmd}")
+        elif isinstance(item, str):
+            formatted.append(item)
+        else:
+            formatted.append(str(item))
+    return "\n".join(formatted)
+
+
 def _load_alert_rules(rules_path: str = "knowledge/alert_rules.yaml") -> list[KnowledgeItem]:
     """加载告警规则"""
     items = []
@@ -34,13 +52,13 @@ def _load_alert_rules(rules_path: str = "knowledge/alert_rules.yaml") -> list[Kn
             f"## 风险级别",
             rule.get("risk_level", ""),
             f"## 症状",
-            "\n".join(rule.get("symptoms", [])),
+            _format_list_field(rule.get("symptoms", [])),
             f"## 可能原因",
-            "\n".join(rule.get("possible_causes", [])),
+            _format_list_field(rule.get("possible_causes", [])),
             f"## 检查步骤",
-            "\n".join(rule.get("check_steps", [])),
+            _format_list_field(rule.get("check_steps", [])),
             f"## 解决方案",
-            "\n".join(rule.get("resolution", [])),
+            _format_list_field(rule.get("resolution", [])),
         ]
         items.append(KnowledgeItem(
             id=f"alert_{rule.get('alert_type', rule.get('alert_code', ''))}",

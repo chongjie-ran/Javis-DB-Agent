@@ -377,7 +377,7 @@ class TestDashboardTemplate:
         
         # 检查关键元素
         assert "<html" in content
-        assert "Javis-DB-Agent Agent" in content
+        assert "zCloud Agent" in content
         assert 'id="mode-badge"' in content
         assert 'id="btn-mock"' in content
         assert 'id="btn-real"' in content
