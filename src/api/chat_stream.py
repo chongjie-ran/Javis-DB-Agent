@@ -44,10 +44,16 @@ async def _stream_text(text: str, delay: float = 0.015):
 async def _stream_chat(request: ChatRequest, user_info: dict):
     """生成流式聊天气泡的SSE响应"""
     from src.agents.orchestrator import OrchestratorAgent
+    from src.agents.diagnostic import DiagnosticAgent
+    from src.agents.risk import RiskAgent
+    from src.agents.sql_analyzer import SQLAnalyzerAgent
+    from src.agents.inspector import InspectorAgent
+    from src.agents.reporter import ReporterAgent
     from src.gateway.session import get_session_manager
 
     session_id = request.session_id or f"dash-{uuid.uuid4().hex[:8]}"
     user_id = request.user_id or user_info.get("sub") or user_info.get("user_id", "anonymous")
+    requested_agent = request.agent  # 前端指定的Agent
 
     # 发送session_id
     yield f"event: session\ndata: {json.dumps({'session_id': session_id}, ensure_ascii=False)}\n\n"
@@ -56,7 +62,6 @@ async def _stream_chat(request: ChatRequest, user_info: dict):
     yield f"event: thinking\ndata: {json.dumps({'thinking': True, 'message': '🤖 正在思考...'}, ensure_ascii=False)}\n\n"
 
     try:
-        orch = OrchestratorAgent()
         session_mgr = get_session_manager()
 
         # 获取或创建会话
@@ -70,8 +75,32 @@ async def _stream_chat(request: ChatRequest, user_info: dict):
             "extra_info": str(request.context or {}),
         }
 
+        # 根据选择的Agent路由到对应的Agent
+        agent_map = {
+            "diagnostic": DiagnosticAgent(),
+            "risk": RiskAgent(),
+            "sql_analyzer": SQLAnalyzerAgent(),
+            "inspector": InspectorAgent(),
+            "reporter": ReporterAgent(),
+        }
+        
         # 调用Agent（非流式，但返回完整结果）
-        response = await orch.handle_chat(request.message, context)
+        active_agent_name = "orchestrator"
+        if requested_agent and requested_agent in agent_map:
+            # 直接调用指定的Agent
+            active_agent = agent_map[requested_agent]
+            active_agent_name = requested_agent
+            if hasattr(active_agent, 'handle_chat'):
+                response = await active_agent.handle_chat(request.message, context)
+            else:
+                # Agent没有handle_chat方法，使用编排Agent
+                orch = OrchestratorAgent()
+                response = await orch.handle_chat(request.message, context)
+                active_agent_name = "orchestrator"
+        else:
+            # 使用编排Agent（默认智能路由）
+            orch = OrchestratorAgent()
+            response = await orch.handle_chat(request.message, context)
 
         # thinking结束
         yield f"event: thinking\ndata: {json.dumps({'thinking': False}, ensure_ascii=False)}\n\n"
@@ -86,7 +115,7 @@ async def _stream_chat(request: ChatRequest, user_info: dict):
         session.add_message("assistant", full_content)
 
         # 发送完成信号
-        yield f"event: done\ndata: {json.dumps({'content': full_content, 'agent': response.metadata.get('agent', 'orchestrator')}, ensure_ascii=False)}\n\n"
+        yield f"event: done\ndata: {json.dumps({'content': full_content, 'agent': response.metadata.get('agent', active_agent_name)}, ensure_ascii=False)}\n\n"
 
     except Exception as e:
         yield f"event: error\ndata: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"

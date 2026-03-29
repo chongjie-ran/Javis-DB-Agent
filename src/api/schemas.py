@@ -9,7 +9,8 @@ class ChatRequest(BaseModel):
     """对话请求"""
     message: str = Field(..., description="用户消息")
     session_id: Optional[str] = Field(None, description="会话ID，不传则创建新会话")
-    user_id: str = Field(..., description="用户ID")
+    user_id: Optional[str] = Field("anonymous", description="用户ID")
+    agent: Optional[str] = Field(None, description="指定Agent (orchestrator/diagnostic/risk/sql_analyzer/inspector/reporter)")
     context: dict = Field(default_factory=dict, description="额外上下文")
 
 
