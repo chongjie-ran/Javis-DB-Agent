@@ -473,3 +473,72 @@ class TestDashboardEnhanced:
         assert resp.status_code == 200
         data = resp.json()
         assert "status" in data
+
+
+class TestChatStream:
+    """对话流式接口测试"""
+
+    @pytest.fixture
+    def client(self):
+        from fastapi.testclient import TestClient
+        from src.main import app
+        return TestClient(app)
+
+    def test_chat_stream_endpoint_exists(self, client):
+        """流式对话端点存在"""
+        # 先登录获取token
+        login_resp = client.post("/api/v1/auth/login", json={
+            "username": "admin", "password": "admin123"
+        })
+        token = login_resp.json()["token"]
+
+        resp = client.post("/api/v1/chat/stream",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"message": "hello", "user_id": "test", "session_id": "test-session"}
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"].startswith("text/event-stream")
+
+    def test_chat_stream_returns_sse_events(self, client):
+        """流式响应包含SSE事件"""
+        login_resp = client.post("/api/v1/auth/login", json={
+            "username": "admin", "password": "admin123"
+        })
+        token = login_resp.json()["token"]
+
+        resp = client.post("/api/v1/chat/stream",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"message": "检查实例状态", "user_id": "test", "session_id": "test-session-2"}
+        )
+        assert resp.status_code == 200
+
+        # SSE流式响应验证：读取原始SSE文本
+        text = resp.text
+        # Should contain SSE event markers
+        assert "event:" in text or "data:" in text
+
+    def test_chat_history_endpoint(self, client):
+        """获取会话历史端点"""
+        # 使用普通chat端点（非流式）建立会话
+        session_id = "test-hist-session-" + str(int(time.time()))
+        # 发消息建立会话（chat端点会创建新session）
+        resp = client.post("/api/v1/chat",
+            json={"message": "hello", "user_id": "test", "session_id": session_id}
+        )
+        # 注意：session_id由系统生成的UUID决定，我们使用返回的session_id
+        returned_session_id = resp.json().get("session_id")
+        assert returned_session_id is not None
+
+        # 获取历史（使用chat返回的session_id）
+        hist_resp = client.get(f"/api/v1/chat/history/{returned_session_id}")
+        assert hist_resp.status_code == 200
+        data = hist_resp.json()
+        assert "session_id" in data
+        assert "messages" in data
+        assert isinstance(data["messages"], list)
+
+    def test_chat_history_nonexistent_session(self, client):
+        """不存在的会话返回404"""
+        resp = client.get("/api/v1/chat/history/nonexistent-session-xyz")
+        assert resp.status_code == 404
+
