@@ -251,5 +251,11 @@ def reset_real_client():
     global _real_client
     if _real_client:
         import asyncio
-        asyncio.create_task(_real_client.close())
+        try:
+            loop = asyncio.get_running_loop()
+            # 如果有running loop，用create_task
+            loop.create_task(_real_client.close())
+        except RuntimeError:
+            # 没有running loop，用run_until_complete
+            asyncio.get_event_loop().run_until_complete(_real_client.close())
     _real_client = None

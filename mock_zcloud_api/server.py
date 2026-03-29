@@ -122,6 +122,14 @@ async def health():
     return {"status": "healthy"}
 
 
+@app.get("/api/v1/slow")
+async def slow_endpoint():
+    """慢响应端点，模拟超时场景（延迟5秒）"""
+    import asyncio
+    await asyncio.sleep(5)
+    return {"status": "ok", "message": "慢响应完成"}
+
+
 @app.get("/api/v1/qps-status")
 async def qps_status():
     """获取 QPS 限制状态"""
