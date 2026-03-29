@@ -40,6 +40,9 @@ class ZCloudRealClient:
             "oauth_client_id": self.config.oauth_client_id,
             "oauth_client_secret": self.config.oauth_client_secret,
             "oauth_scope": self.config.oauth_scope,
+            "oauth2_grant_type": getattr(self.config, "oauth2_grant_type", "client_credentials"),
+            "oauth2_access_token": getattr(self.config, "oauth2_access_token", ""),
+            "oauth2_refresh_token": getattr(self.config, "oauth2_refresh_token", ""),
             "timeout": self.config.timeout,
         })
     

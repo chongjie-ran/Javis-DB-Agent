@@ -30,7 +30,14 @@ class AuthProvider(ABC):
 
 
 class OAuth2Provider(AuthProvider):
-    """OAuth2.0认证提供者"""
+    """
+    OAuth2.0认证提供者
+
+    支持三种授权类型:
+    - client_credentials: 客户端凭证流（默认，机器对机器）
+    - authorization_code: 授权码流（需要预先获取的access_token/refresh_token）
+    - refresh_token: 仅使用refresh_token刷新（access_token由外部管理）
+    """
     
     def __init__(
         self,
@@ -39,27 +46,49 @@ class OAuth2Provider(AuthProvider):
         client_secret: str,
         scope: str = "read write",
         timeout: int = 30,
+        grant_type: str = "client_credentials",
+        pre_access_token: str = "",
+        pre_refresh_token: str = "",
     ):
         self.token_url = token_url
         self.client_id = client_id
         self.client_secret = client_secret
         self.scope = scope
         self.timeout = timeout
-        self._access_token: Optional[str] = None
-        self._refresh_token: Optional[str] = None
+        self.grant_type = grant_type
+        self._access_token: Optional[str] = pre_access_token or None
+        self._refresh_token: Optional[str] = pre_refresh_token or None
         self._token_expires_at: float = 0
+
+        # 如果有预置token，估算过期时间（默认1小时）
+        if self._access_token and self._token_expires_at == 0:
+            self._token_expires_at = time.time() + 3600 - 60
     
     def get_access_token(self) -> str:
         """获取访问令牌（自动刷新）"""
         if not self.is_token_valid():
-            if self._refresh_token:
-                self._refresh()
+            if self.grant_type == "refresh_token":
+                # 仅刷新模式：必须已有refresh_token
+                if not self._refresh_token:
+                    raise ValueError("OAuth2 grant_type=refresh_token 但没有预置的refresh_token")
+                ok = self._sync_refresh()
+                if not ok:
+                    raise ValueError("OAuth2 refresh_token 刷新失败，请检查token有效性")
+            elif self.grant_type == "authorization_code":
+                # 授权码模式：使用预置的token
+                if not self._access_token:
+                    raise ValueError("OAuth2 grant_type=authorization_code 但没有预置的access_token")
+                # 尝试用refresh_token刷新
+                if self._refresh_token:
+                    self._sync_refresh()
+                # 否则只能用预置token直到过期
             else:
+                # client_credentials: 直接获取
                 self._authorize()
         return self._access_token
     
     def _authorize(self) -> None:
-        """授权获取Token"""
+        """授权获取Token（client_credentials流）"""
         if not self.client_id or not self.client_secret:
             raise ValueError("OAuth2 client_id 或 client_secret 未配置")
         
@@ -81,8 +110,8 @@ class OAuth2Provider(AuthProvider):
             expires_in = data.get("expires_in", 3600)
             self._token_expires_at = time.time() + expires_in - 60  # 提前60秒过期
     
-    def _refresh(self) -> bool:
-        """刷新Token"""
+    def _sync_refresh(self) -> bool:
+        """同步刷新Token（内部用）"""
         if not self._refresh_token:
             return False
         
@@ -200,6 +229,9 @@ def create_auth_provider(config: dict) -> AuthProvider:
             client_secret=config.get("oauth_client_secret", ""),
             scope=config.get("oauth_scope", "read write"),
             timeout=config.get("timeout", 30),
+            grant_type=config.get("oauth2_grant_type", "client_credentials"),
+            pre_access_token=config.get("oauth2_access_token", ""),
+            pre_refresh_token=config.get("oauth2_refresh_token", ""),
         )
     else:
         return APIKeyProvider(

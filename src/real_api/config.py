@@ -19,6 +19,15 @@ class RealAPIConfig(BaseSettings):
     oauth_client_id: str = ""
     oauth_client_secret: str = ""
     oauth_scope: str = "read write"
+    # OAuth2授权类型: "client_credentials" | "authorization_code" | "refresh_token"
+    # - client_credentials: 使用client_id/secret直接获取token（无refresh_token）
+    # - authorization_code: 使用授权码获取token（有refresh_token可用）
+    # - refresh_token: 仅使用已有的refresh_token刷新（需要预先获取）
+    oauth2_grant_type: str = "client_credentials"
+    # 预置的access_token（用于 refresh_token grant type）
+    oauth2_access_token: str = ""
+    # 预置的refresh_token（用于 refresh_token grant type）
+    oauth2_refresh_token: str = ""
     
     # API Key配置
     api_key: str = ""
@@ -51,3 +60,4 @@ def get_real_api_config() -> RealAPIConfig:
 def reload_real_api_config():
     global _config
     _config = RealAPIConfig()
+
