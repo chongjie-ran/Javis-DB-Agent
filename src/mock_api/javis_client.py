@@ -451,6 +451,70 @@ class MockJavisClient:
             "timestamp": time.time(),
         }
     
+    # ==================== 容量管理 API - Round 14 新增 ====================
+
+    async def get_storage_analysis(self, instance_id: str, db_type: str = "mysql") -> dict:
+        """获取存储容量分析"""
+        storage_data = self._get_mock_storage(db_type)
+        return {
+            "instance_id": instance_id,
+            "db_type": db_type,
+            "storage": storage_data,
+            "total_used_gb": sum(s["used_gb"] for s in storage_data),
+            "total_capacity_gb": sum(s["total_gb"] for s in storage_data),
+            "timestamp": time.time(),
+        }
+
+    async def get_capacity_growth(self, instance_id: str, db_type: str = "mysql", days: int = 90) -> dict:
+        """获取历史增长数据"""
+        history = self._generate_growth_history(db_type, days)
+        return {
+            "instance_id": instance_id,
+            "db_type": db_type,
+            "history": history,
+            "prediction_days": days,
+            "timestamp": time.time(),
+        }
+
+    def _get_mock_storage(self, db_type: str) -> list[dict]:
+        """生成模拟存储数据"""
+        import random
+        if db_type == "mysql":
+            return [
+                {"name": "数据文件 (InnoDB)", "used_gb": 256.5, "total_gb": 500.0, "usage_percent": 51.3, "mount_point": "/data/mysql"},
+                {"name": "日志文件 (Redo/Undo)", "used_gb": 80.2, "total_gb": 200.0, "usage_percent": 40.1, "mount_point": "/data/mysql_logs"},
+                {"name": "系统表空间", "used_gb": 12.8, "total_gb": 20.0, "usage_percent": 64.0, "mount_point": "/data/mysql"},
+                {"name": "临时表空间", "used_gb": 5.2, "total_gb": 50.0, "usage_percent": 10.4, "mount_point": "/data/mysql_temp"},
+                {"name": "Binlog存储", "used_gb": 180.0, "total_gb": 200.0, "usage_percent": 90.0, "mount_point": "/data/binlog"},
+            ]
+        elif db_type == "postgresql":
+            return [
+                {"name": "数据目录 (PGDATA)", "used_gb": 320.0, "total_gb": 500.0, "usage_percent": 64.0, "mount_point": "/var/lib/postgresql/data"},
+                {"name": "WAL日志", "used_gb": 45.0, "total_gb": 100.0, "usage_percent": 45.0, "mount_point": "/var/lib/postgresql/wal"},
+                {"name": "表空间 main", "used_gb": 280.0, "total_gb": 400.0, "usage_percent": 70.0, "mount_point": "/var/lib/postgresql/tbs_main"},
+                {"name": "临时文件存储", "used_gb": 8.5, "total_gb": 50.0, "usage_percent": 17.0, "mount_point": "/var/lib/postgresql/temp"},
+            ]
+        else:  # oracle
+            return [
+                {"name": "SYSTEM表空间", "used_gb": 15.2, "total_gb": 20.0, "usage_percent": 76.0, "mount_point": "+DATA"},
+                {"name": "SYSAUX表空间", "used_gb": 22.5, "total_gb": 30.0, "usage_percent": 75.0, "mount_point": "+DATA"},
+                {"name": "USERS表空间", "used_gb": 8.0, "total_gb": 10.0, "usage_percent": 80.0, "mount_point": "+DATA"},
+                {"name": "UNDOTBS1", "used_gb": 35.0, "total_gb": 100.0, "usage_percent": 35.0, "mount_point": "+DATA"},
+                {"name": "TEMP表空间", "used_gb": 3.2, "total_gb": 50.0, "usage_percent": 6.4, "mount_point": "+DATA"},
+                {"name": "ARCHIVELOG存储", "used_gb": 95.0, "total_gb": 100.0, "usage_percent": 95.0, "mount_point": "+FRA"},
+            ]
+
+    def _generate_growth_history(self, db_type: str, days: int) -> list[dict]:
+        """生成历史增长数据"""
+        import random
+        base_size = 200.0
+        history = []
+        for i in range(min(days, 30)):  # 最多30天历史
+            day = i - min(days, 30) + 1
+            size = base_size + (min(days, 30) - 1 - day) * 1.0 + random.uniform(-0.3, 0.5)
+            history.append({"day": day, "size_gb": round(size, 2)})
+        return history
+
     # ==================== 表空间 API ====================
     
     async def get_tablespaces(self, instance_id: str, tablespace_name: Optional[str] = None) -> dict:

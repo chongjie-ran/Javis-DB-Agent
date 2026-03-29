@@ -9,6 +9,7 @@ from src.agents.sql_analyzer import SQLAnalyzerAgent
 from src.agents.inspector import InspectorAgent
 from src.agents.reporter import ReporterAgent
 from src.agents.session_analyzer_agent import SessionAnalyzerAgent
+from src.agents.capacity_agent import CapacityAgent
 
 
 class Intent(Enum):
@@ -21,6 +22,9 @@ class Intent(Enum):
     INSPECT = "inspect"            # 健康巡检
     REPORT = "report"              # 报告生成
     RISK_ASSESS = "risk_assess"    # 风险评估
+    ANALYZE_CAPACITY = "analyze_capacity"  # 容量分析
+    PREDICT_GROWTH = "predict_growth"      # 增长预测
+    CAPACITY_REPORT = "capacity_report"    # 容量报告
     GENERAL = "general"            # 通用问答
 
 
@@ -45,6 +49,7 @@ class OrchestratorAgent(BaseAgent):
 4. inspector: 巡检Agent - 健康检查
 5. reporter: 报告Agent - 报告生成
 6. session_analyzer: 会话分析Agent - 会话状态、连接池、死锁检测
+7. capacity: 容量管理Agent - 存储分析、增长预测、容量报告、阈值告警
 
 工作流程：
 1. 理解用户目标
@@ -83,6 +88,7 @@ class OrchestratorAgent(BaseAgent):
             "inspector": InspectorAgent(),
             "reporter": ReporterAgent(),
             "session_analyzer": SessionAnalyzerAgent(),
+            "capacity": CapacityAgent(),
         }
     
     def get_agent(self, name: str) -> Optional[BaseAgent]:
@@ -157,6 +163,9 @@ class OrchestratorAgent(BaseAgent):
             Intent.INSPECT: ["inspector"],
             Intent.REPORT: ["reporter"],
             Intent.RISK_ASSESS: ["risk"],
+            Intent.ANALYZE_CAPACITY: ["capacity"],
+            Intent.PREDICT_GROWTH: ["capacity"],
+            Intent.CAPACITY_REPORT: ["capacity"],
             Intent.GENERAL: [],
         }
         
@@ -237,6 +246,9 @@ class OrchestratorAgent(BaseAgent):
                 "inspect": "健康巡检",
                 "report": "报告生成",
                 "risk_assess": "风险评估",
+                "analyze_capacity": "容量分析",
+                "predict_growth": "增长预测",
+                "capacity_report": "容量报告",
                 "general": "通用问答",
             }.get(intent.value, "通用问答")
             yield {"type": "thinking", "content": f"📋 识别为「{intent_label}」任务，准备调用专业Agent..."}

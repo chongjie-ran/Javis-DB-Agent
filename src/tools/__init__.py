@@ -45,6 +45,13 @@ from src.tools.session_tools import (
     ConnectionPoolTool,
     DeadlockDetectionTool,
 )
+from src.tools.capacity_tools import (
+    register_capacity_tools,
+    StorageAnalysisTool,
+    GrowthPredictionTool,
+    CapacityReportTool,
+    CapacityAlertTool,
+)
 
 
 def register_all_tools(registry):
@@ -55,6 +62,7 @@ def register_all_tools(registry):
     register_additional_query_tools(registry)
     register_high_risk_tools(registry)
     register_session_tools(registry)
+    register_capacity_tools(registry)
     return registry
 
 
@@ -101,6 +109,12 @@ __all__ = [
     "SessionDetailTool",
     "ConnectionPoolTool",
     "DeadlockDetectionTool",
+    # 容量管理工具
+    "register_capacity_tools",
+    "StorageAnalysisTool",
+    "GrowthPredictionTool",
+    "CapacityReportTool",
+    "CapacityAlertTool",
     # 全量注册
     "register_all_tools",
 ]
