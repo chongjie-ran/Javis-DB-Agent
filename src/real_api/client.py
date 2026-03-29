@@ -256,6 +256,9 @@ def reset_real_client():
             # 如果有running loop，用create_task
             loop.create_task(_real_client.close())
         except RuntimeError:
-            # 没有running loop，用run_until_complete
-            asyncio.get_event_loop().run_until_complete(_real_client.close())
+            # 没有running loop，Python 3.10+ 不再隐式创建event loop
+            # 使用 new_event_loop + run_until_complete（同步安全关闭）
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(_real_client.close())
+            loop.close()
     _real_client = None
