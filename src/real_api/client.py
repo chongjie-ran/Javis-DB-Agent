@@ -92,7 +92,12 @@ class ZCloudRealClient:
             
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 401 and retry < 1:
-                # Token过期，刷新后重试
+                # Token过期，尝试刷新后重试
+                refresh_result = await self._auth.refresh_token()
+                if "error" not in refresh_result:
+                    # 刷新成功，重试请求
+                    return await self._request(method, path, params, json_data, retry + 1)
+                # 刷新失败，创建新auth provider重试
                 self._auth = self._create_auth()
                 return await self._request(method, path, params, json_data, retry + 1)
             raise

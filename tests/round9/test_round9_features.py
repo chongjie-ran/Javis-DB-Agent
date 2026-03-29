@@ -269,7 +269,8 @@ class TestAuthProviders:
         # refresh_token已实现，不应抛出TypeError
         assert callable(provider.refresh_token)
 
-    def test_oauth2_provider_not_valid_without_token(self):
+    @pytest.mark.asyncio
+    async def test_oauth2_provider_not_valid_without_token(self):
         """测试OAuth2Provider未授权时无效"""
         from src.real_api.auth import OAuth2Provider
 
@@ -280,9 +281,10 @@ class TestAuthProviders:
         )
         # 无token时无效
         assert provider.is_token_valid() is False
-        # refresh_token调用不抛异常
-        result = provider.refresh_token()
-        assert isinstance(result, bool)
+        # refresh_token调用不抛异常（async方法，无refresh_token时返回错误dict）
+        result = await provider.refresh_token()
+        assert isinstance(result, dict)
+        assert "error" in result  # 因为没有refresh_token，应该返回错误
     
     def test_create_auth_provider_api_key(self):
         """测试create_auth_provider创建APIKeyProvider"""
