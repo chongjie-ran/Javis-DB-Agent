@@ -22,7 +22,7 @@ class TestTaxonomyRoutes:
         import importlib.util
 
         # Load the taxonomy_routes module directly from file
-        routes_dir = os.path.join(os.path.dirname(__file__), '../..', 'src', 'api', 'routes')
+        routes_dir = os.path.join(os.path.dirname(__file__), '../..', 'src', 'api', 'knowledge_routes')
         spec = importlib.util.spec_from_file_location(
             "taxonomy_routes_test",
             os.path.join(routes_dir, "taxonomy_routes.py")
