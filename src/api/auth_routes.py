@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from src.api.auth import get_auth_manager, AuthManager
 from src.api.schemas import APIResponse
+from src.security.rate_limit import rate_limit
 
 router = APIRouter(prefix="/api/v1/auth", tags=["认证"])
 
@@ -69,7 +70,7 @@ class RegisterRequest(BaseModel):
     role: str = Field("user", description="角色: user/admin")
 
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", response_model=LoginResponse, dependencies=[Depends(rate_limit("login"))])
 async def login(request: LoginRequest):
     """
     用户登录
@@ -92,7 +93,7 @@ async def login(request: LoginRequest):
     )
 
 
-@router.post("/refresh", response_model=RefreshTokenResponse)
+@router.post("/refresh", response_model=RefreshTokenResponse, dependencies=[Depends(rate_limit("refresh"))])
 async def refresh_token(request: RefreshTokenRequest):
     """
     使用refresh_token刷新access_token
@@ -139,7 +140,7 @@ async def get_me(current_user: dict = Depends(_get_current_user)):
     )
 
 
-@router.post("/register", response_model=APIResponse)
+@router.post("/register", response_model=APIResponse, dependencies=[Depends(rate_limit("register"))])
 async def register(request: RegisterRequest):
     """
     注册新用户

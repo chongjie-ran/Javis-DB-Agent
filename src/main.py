@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from src.config import get_settings
 from src.security.tls import TLSConfig, TLSMiddleware
+from src.security.rate_limit import RateLimitMiddleware, configure_rate_limits
 from src.api.routes import router
 from src.api.dashboard import router as dashboard_router
 from src.api.auth_routes import router as auth_router
@@ -39,23 +40,23 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     settings = get_settings()
     logger.info("app.starting", app_name=settings.app_name, version=settings.app_version)
-    
+
     # 初始化组件
     session_mgr = get_session_manager()
     registry = get_tool_registry()
     policy = get_policy_engine()
     audit = get_audit_logger()
-    
+
     # 注册工具
     register_query_tools(registry)
     register_analysis_tools(registry)
     register_action_tools(registry)
-    
+
     # 更新指标初始状态
     metrics = get_metrics()
     stats = session_mgr.get_stats()
     metrics.set_session_count(stats["total_sessions"])
-    
+
     try:
         from src.models.approval import get_approval_store
         approval_store = get_approval_store()
@@ -63,13 +64,13 @@ async def lifespan(app: FastAPI):
         metrics.set_approvals_pending(len(pending))
     except Exception:
         pass
-    
-    logger.info("app.started", 
+
+    logger.info("app.started",
                 tools_count=len(registry.list_tools(enabled_only=True)),
                 categories=["query", "analysis", "action"])
-    
+
     yield
-    
+
     # 关闭
     logger.info("app.shutdown")
     audit.export(time.time() - 86400, time.time(), "data/audit_export.jsonl")
@@ -78,19 +79,25 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     """创建FastAPI应用"""
     settings = get_settings()
-    
+
+    # 配置限速规则
+    configure_rate_limits({})
+
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
         description="zCloud数据库运维智能体系统",
         lifespan=lifespan,
     )
-    
+
     # 安全中间件 - TLS/HTTPS
     tls_config = TLSConfig.from_env()
     if tls_config.enabled:
         app.add_middleware(TLSMiddleware, config=tls_config)
-    
+
+    # 全局限速中间件（IP维度，防止DDoS）
+    app.add_middleware(RateLimitMiddleware)
+
     # CORS
     app.add_middleware(
         CORSMiddleware,
@@ -99,7 +106,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
     # 注册路由
     app.include_router(router)
     app.include_router(dashboard_router)
@@ -108,10 +115,10 @@ def create_app() -> FastAPI:
     app.include_router(audit_router)
     app.include_router(chat_stream_router)
     app.include_router(wecom_router)
-    
+
     # 设置指标中间件
     setup_metrics_middleware(app)
-    
+
     return app
 
 

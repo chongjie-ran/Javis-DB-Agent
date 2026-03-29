@@ -1,5 +1,6 @@
 """API路由"""
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response, Depends
+from src.security.rate_limit import rate_limit
 from src.api.schemas import (
     ChatRequest, ChatResponse,
     DiagnoseRequest, DiagnoseResponse,
@@ -30,7 +31,7 @@ def get_orchestrator() -> OrchestratorAgent:
 
 # ============ 对话接口 ============
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post("/chat", response_model=ChatResponse, dependencies=[Depends(rate_limit("chat"))])
 async def chat(request: ChatRequest):
     """对话交互"""
     orch = get_orchestrator()
