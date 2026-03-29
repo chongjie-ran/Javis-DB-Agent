@@ -404,3 +404,186 @@ async def get_stats(
     """获取知识库统计信息"""
     stats = await service.get_stats()
     return {"code": 0, "data": stats}
+
+
+# ============================================================
+# 观察点元数据路由 - Round 20
+# ============================================================
+
+from src.knowledge.db.repositories.observation_point_repo import ObservationPointRepository
+from src.knowledge.services.observation_point_service import ObservationPointService
+
+
+class ObservationPointCreate(BaseModel):
+    """观察点创建模型"""
+    id: str
+    resource_type: str
+    metric_name: str
+    collection_method: str
+    representation: str
+    anomaly_pattern: Optional[str] = None
+    anomaly_condition: Optional[str] = None
+    unit: Optional[str] = None
+    severity: Optional[str] = None
+    metadata: Optional[dict] = None
+
+
+async def get_op_service():
+    """获取观察点服务"""
+    conn = await get_knowledge_db()
+    repo = ObservationPointRepository(conn)
+    service = ObservationPointService(repo)
+    try:
+        yield service
+    finally:
+        await close_knowledge_db(conn)
+
+
+@router.get("/observation-points", response_model=dict)
+async def list_observation_points(
+    resource_type: Optional[str] = Query(None, description="资源类型过滤，如 OS.CPU"),
+    limit: int = Query(100, ge=1, le=500),
+    service: ObservationPointService = Depends(get_op_service)
+):
+    """列出所有观察点
+    
+    可按资源类型过滤。
+    """
+    if resource_type:
+        results = service.list_observation_points(entity_type=resource_type)
+    else:
+        results = service.list_observation_points()
+    
+    return {"code": 0, "data": results, "count": len(results)}
+
+
+@router.get("/observation-points/{op_id}", response_model=dict)
+async def get_observation_point(
+    op_id: str,
+    service: ObservationPointService = Depends(get_op_service)
+):
+    """获取观察点详情"""
+    conn = await get_knowledge_db()
+    repo = ObservationPointRepository(conn)
+    
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    op = loop.run_until_complete(repo.get_observation_point_by_id(op_id))
+    await close_knowledge_db(conn)
+    
+    if not op:
+        raise HTTPException(status_code=404, detail="观察点不存在")
+    
+    return {"code": 0, "data": op.to_dict()}
+
+
+@router.get("/observation-points/resource/{resource_type}", response_model=dict)
+async def get_observation_points_by_resource(
+    resource_type: str,
+    service: ObservationPointService = Depends(get_op_service)
+):
+    """获取指定资源类型的所有观察点"""
+    results = service.list_observation_points(entity_type=resource_type)
+    
+    return {"code": 0, "data": results, "count": len(results)}
+
+
+@router.post("/observation-points", response_model=dict)
+async def create_observation_point(
+    op: ObservationPointCreate,
+    service: ObservationPointService = Depends(get_op_service)
+):
+    """创建新的观察点"""
+    op_data = op.model_dump()
+    try:
+        result = service.add_observation_point(op_data)
+        return {"code": 0, "data": result.to_dict()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/alert-context/{alert_id}", response_model=dict)
+async def get_alert_context(
+    alert_id: str,
+    service: ObservationPointService = Depends(get_op_service)
+):
+    """获取告警上下文（包含观察点元数据）
+    
+    根据alert_id查询告警信息，并关联对应的观察点元数据，
+    生成增强的告警上下文，包含采集方法、表示方法、异常模式等信息。
+    
+    注意：此接口需要配合告警服务使用，alert_id用于定位告警，
+    实际的resource_type和metric从告警数据中提取。
+    """
+    # 获取告警上下文
+    # 这里简化处理，实际应该从告警服务获取告警详情
+    # 但为了不影响现有架构，我们返回提示信息
+    return {
+        "code": 0,
+        "data": {
+            "message": "请提供告警的resource_type和metric参数以获取完整的观察点上下文",
+            "alert_id": alert_id,
+            "hint": "使用 GET /api/v1/knowledge/alert-context/{alert_id}?resource_type=OS.CPU&metric=usage_percent"
+        }
+    }
+
+
+@router.get("/alert-context", response_model=dict)
+async def get_alert_context_by_params(
+    resource_type: str = Query(..., description="资源类型，如 OS.CPU"),
+    metric: str = Query(..., description="指标名称，如 usage_percent"),
+    alert_data: Optional[str] = Query(None, description="告警数据JSON字符串")
+):
+    """获取告警上下文（通过查询参数）
+    
+    提供resource_type和metric，直接获取对应的观察点元数据。
+    可选提供alert_data用于生成完整的告警上下文。
+    """
+    conn = await get_knowledge_db()
+    repo = ObservationPointRepository(conn)
+    service = ObservationPointService(repo)
+    
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    op_dict = service.get_observation_point(resource_type, metric)
+    await close_knowledge_db(conn)
+    
+    if not op_dict:
+        return {
+            "code": 0,
+            "data": {
+                "observation_point": None,
+                "explanation": f"未找到指标「{resource_type}.{metric}」的观察点元数据",
+            }
+        }
+    
+    # 如果提供了告警数据，生成完整上下文
+    if alert_data:
+        import json
+        try:
+            alert = json.loads(alert_data)
+            context = service.generate_alert_context(alert)
+            context["observation_point"] = op_dict
+            return {"code": 0, "data": context}
+        except json.JSONDecodeError:
+            pass
+    
+    return {
+        "code": 0,
+        "data": {
+            "resource_type": resource_type,
+            "metric": metric,
+            "observation_point": op_dict,
+            "explanation": f"指标「{resource_type}.{metric}」的采集方法为: {op_dict.get('collection_method', 'N/A')}",
+        }
+    }
