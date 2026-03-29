@@ -4,6 +4,25 @@ All notable changes to the Javis-DB-Agent will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v1.2] - 2026-03-30
+
+### Added
+- **Taxonomy API** (Round 17) - REST API + Service + Repository三层架构
+- **KnowledgeBase增强** (Round 18) - 结构化改造，支持Entity/Resource/ObservationPoint模型
+- **依赖传播引擎** (Round 19) - 资源依赖传播与根因分析
+- **观察点元数据服务** (Round 20) - ObservationPointMetadataService
+- **知识库自演化闭环** (Round 21) - LLM+可观测驱动知识库自演化
+- **routes目录重构** - src/api/routes/ → knowledge_routes/（消除命名遮蔽）
+
+### Fixed
+- **路由遮蔽Bug** - src/api/routes/ 目录遮蔽 routes.py 模块，核心端点从未注册（v1.2.0发布时即存在）
+- **routes遮蔽Bug** - 修复src/api/routes/与knowledge_routes/命名冲突
+- **taxonomy测试导入路径** - 更新test_taxonomy_routes.py引用knowledge_routes
+- **persistent_session清理** - 添加存在性检查避免remove报错
+
+### Changed
+- **ObservationPointService** - 重构为纯async/await
+
 ## [v1.1] - 2026-03-29
 
 ### Added
