@@ -1,4 +1,4 @@
-# zCloudNewAgentProject 第三轮测试准备报告
+# Javis-DB-Agent 第三轮测试准备报告
 
 > 版本：v1.0 | 日期：2026-03-28 | 测试者：真显
 
@@ -91,7 +91,7 @@
 
 ### 运行全部第三轮测试
 ```bash
-cd ~/SWproject/zCloudNewAgentProject
+cd ~/SWproject/Javis-DB-Agent
 python3 -m pytest tests/round3/ -v
 ```
 
@@ -119,8 +119,8 @@ python3 -m pytest tests/round3/ -v -s --tb=long
 ### Mock API Server (18080端口)
 ```bash
 # 启动Mock API Server
-cd ~/SWproject/zCloudNewAgentProject
-python3 -m uvicorn mock_zcloud_api.server:app --host 0.0.0.0 --port 18080
+cd ~/SWproject/Javis-DB-Agent
+python3 -m uvicorn mock_javis_api.server:app --host 0.0.0.0 --port 18080
 
 # 验证运行
 curl http://localhost:18080/health

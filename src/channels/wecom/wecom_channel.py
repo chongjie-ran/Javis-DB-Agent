@@ -3,7 +3,7 @@
 将企微消息接入zCloud Orchestrator，实现：
 1. 接收企微用户消息 → 转发Orchestrator处理
 2. Orchestrator响应 → 通过企微发送给用户
-3. 会话映射管理（企微会话 ↔ zCloud会话）
+3. 会话映射管理（企微会话 ↔ Javis会话）
 """
 import asyncio
 import logging
@@ -24,7 +24,7 @@ class WecomChannel(BaseChannel):
     企业微信消息通道
 
     负责：
-    1. 管理企微消息与zCloud会话的映射
+    1. 管理企微消息与Javis会话的映射
     2. 将企微消息转发给Orchestrator
     3. 将Orchestrator响应通过企微发送
     4. 接收企微回调并处理
@@ -77,7 +77,7 @@ class WecomChannel(BaseChannel):
         Args:
             user_id: 企微userid或群ID
             content: 消息内容
-            session_id: zCloud会话ID（可选）
+            session_id: Javis会话ID（可选）
             kwargs:
                 - chat_type: 1=单聊, 2=群聊
                 - msgtype: text/markdown/image/file
@@ -133,7 +133,7 @@ class WecomChannel(BaseChannel):
             channel_thread_id: 企微会话标识（userid或chatid）
 
         Returns:
-            zCloud session_id 或 None
+            Javis-DB-Agent session_id 或 None
         """
         # channel_thread_id 格式: "user:{userid}" 或 "group:{chatid}"
         key = channel_thread_id
@@ -144,11 +144,11 @@ class WecomChannel(BaseChannel):
 
     def save_mapping(self, channel_thread_id: str, session_id: str):
         """
-        保存企微会话到zCloud会话的映射
+        保存企微会话到Javis会话的映射
 
         Args:
             channel_thread_id: 企微会话标识
-            session_id: zCloud会话ID
+            session_id: Javis会话ID
         """
         # channel_thread_id格式: "user:{userid}" 或 "group:{chatid}"
         parts = channel_thread_id.split(":", 1)
@@ -203,7 +203,7 @@ class WecomChannel(BaseChannel):
             logger.info(f"[WecomCallback] Ignored msg_type={msg.msg_type}")
             return self.handler.to_channel_message(msg)
 
-        # 2. 获取或创建zCloud会话
+        # 2. 获取或创建Javis会话
         session_id = self.handler.get_session_id(msg)
         if not session_id:
             session_id = await self._get_or_create_session(msg)
@@ -218,7 +218,7 @@ class WecomChannel(BaseChannel):
         return channel_msg
 
     async def _get_or_create_session(self, msg: WecomIncomingMessage) -> str:
-        """获取或创建zCloud会话"""
+        """获取或创建Javis会话"""
         from src.gateway.session import get_session_manager
 
         session_mgr = get_session_manager()

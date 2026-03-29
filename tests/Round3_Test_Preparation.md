@@ -1,4 +1,4 @@
-# zCloudNewAgentProject 第三轮测试准备报告
+# Javis-DB-Agent 第三轮测试准备报告
 
 > 版本：v1.0 | 日期：2026-03-28 | 测试者：悟通
 
@@ -32,7 +32,7 @@
 ### 2.1 运行全部第三轮测试
 
 ```bash
-cd ~/SWproject/zCloudNewAgentProject
+cd ~/SWproject/Javis-DB-Agent
 python3 -m pytest tests/round3/ -v
 ```
 

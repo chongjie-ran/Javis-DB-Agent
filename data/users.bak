@@ -1,0 +1,11 @@
+{
+  "a8a92cb0": {
+    "user_id": "a8a92cb0",
+    "username": "admin",
+    "password_hash": "17fbe78f2f3863d7b5400e5a6548b2d1943d3d1b45665f99cf8071cd020a86f0",
+    "password_salt": "8ea3619f4b6059ffe404c43c6ac55360",
+    "role": "admin",
+    "created_at": 1774778874.3992581,
+    "is_active": true
+  }
+}

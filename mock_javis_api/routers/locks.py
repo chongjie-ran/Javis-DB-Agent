@@ -1,6 +1,6 @@
 """锁路由"""
 from fastapi import APIRouter, Query
-from mock_zcloud_api.models import gen_locks
+from mock_javis_api.models import gen_locks
 
 router = APIRouter()
 

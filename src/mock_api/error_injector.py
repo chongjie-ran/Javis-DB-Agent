@@ -1,4 +1,4 @@
-"""错误注入器 - Mock zCloud API 增强
+"""错误注入器 - Mock Javis-DB-Agent API 增强
 模拟超时、限流、级联故障等真实场景
 """
 import asyncio
@@ -214,9 +214,9 @@ class ErrorInjector:
         self._request_counts.clear()
 
 
-class MockZCloudAPIErrorInjector:
+class MockJavisAPIErrorInjector:
     """
-    包装Mock zCloud API Client，注入错误
+    包装Mock Javis-DB-Agent API Client，注入错误
     """
     
     def __init__(self, base_client, injector: Optional[ErrorInjector] = None):
@@ -472,6 +472,6 @@ def get_error_injector() -> ErrorInjector:
     return _error_injector
 
 
-def create_error_injected_client(base_client) -> MockZCloudAPIErrorInjector:
+def create_error_injected_client(base_client) -> MockJavisAPIErrorInjector:
     """创建带错误注入的客户端"""
-    return MockZCloudAPIErrorInjector(base_client, get_error_injector())
+    return MockJavisAPIErrorInjector(base_client, get_error_injector())

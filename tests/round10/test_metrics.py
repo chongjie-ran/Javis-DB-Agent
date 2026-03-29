@@ -78,7 +78,7 @@ class TestMetricsCollector:
         
         output = self.metrics.render_prometheus()
         
-        assert "zcloud_uptime_seconds" in output
+        assert "javis_uptime_seconds" in output
         assert "http_requests_total 1" in output
         assert 'http_requests_total_by_status{status="2xx"} 1' in output
         assert "ollama_connected 1" in output

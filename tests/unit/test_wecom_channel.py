@@ -57,13 +57,13 @@ class TestWecomMessage:
     def test_text_message_creation(self):
         msg = WecomMessage.text_message(
             chatid="user-001",
-            content="Hello, zCloud!",
+            content="Hello, Javis-DB-Agent!",
             chat_type=1,
         )
         assert msg.chat_type == 1
         assert msg.chatid == "user-001"
         assert msg.msgtype == "text"
-        assert msg.text["content"] == "Hello, zCloud!"
+        assert msg.text["content"] == "Hello, Javis-DB-Agent!"
 
     def test_markdown_message_creation(self):
         msg = WecomMessage.markdown_message(
@@ -126,7 +126,7 @@ class TestWecomIncomingMessage:
             "<FromUserName><![CDATA[user-002]]></FromUserName>"
             "<CreateTime>1711700001</CreateTime>"
             "<MsgType><![CDATA[text]]></MsgType>"
-            "<Content><![CDATA[@zCloud check status]]></Content>"
+            "<Content><![CDATA[@Javis-DB-Agent check status]]></Content>"
             "<MsgId>1234567891</MsgId>"
             "<AgentID>1000001</AgentID>"
             "<ChatId><![CDATA[group-001]]></ChatId>"

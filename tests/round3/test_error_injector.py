@@ -10,7 +10,7 @@ from src.mock_api.error_injector import (
     ErrorConfig,
     ErrorType,
     ErrorResult,
-    MockZCloudAPIErrorInjector,
+    MockJavisAPIErrorInjector,
     CascadeSimulator,
     get_error_injector,
 )

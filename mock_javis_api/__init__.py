@@ -1,8 +1,8 @@
 """
-Mock zCloud API Package
-提供zCloud平台的Mock API，用于开发和测试
+Mock Javis-DB-Agent API Package
+提供Javis平台的Mock API，用于开发和测试
 """
-from mock_zcloud_api.models import (
+from mock_javis_api.models import (
     # 基础模型
     Instance,
     Alert,
@@ -35,7 +35,7 @@ from mock_zcloud_api.models import (
     gen_workorder,
     gen_config_deviation,
 )
-from mock_zcloud_api.models_enhanced import (
+from mock_javis_api.models_enhanced import (
     # 增强模型
     EnhancedAlert,
     EnhancedInstance,

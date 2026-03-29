@@ -6,13 +6,13 @@
 
 ## 一、执行摘要
 
-Round 9 是项目的**收尾轮次**，核心目标是实现真实 zCloud API 接入、Mock/Real 模式切换、管理界面和 OAuth2 认证支持。
+Round 9 是项目的**收尾轮次**，核心目标是实现真实 Javis-DB-Agent API 接入、Mock/Real 模式切换、管理界面和 OAuth2 认证支持。
 
 ### 1.1 核心成果
 
 | 成果 | 说明 |
 |------|------|
-| RealClient | 真实 zCloud API 客户端，接口签名与 Mock 完全一致 |
+| RealClient | 真实 Javis-DB-Agent API 客户端，接口签名与 Mock 完全一致 |
 | OAuth2 认证 | API Key + OAuth2 两种认证方式 |
 | 管理界面 | Web Dashboard (dashboard.html)，7个API路由 |
 | API 模式切换 | switch_api_mode.py 脚本，支持 mock↔real 切换 |
@@ -129,10 +129,10 @@ python scripts/switch_api_mode.py real --oauth2 --client-id XXX --client-secret 
 ### 5.1 configs/config.yaml 新增
 
 ```yaml
-zcloud_api:
+javis_api:
   mode: mock  # mock | real
   real:
-    base_url: https://api.zcloud.com
+    base_url: https://api.javis-db.com
     auth_type: api_key  # api_key | oauth2
     api_key: ""
     oauth2:

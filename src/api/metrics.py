@@ -151,9 +151,9 @@ class MetricsCollector:
         lines = []
         uptime = time.time() - self._start_time
 
-        lines.append("# HELP zcloud_uptime_seconds zCloud agent uptime in seconds")
-        lines.append("# TYPE zcloud_uptime_seconds gauge")
-        lines.append(f"zcloud_uptime_seconds {uptime:.3f}")
+        lines.append("# HELP javis_uptime_seconds Javis-DB-Agent agent uptime in seconds")
+        lines.append("# TYPE javis_uptime_seconds gauge")
+        lines.append(f"javis_uptime_seconds {uptime:.3f}")
 
         # HTTP 请求总量
         total = self._counters["http_requests_total"].get()

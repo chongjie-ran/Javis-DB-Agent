@@ -4,7 +4,7 @@ import random
 from typing import Optional
 
 from fastapi import APIRouter, Path, Query
-from mock_zcloud_api.models_enhanced import (
+from mock_javis_api.models_enhanced import (
     gen_enhanced_slow_sqls,
     gen_sql_plan
 )

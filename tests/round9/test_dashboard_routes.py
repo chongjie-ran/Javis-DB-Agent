@@ -30,7 +30,7 @@ class TestDashboardRoutes:
         """测试应用创建成功"""
         app = create_app()
         assert app is not None
-        assert app.title == "zCloudNewAgentProject"
+        assert app.title == "Javis-DB-Agent"
     
     def test_health_endpoint_exists(self, client):
         """测试健康检查端点存在"""

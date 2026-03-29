@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Ollama推理质量验证脚本
-验证zCloud智能体在真实Ollama上的推理质量
+验证Javis智能体在真实Ollama上的推理质量
 """
 import asyncio
 import json
@@ -25,7 +25,7 @@ class OllamaQualityValidator:
     async def run_all_tests(self):
         """运行所有测试"""
         print("=" * 60)
-        print("zCloud 智能体 Ollama 推理质量验证")
+        print("Javis-DB-Agent 智能体 Ollama 推理质量验证")
         print("=" * 60)
         
         # 1. 健康检查

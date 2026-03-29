@@ -175,7 +175,7 @@ class AlertCorrelator:
         Args:
             primary_alert_id: 主要告警ID
             all_alerts: 所有告警列表
-            mock_client: Mock zCloud客户端（可选）
+            mock_client: Mock Javis客户端（可选）
         
         Returns:
             CorrelationResult: 关联分析结果
@@ -539,7 +539,7 @@ class AlertCorrelator:
         return " | ".join(summary_parts) if summary_parts else f"告警 {primary_alert_id} 正在分析中"
 
 
-# ==================== Mock zCloud 告警关联客户端 ====================
+# ==================== Mock Javis-DB-Agent 告警关联客户端 ====================
 
 class MockAlertCorrelator(AlertCorrelator):
     """Mock环境的告警关联器"""
@@ -560,7 +560,7 @@ class MockAlertCorrelator(AlertCorrelator):
         
         Args:
             alert_id: 告警ID
-            mock_client: Mock zCloud客户端
+            mock_client: Mock Javis客户端
             instance_id: 实例ID（可选，用于过滤）
             time_range_seconds: 时间范围（秒）
         

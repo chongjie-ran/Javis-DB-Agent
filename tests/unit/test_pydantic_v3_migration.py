@@ -43,7 +43,7 @@ class TestSettingsBehavior:
 
     def test_settings_defaults(self):
         s = Settings()
-        assert s.app_name == "zCloudNewAgentProject"
+        assert s.app_name == "Javis-DB-Agent"
         assert s.debug is False
         assert s.api_port == 8000
 

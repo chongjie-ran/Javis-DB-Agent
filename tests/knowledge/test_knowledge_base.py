@@ -12,7 +12,7 @@ class TestAlertRules:
     
     @pytest.fixture
     def alert_rules_path(self):
-        return Path("~/SWproject/zCloudNewAgentProject/knowledge/alert_rules.yaml").expanduser()
+        return Path("~/SWproject/Javis-DB-Agent/knowledge/alert_rules.yaml").expanduser()
     
     @pytest.fixture
     def alert_rules(self, alert_rules_path):
@@ -86,7 +86,7 @@ class TestSOPKnowledge:
     
     @pytest.fixture
     def sop_path(self):
-        return Path("~/SWproject/zCloudNewAgentProject/knowledge/sop/").expanduser()
+        return Path("~/SWproject/Javis-DB-Agent/knowledge/sop/").expanduser()
     
     @pytest.fixture
     def sop_files(self, sop_path):
@@ -126,7 +126,7 @@ class TestKnowledgeSearchability:
     
     @pytest.fixture
     def alert_rules_path(self):
-        return Path("~/SWproject/zCloudNewAgentProject/knowledge/alert_rules.yaml").expanduser()
+        return Path("~/SWproject/Javis-DB-Agent/knowledge/alert_rules.yaml").expanduser()
     
     @pytest.fixture
     def alert_rules(self, alert_rules_path):
@@ -169,7 +169,7 @@ class TestKnowledgeCompleteness:
     
     def test_knowledge_has_cases(self):
         """验证知识库包含案例"""
-        cases_path = Path("~/SWproject/zCloudNewAgentProject/knowledge/cases/")
+        cases_path = Path("~/SWproject/Javis-DB-Agent/knowledge/cases/")
         # 如果cases目录存在，验证有案例文件
         if cases_path.exists():
             case_files = list(cases_path.glob("*.md"))

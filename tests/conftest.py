@@ -1,5 +1,5 @@
 """
-Test configuration and fixtures for zCloudNewAgentProject
+Test configuration and fixtures for Javis-DB-Agent
 """
 import os
 import sys
@@ -35,8 +35,8 @@ def mock_ollama_client():
 
 
 @pytest.fixture
-def mock_zcloud_context():
-    """Mock zCloud platform context"""
+def mock_javis_context():
+    """Mock Javis-DB-Agent platform context"""
     return {
         "instance_id": "INS-TEST-001",
         "alert_id": "ALT-TEST-001",

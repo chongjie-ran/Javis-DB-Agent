@@ -1,13 +1,20 @@
 # Changelog
 
-All notable changes to the zCloudNewAgentProject will be documented in this file.
+All notable changes to the Javis-DB-Agent will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [v1.0-Beta] - 2026-03-29
+
+### 首发版本
+- Beta商用版本发布
+
+---
 
 ## [1.0.0] - 2026-03-28
 
 ### Added
-- **RealClient** (`src/real_api/`) - 真实 zCloud API 客户端
+- **RealClient** (`src/real_api/`) - 真实 Javis-DB-Agent API 客户端
   - `client.py` - RealZCloudClient 实现，9个API接口
   - `auth.py` - 认证提供者（API Key + OAuth2）
   - `config.py` - RealAPIConfig 配置管理

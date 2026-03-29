@@ -1,4 +1,4 @@
-"""zCloud 消息通道"""
+"""Javis-DB-Agent 消息通道"""
 from src.channels.base import BaseChannel, ChannelMessage, ChannelResponse
 from src.channels.email.client import EmailClient
 from src.channels.email.message_handler import EmailChannel, EmailMessageHandler, EmailChannelConfig

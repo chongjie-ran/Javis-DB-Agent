@@ -34,8 +34,8 @@ from src.tools.query_tools import QueryInstanceStatusTool, QuerySessionTool, Que
 # ============================================================================
 
 @pytest.fixture
-def mock_zcloud_client():
-    """Mock zCloud客户端"""
+def mock_javis_client():
+    """Mock Javis客户端"""
     client = MagicMock()
     
     # Mock实例数据
@@ -160,7 +160,7 @@ class TestAlertDiagnosisE2E:
     """告警诊断端到端测试"""
     
     @pytest.mark.asyncio
-    async def test_single_alert_diagnosis_flow(self, mock_zcloud_client, mock_llm_response):
+    async def test_single_alert_diagnosis_flow(self, mock_javis_client, mock_llm_response):
         """
         测试单个告警的完整诊断流程
         
@@ -176,7 +176,7 @@ class TestAlertDiagnosisE2E:
         
         context = {
             "instance_id": "INS-PROD-001",
-            "mock_client": mock_zcloud_client,
+            "mock_client": mock_javis_client,
         }
         
         # Execute
@@ -189,7 +189,7 @@ class TestAlertDiagnosisE2E:
         assert len(context["correlation_chain"]) >= 1, "关联链太短"
     
     @pytest.mark.asyncio
-    async def test_alert_chain_diagnosis_flow(self, mock_zcloud_client, mock_llm_response):
+    async def test_alert_chain_diagnosis_flow(self, mock_javis_client, mock_llm_response):
         """
         测试告警链的完整诊断流程
         
@@ -204,14 +204,14 @@ class TestAlertDiagnosisE2E:
         
         context = {
             "instance_id": "INS-PROD-001",
-            "mock_client": mock_zcloud_client,
+            "mock_client": mock_javis_client,
         }
         
         # Execute
         result = await agent.diagnose_alert_chain(
             alert_ids=["ALT-001", "ALT-002", "ALT-003"],
             context=context,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         # Assert
@@ -219,7 +219,7 @@ class TestAlertDiagnosisE2E:
         assert "diagnostic_path" in context, "未生成诊断路径"
     
     @pytest.mark.asyncio
-    async def test_alert_correlation_completeness(self, mock_zcloud_client):
+    async def test_alert_correlation_completeness(self, mock_javis_client):
         """
         测试告警关联推理的完整性
         
@@ -232,13 +232,13 @@ class TestAlertDiagnosisE2E:
         
         # Setup
         correlator = get_mock_alert_correlator()
-        all_alerts = await mock_zcloud_client.get_alerts(status="active")
+        all_alerts = await mock_javis_client.get_alerts(status="active")
         
         # Execute
         result = await correlator.correlate_alerts(
             primary_alert_id="ALT-003",  # LOCK_WAIT
             all_alerts=all_alerts,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         # Assert
@@ -260,7 +260,7 @@ class TestSessionQueryE2E:
     """会话查询端到端测试"""
     
     @pytest.mark.asyncio
-    async def test_session_list_query_flow(self, mock_zcloud_client):
+    async def test_session_list_query_flow(self, mock_javis_client):
         """
         测试会话列表查询流程
         
@@ -272,7 +272,7 @@ class TestSessionQueryE2E:
         # Setup
         tool = QuerySessionTool()
         params = {"instance_id": "INS-PROD-001", "limit": 10}
-        context = {"mock_client": mock_zcloud_client}
+        context = {"mock_client": mock_javis_client}
         
         # Execute
         result = await tool.execute(params, context)
@@ -284,7 +284,7 @@ class TestSessionQueryE2E:
         assert len(result.data["sessions"]) <= 10, "limit参数未生效"
     
     @pytest.mark.asyncio
-    async def test_session_filter_flow(self, mock_zcloud_client):
+    async def test_session_filter_flow(self, mock_javis_client):
         """
         测试会话过滤查询流程
         
@@ -295,7 +295,7 @@ class TestSessionQueryE2E:
         # Setup
         tool = QuerySessionTool()
         params = {"instance_id": "INS-PROD-001", "filter": "status=ACTIVE"}
-        context = {"mock_client": mock_zcloud_client}
+        context = {"mock_client": mock_javis_client}
         
         # Execute
         result = await tool.execute(params, context)
@@ -313,7 +313,7 @@ class TestSQLAnalysisE2E:
     """SQL分析端到端测试"""
     
     @pytest.mark.asyncio
-    async def test_slow_sql_detection_flow(self, mock_zcloud_client):
+    async def test_slow_sql_detection_flow(self, mock_javis_client):
         """
         测试慢SQL检测流程
         
@@ -326,7 +326,7 @@ class TestSQLAnalysisE2E:
         from src.tools.query_tools import QuerySlowSQLTool
         tool = QuerySlowSQLTool()
         params = {"instance_id": "INS-PROD-001", "limit": 5}
-        context = {"mock_client": mock_zcloud_client}
+        context = {"mock_client": mock_javis_client}
         
         # Execute
         result = await tool.execute(params, context)
@@ -340,7 +340,7 @@ class TestSQLAnalysisE2E:
             assert sql["execution_time_ms"] > 0, "执行时间应为正数"
     
     @pytest.mark.asyncio
-    async def test_sql_analyzer_integration(self, mock_zcloud_client, mock_llm_response):
+    async def test_sql_analyzer_integration(self, mock_javis_client, mock_llm_response):
         """
         测试SQL分析Agent集成
         
@@ -368,7 +368,7 @@ sql_abc12345
         
         context = {
             "instance_id": "INS-PROD-001",
-            "mock_client": mock_zcloud_client,
+            "mock_client": mock_javis_client,
             "sql_id": "sql_abc12345",
         }
         
@@ -387,7 +387,7 @@ class TestInspectionE2E:
     """巡检报告端到端测试"""
     
     @pytest.mark.asyncio
-    async def test_health_inspection_flow(self, mock_zcloud_client):
+    async def test_health_inspection_flow(self, mock_javis_client):
         """
         测试健康巡检流程
         
@@ -419,7 +419,7 @@ class TestInspectionE2E:
         
         context = {
             "instance_id": "INS-PROD-001",
-            "mock_client": mock_zcloud_client,
+            "mock_client": mock_javis_client,
         }
         
         # Execute
@@ -438,7 +438,7 @@ class TestRiskAssessmentE2E:
     """风险评估端到端测试"""
     
     @pytest.mark.asyncio
-    async def test_risk_level_calculation(self, mock_zcloud_client):
+    async def test_risk_level_calculation(self, mock_javis_client):
         """
         测试风险等级计算
         
@@ -473,7 +473,7 @@ class TestRiskAssessmentE2E:
             "instance_id": "INS-PROD-001",
             "operation": "kill_session",
             "target": {"sid": 1001, "serial#": 2001},
-            "mock_client": mock_zcloud_client,
+            "mock_client": mock_javis_client,
         }
         
         # Execute
@@ -483,7 +483,7 @@ class TestRiskAssessmentE2E:
         assert result.success, f"风险评估失败: {result.content}"
     
     @pytest.mark.asyncio
-    async def test_auto_vs_manual_decision(self, mock_zcloud_client):
+    async def test_auto_vs_manual_decision(self, mock_javis_client):
         """
         测试自动/手动决策判断
         
@@ -510,7 +510,7 @@ class TestRiskAssessmentE2E:
         context = {
             "instance_id": "INS-PROD-001",
             "operation": "query_status",
-            "mock_client": mock_zcloud_client,
+            "mock_client": mock_javis_client,
         }
         
         # Execute
@@ -580,7 +580,7 @@ class TestMultiAgentCollaborationE2E:
             "不应选择无关Agent"
     
     @pytest.mark.asyncio
-    async def test_full_diagnosis_workflow(self, mock_zcloud_client, mock_llm_response):
+    async def test_full_diagnosis_workflow(self, mock_javis_client, mock_llm_response):
         """
         测试完整诊断工作流（编排+诊断+风险）
         
@@ -606,7 +606,7 @@ class TestMultiAgentCollaborationE2E:
         context = {
             "instance_id": "INS-PROD-001",
             "alert_id": "ALT-001",
-            "mock_client": mock_zcloud_client,
+            "mock_client": mock_javis_client,
         }
         
         # Execute - 模拟编排流程

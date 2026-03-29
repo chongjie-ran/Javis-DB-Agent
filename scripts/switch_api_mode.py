@@ -29,15 +29,15 @@ def save_config(config: dict):
 
 
 def get_current_mode(config: dict) -> str:
-    return config.get("zcloud_api", {}).get("use_mock", True)
+    return config.get("javis_api", {}).get("use_mock", True)
 
 
 def switch_to_mock():
     """切换到Mock模式"""
     config = load_config()
-    if "zcloud_api" not in config:
-        config["zcloud_api"] = {}
-    config["zcloud_api"]["use_mock"] = True
+    if "javis_api" not in config:
+        config["javis_api"] = {}
+    config["javis_api"]["use_mock"] = True
     save_config(config)
     print("✅ 已切换到 Mock 模式")
     print("   - use_mock: true")
@@ -55,15 +55,15 @@ def switch_to_real(
     config = load_config()
     
     # 启用真实API
-    if "zcloud_api" not in config:
-        config["zcloud_api"] = {}
-    config["zcloud_api"]["use_mock"] = False
+    if "javis_api" not in config:
+        config["javis_api"] = {}
+    config["javis_api"]["use_mock"] = False
     
     # 配置真实API参数
-    if "zcloud_real_api" not in config:
-        config["zcloud_real_api"] = {}
+    if "javis_real_api" not in config:
+        config["javis_real_api"] = {}
     
-    real_api = config["zcloud_real_api"]
+    real_api = config["javis_real_api"]
     if base_url:
         real_api["base_url"] = base_url
     if api_key:
@@ -92,8 +92,8 @@ def show_status():
     mode = "Mock" if get_current_mode(config) else "Real API"
     print(f"📌 当前模式: {mode}")
     print()
-    print(f"   use_mock = {config.get('zcloud_api', {}).get('use_mock', True)}")
-    real_api = config.get("zcloud_real_api", {})
+    print(f"   use_mock = {config.get('javis_api', {}).get('use_mock', True)}")
+    real_api = config.get("javis_real_api", {})
     if real_api:
         print(f"   real_api.base_url = {real_api.get('base_url', 'N/A')}")
         print(f"   real_api.auth_type = {real_api.get('auth_type', 'N/A')}")
@@ -106,7 +106,7 @@ def edit_config():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="zCloud API 模式切换工具")
+    parser = argparse.ArgumentParser(description="Javis-DB-Agent API 模式切换工具")
     parser.add_argument("--mode", choices=["mock", "real"], help="切换到指定模式")
     parser.add_argument("--status", action="store_true", help="查看当前模式")
     parser.add_argument("--config", action="store_true", help="编辑配置文件")

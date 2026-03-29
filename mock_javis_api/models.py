@@ -1,6 +1,6 @@
 """
-zCloud API Mock Server
-用于本地开发和测试zCloud智能体系统
+Javis-DB-Agent API Mock Server
+用于本地开发和测试Javis智能体系统
 """
 import time
 import uuid

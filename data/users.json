@@ -1,0 +1,11 @@
+{
+  "e1feea9f": {
+    "user_id": "e1feea9f",
+    "username": "admin",
+    "password_hash": "50f4378f055ab6cc7c6d099386172da17aeab0b3947405bacaa009c5bb924121",
+    "password_salt": "eb589b015513c994f08f36453b6a484f",
+    "role": "admin",
+    "created_at": 1774779014.9442298,
+    "is_active": true
+  }
+}

@@ -1,7 +1,7 @@
 """企业微信消息处理器
 
 负责解析企微回调消息，转换为统一ChannelMessage格式，
-并管理企微会话与zCloud会话的映射关系。
+并管理企微会话与Javis会话的映射关系。
 """
 import hashlib
 import hmac
@@ -25,13 +25,13 @@ class WecomMessageHandler:
     功能：
     1. 解析企微回调消息（支持XML和JSON格式）
     2. 验证消息签名（可选）
-    3. 管理会话映射（企微userid/chatid → zCloud session_id）
+    3. 管理会话映射（企微userid/chatid → Javis-DB-Agent session_id）
     4. 将企微消息转换为统一ChannelMessage格式
     """
 
     def __init__(self, config: Optional[WecomChannelConfig] = None):
         self.config = config or get_wecom_config()
-        self._session_map: dict[str, str] = {}  # channel_key → zCloud session_id
+        self._session_map: dict[str, str] = {}  # channel_key → Javis-DB-Agent session_id
         self._access_token: Optional[str] = None
         self._token_expires_at: float = 0
 

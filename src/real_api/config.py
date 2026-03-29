@@ -5,17 +5,17 @@ from typing import Optional
 
 
 class RealAPIConfig(BaseSettings):
-    """真实zCloud API配置"""
+    """真实Javis API配置"""
     
     # API基础地址
-    base_url: str = "https://zcloud.example.com/api/v1"
+    base_url: str = "https://javis-db.example.com/api/v1"
     
     # 认证方式: "oauth2" | "api_key"
     auth_type: str = "api_key"
     
     # OAuth2配置
-    oauth_token_url: str = "https://zcloud.example.com/oauth/token"
-    oauth_authorize_url: str = "https://zcloud.example.com/oauth/authorize"
+    oauth_token_url: str = "https://javis-db.example.com/oauth/token"
+    oauth_authorize_url: str = "https://javis-db.example.com/oauth/authorize"
     oauth_client_id: str = ""
     oauth_client_secret: str = ""
     oauth_scope: str = "read write"

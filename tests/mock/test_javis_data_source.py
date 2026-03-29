@@ -1,5 +1,5 @@
 """
-zCloud数据源Mock数据 - 第二轮测试
+Javis数据源Mock数据 - 第二轮测试
 提供更全面的测试数据
 """
 import pytest
@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 
 
 class ZCloudMockDataGenerator:
-    """zCloud Mock数据生成器"""
+    """Javis-DB-Agent Mock数据生成器"""
     
     @staticmethod
     def generate_instance_status(instance_id: str = "INS-TEST-001", **overrides) -> Dict[str, Any]:

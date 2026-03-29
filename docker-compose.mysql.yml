@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: javis-db-mysql-test
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: test123
+      MYSQL_DATABASE: zcloud_test_mysql
+      MYSQL_USER: javis-db
+      MYSQL_PASSWORD: zcloud123
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max-connections=500
+      - --innodb-buffer-pool-size=128M
+    volumes:
+      - mysql_test_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-ptest123"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mysql_perf:
+    image: mysql:8.0
+    container_name: javis-db-mysql-perf
+    ports:
+      - "3308:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: perf123
+      MYSQL_DATABASE: javis_perf
+      MYSQL_USER: perf_user
+      MYSQL_PASSWORD: perf123
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --max-connections=1000
+      - --innodb-buffer-pool-size=256M
+      - --innodb-log-file-size=256M
+      - --slow-query-log=1
+      - --long-query-time=0.1
+    volumes:
+      - mysql_perf_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pperf123"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mysql_test_data:
+  mysql_perf_data:

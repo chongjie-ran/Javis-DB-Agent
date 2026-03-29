@@ -1,4 +1,4 @@
-# zCloudNewAgentProject 技术方案
+# Javis-DB-Agent 技术方案
 
 > 版本：v1.0 | 日期：2026-03-28 | 状态：初稿
 
@@ -48,7 +48,7 @@
 ## 2. 项目结构
 
 ```
-zCloudNewAgentProject/
+Javis-DB-Agent/
 ├── src/
 │   ├── __init__.py
 │   ├── main.py                 # 应用入口

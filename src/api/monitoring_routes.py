@@ -61,7 +61,7 @@ async def get_monitoring_cards():
     - health_trend: 健康趋势
     - last_updated: 更新时间戳
     """
-    # 从zCloud API获取实例数据
+    # 从Javis API获取实例数据
     try:
         from src.api_client_factory import get_api_client
         client = get_api_client()

@@ -4,7 +4,7 @@ import os
 import sqlite3
 from datetime import datetime
 
-DB_PATH = "data/zcloud_agent.db"
+DB_PATH = "data/javis_db_agent.db"
 AUDIT_DB_PATH = "data/audit.db"
 
 
@@ -108,7 +108,7 @@ def init_audit_db():
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("zCloudNewAgentProject 数据库初始化")
+    print("Javis-DB-Agent 数据库初始化")
     print("=" * 50)
     init_main_db()
     init_audit_db()

@@ -6,7 +6,7 @@
 
 ## 一、概述
 
-本文档描述 zCloudNewAgentProject 的 MySQL 数据库兼容性测试方案。
+本文档描述 Javis-DB-Agent 的 MySQL 数据库兼容性测试方案。
 
 ### 1.1 测试目标
 
@@ -34,10 +34,10 @@
 ```bash
 # 启动 MySQL 8.0 容器
 docker run -d \
-  --name zcloud-mysql-test \
+  --name javis-db-mysql-test \
   -e MYSQL_ROOT_PASSWORD=test123 \
   -e MYSQL_DATABASE=zcloud_test_mysql \
-  -e MYSQL_USER=zcloud \
+  -e MYSQL_USER=javis-db \
   -e MYSQL_PASSWORD=zcloud123 \
   -p 3307:3306 \
   mysql:8.0 \
@@ -61,7 +61,7 @@ mysql -h 127.0.0.1 -P 3307 -u root -ptest123 -e "SELECT VERSION();"
 | Root 用户 | root |
 | Root 密码 | test123 |
 | 测试数据库 | zcloud_test_mysql |
-| 测试用户 | zcloud |
+| 测试用户 | javis-db |
 | 测试用户密码 | zcloud123 |
 
 ---

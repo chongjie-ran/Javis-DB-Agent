@@ -86,7 +86,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        description="zCloud数据库运维智能体系统",
+        description="Javis-DB-Agent数据库运维智能体系统",
         lifespan=lifespan,
     )
 

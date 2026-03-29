@@ -1,4 +1,4 @@
-# zCloudNewAgentProject 第三轮迭代执行报告
+# Javis-DB-Agent 第三轮迭代执行报告
 
 > 版本：v1.0 | 日期：2026-03-28 | 执行者：悟通
 
@@ -195,11 +195,11 @@ test_cascade_failure_scenario
 
 ```python
 from src.gateway.alert_correlator import get_mock_alert_correlator
-from src.mock_api.zcloud_client import get_mock_zcloud_client
+from src.mock_api.javis_client import get_mock_javis_client
 
 # 获取组件
 correlator = get_mock_alert_correlator()
-mock_client = get_mock_zcloud_client()
+mock_client = get_mock_javis_client()
 
 # 执行关联分析
 result = await correlator.correlate_alerts(

@@ -1,4 +1,4 @@
-# zCloudNewAgentProject 第二轮测试准备报告
+# Javis-DB-Agent 第二轮测试准备报告
 
 > 版本：v1.0 | 日期：2026-03-28 | 测试者：真显
 
@@ -41,7 +41,7 @@
 - ⚠️ 需要Ollama服务运行才能执行
 
 ### 3. API Mock测试框架 ✅
-**文件**: `tests/mock/test_zcloud_api_mock.py`
+**文件**: `tests/mock/test_javis_api_mock.py`
 
 | 测试类 | 测试数 | 覆盖内容 |
 |--------|--------|----------|
@@ -56,8 +56,8 @@
 - `MockZCloudAlertAPI` - 告警管理
 - `MockZCloudInspectionAPI` - 巡检管理
 
-### 4. zCloud数据源Mock数据 ✅
-**文件**: `tests/mock/test_zcloud_data_source.py`
+### 4. Javis数据源Mock数据 ✅
+**文件**: `tests/mock/test_javis_data_source.py`
 
 | 方法 | 用途 |
 |------|------|
@@ -88,7 +88,7 @@
 
 ### 运行知识库测试
 ```bash
-cd ~/SWproject/zCloudNewAgentProject
+cd ~/SWproject/Javis-DB-Agent
 python3 -m pytest tests/knowledge/test_knowledge_base.py -v
 ```
 
@@ -103,19 +103,19 @@ python3 -m pytest tests/ollama/test_ollama_inference.py -v -s
 
 ### 运行API Mock测试
 ```bash
-cd ~/SWproject/zCloudNewAgentProject
-python3 -m pytest tests/mock/test_zcloud_api_mock.py -v
+cd ~/SWproject/Javis-DB-Agent
+python3 -m pytest tests/mock/test_javis_api_mock.py -v
 ```
 
 ### 运行数据源Mock测试
 ```bash
-cd ~/SWproject/zCloudNewAgentProject
-python3 -m pytest tests/mock/test_zcloud_data_source.py -v
+cd ~/SWproject/Javis-DB-Agent
+python3 -m pytest tests/mock/test_javis_data_source.py -v
 ```
 
 ### 运行全部第二轮测试
 ```bash
-cd ~/SWproject/zCloudNewAgentProject
+cd ~/SWproject/Javis-DB-Agent
 python3 -m pytest tests/knowledge/ tests/ollama/ tests/mock/ -v
 ```
 
@@ -135,7 +135,7 @@ python3 -m pytest tests/knowledge/ tests/ollama/ tests/mock/ -v
 ## 五、已知限制
 
 1. **Ollama服务**: 测试需要真实的Ollama服务运行，否则跳过
-2. **zCloud平台**: 所有数据源使用Mock，无真实平台
+2. **Javis平台**: 所有数据源使用Mock，无真实平台
 3. **端到端测试**: 待完整Agent实现后添加
 
 ---

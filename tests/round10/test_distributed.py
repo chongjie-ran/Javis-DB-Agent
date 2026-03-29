@@ -17,8 +17,8 @@ class TestDistributedSessionManager:
         mgr._redis_ok = False
         mgr._ttl = 86400
         
-        assert mgr._redis_key("sess-123") == "zcloud:session:sess-123"
-        assert mgr._redis_user_key("user-abc") == "zcloud:user_sessions:user-abc"
+        assert mgr._redis_key("sess-123") == "javis-db:session:sess-123"
+        assert mgr._redis_user_key("user-abc") == "javis-db:user_sessions:user-abc"
 
     def test_is_distributed_returns_redis_status(self):
         """测试is_distributed属性"""
@@ -127,8 +127,8 @@ class TestDistributedApprovalManager:
         mgr._redis_ok = False
         mgr._store_path = "data/approvals.jsonl"
         
-        assert mgr._redis_key("apr-123") == "zcloud:approval:apr-123"
-        assert mgr._redis_pending_key() == "zcloud:approvals:pending"
+        assert mgr._redis_key("apr-123") == "javis-db:approval:apr-123"
+        assert mgr._redis_pending_key() == "javis-db:approvals:pending"
 
     def test_verify_consistency_single_node(self):
         """测试单节点审批一致性检查"""

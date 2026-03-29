@@ -97,7 +97,7 @@
 
 ---
 
-### tests/mock/test_zcloud_api_mock.py
+### tests/mock/test_javis_api_mock.py
 | 测试用例 | 状态 |
 |----------|------|
 | `TestMockZCloudAPI::test_get_instance_status` | ✅ PASSED |
@@ -115,7 +115,7 @@
 
 ---
 
-### tests/mock/test_zcloud_data_source.py
+### tests/mock/test_javis_data_source.py
 | 测试用例 | 状态 |
 |----------|------|
 | `TestMockDataGenerator::test_generate_instance_status` | ✅ PASSED |
@@ -401,8 +401,8 @@
 | `TestAPIModeSwitch::test_switch_to_real_with_oauth` | ✅ PASSED |
 | `TestAPIModeSwitch::test_switch_to_real_masks_api_key` | ✅ PASSED |
 | `TestAPIModeSwitch::test_config_persistence` | ✅ PASSED |
-| `TestAPIModeSwitch::test_zcloud_real_api_section_created` | ✅ PASSED |
-| `TestAPIModeSwitchEdgeCases::test_missing_zcloud_api_section` | ✅ PASSED |
+| `TestAPIModeSwitch::test_javis_real_api_section_created` | ✅ PASSED |
+| `TestAPIModeSwitchEdgeCases::test_missing_javis_api_section` | ✅ PASSED |
 | `TestAPIModeSwitchEdgeCases::test_switch_without_api_key` | ✅ PASSED |
 | `TestShowStatus::test_show_status_output` | ✅ PASSED |
 
@@ -583,8 +583,8 @@
 |----------|------|------|------|------|
 | `tests/integration/test_integration.py` | 17 | 0 | 0 | 17 |
 | `tests/knowledge/test_knowledge_base.py` | 19 | 0 | 0 | 19 |
-| `tests/mock/test_zcloud_api_mock.py` | 10 | 0 | 0 | 10 |
-| `tests/mock/test_zcloud_data_source.py` | 9 | 0 | 0 | 9 |
+| `tests/mock/test_javis_api_mock.py` | 10 | 0 | 0 | 10 |
+| `tests/mock/test_javis_data_source.py` | 9 | 0 | 0 | 9 |
 | `tests/ollama/test_ollama_inference.py` | 10 | 0 | 0 | 10 |
 | `tests/round3/test_alert_chain_reasoning.py` | 23 | 0 | 0 | 23 |
 | `tests/round3/test_alert_correlation.py` | 9 | 0 | 0 | 9 |
@@ -629,7 +629,7 @@
 
 1. **Mock 服务器相关**（3个）：需要启动 mock 服务器或改为纯单元测试
 2. **OAuth2 相关**（4个）：配置 `TESLA_OAUTH2_*` 环境变量即可激活
-3. **真实 API 流程**（1个）：配置真实 zCloud API Key 后自动激活
+3. **真实 API 流程**（1个）：配置真实 Javis-DB-Agent API Key 后自动激活
 
 ---
 

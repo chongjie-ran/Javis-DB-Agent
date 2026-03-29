@@ -1,12 +1,12 @@
 """
-zCloud Mock API Server - FastAPI Application (增强版)
+Javis-DB-Agent Mock API Server - FastAPI Application (增强版)
 支持 QPS 限制和增强的数据格式
 """
 import time
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from mock_zcloud_api.routers import (
+from mock_javis_api.routers import (
     instances, alerts, sessions, locks, sqls,
     replication, parameters, capacity, inspection, workorders
 )
@@ -15,8 +15,8 @@ from src.mock_api.qps_limiter import (
 )
 
 app = FastAPI(
-    title="zCloud Mock API",
-    description="zCloud数据库运维智能体Mock API，用于本地开发和测试（增强版）",
+    title="Javis-DB-Agent Mock API",
+    description="Javis-DB-Agent数据库运维智能体Mock API，用于本地开发和测试（增强版）",
     version="v1.1.0"
 )
 
@@ -105,7 +105,7 @@ app.include_router(workorders.router, prefix="/api/v1", tags=["工单"])
 @app.get("/")
 async def root():
     return {
-        "service": "zCloud Mock API",
+        "service": "Javis-DB-Agent Mock API",
         "version": "v1.1.0",
         "status": "running",
         "features": [

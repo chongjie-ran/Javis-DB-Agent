@@ -20,8 +20,8 @@ class TestRealClientImport:
     
     def test_import_real_client(self):
         """测试RealClient可导入"""
-        from src.real_api import ZCloudRealClient
-        assert ZCloudRealClient is not None
+        from src.real_api import JavisRealClient
+        assert JavisRealClient is not None
     
     def test_import_auth_providers(self):
         """测试认证提供者可导入"""
@@ -48,31 +48,31 @@ class TestRealClientInitialization:
     
     def test_client_init_default(self):
         """测试默认初始化"""
-        from src.real_api import ZCloudRealClient
+        from src.real_api import JavisRealClient
         
-        client = ZCloudRealClient()
+        client = JavisRealClient()
         assert client is not None
         assert client.config is not None
     
     def test_client_init_with_config(self):
         """测试使用配置初始化"""
-        from src.real_api import ZCloudRealClient, RealAPIConfig
+        from src.real_api import JavisRealClient, RealAPIConfig
         
         config = RealAPIConfig(
             base_url="https://test.example.com/api/v1",
             auth_type="api_key",
             api_key="test-key",
         )
-        client = ZCloudRealClient(config=config)
+        client = JavisRealClient(config=config)
         
         assert client.config.base_url == "https://test.example.com/api/v1"
         assert client.config.api_key == "test-key"
     
     def test_client_has_required_methods(self):
         """测试客户端具有必需方法"""
-        from src.real_api import ZCloudRealClient
+        from src.real_api import JavisRealClient
         
-        client = ZCloudRealClient()
+        client = JavisRealClient()
         
         # 实例管理
         assert hasattr(client, "get_instance")
@@ -186,12 +186,12 @@ class TestInterfaceSignatureConsistency:
     
     def test_get_instance_signature(self):
         """测试get_instance方法签名一致"""
-        from src.real_api import ZCloudRealClient
-        from src.mock_api import MockZCloudClient
+        from src.real_api import JavisRealClient
+        from src.mock_api import MockJavisClient
         import inspect
         
-        real_sig = inspect.signature(ZCloudRealClient.get_instance)
-        mock_sig = inspect.signature(MockZCloudClient.get_instance)
+        real_sig = inspect.signature(JavisRealClient.get_instance)
+        mock_sig = inspect.signature(MockJavisClient.get_instance)
         
         # 参数名应该一致（除了self）
         real_params = list(real_sig.parameters.keys())[1:]  # 排除self
@@ -201,12 +201,12 @@ class TestInterfaceSignatureConsistency:
     
     def test_get_alerts_signature(self):
         """测试get_alerts方法签名一致"""
-        from src.real_api import ZCloudRealClient
-        from src.mock_api import MockZCloudClient
+        from src.real_api import JavisRealClient
+        from src.mock_api import MockJavisClient
         import inspect
         
-        real_sig = inspect.signature(ZCloudRealClient.get_alerts)
-        mock_sig = inspect.signature(MockZCloudClient.get_alerts)
+        real_sig = inspect.signature(JavisRealClient.get_alerts)
+        mock_sig = inspect.signature(MockJavisClient.get_alerts)
         
         real_params = list(real_sig.parameters.keys())[1:]
         mock_params = list(mock_sig.parameters.keys())[1:]
@@ -215,12 +215,12 @@ class TestInterfaceSignatureConsistency:
     
     def test_get_sessions_signature(self):
         """测试get_sessions方法签名一致"""
-        from src.real_api import ZCloudRealClient
-        from src.mock_api import MockZCloudClient
+        from src.real_api import JavisRealClient
+        from src.mock_api import MockJavisClient
         import inspect
         
-        real_sig = inspect.signature(ZCloudRealClient.get_sessions)
-        mock_sig = inspect.signature(MockZCloudClient.get_sessions)
+        real_sig = inspect.signature(JavisRealClient.get_sessions)
+        mock_sig = inspect.signature(MockJavisClient.get_sessions)
         
         real_params = list(real_sig.parameters.keys())[1:]
         mock_params = list(mock_sig.parameters.keys())[1:]
@@ -229,12 +229,12 @@ class TestInterfaceSignatureConsistency:
     
     def test_get_locks_signature(self):
         """测试get_locks方法签名一致"""
-        from src.real_api import ZCloudRealClient
-        from src.mock_api import MockZCloudClient
+        from src.real_api import JavisRealClient
+        from src.mock_api import MockJavisClient
         import inspect
         
-        real_sig = inspect.signature(ZCloudRealClient.get_locks)
-        mock_sig = inspect.signature(MockZCloudClient.get_locks)
+        real_sig = inspect.signature(JavisRealClient.get_locks)
+        mock_sig = inspect.signature(MockJavisClient.get_locks)
         
         real_params = list(real_sig.parameters.keys())[1:]
         mock_params = list(mock_sig.parameters.keys())[1:]
@@ -243,12 +243,12 @@ class TestInterfaceSignatureConsistency:
     
     def test_get_slow_sql_signature(self):
         """测试get_slow_sql方法签名一致"""
-        from src.real_api import ZCloudRealClient
-        from src.mock_api import MockZCloudClient
+        from src.real_api import JavisRealClient
+        from src.mock_api import MockJavisClient
         import inspect
         
-        real_sig = inspect.signature(ZCloudRealClient.get_slow_sql)
-        mock_sig = inspect.signature(MockZCloudClient.get_slow_sql)
+        real_sig = inspect.signature(JavisRealClient.get_slow_sql)
+        mock_sig = inspect.signature(MockJavisClient.get_slow_sql)
         
         real_params = list(real_sig.parameters.keys())[1:]
         mock_params = list(mock_sig.parameters.keys())[1:]
@@ -257,12 +257,12 @@ class TestInterfaceSignatureConsistency:
     
     def test_get_replication_status_signature(self):
         """测试get_replication_status方法签名一致"""
-        from src.real_api import ZCloudRealClient
-        from src.mock_api import MockZCloudClient
+        from src.real_api import JavisRealClient
+        from src.mock_api import MockJavisClient
         import inspect
         
-        real_sig = inspect.signature(ZCloudRealClient.get_replication_status)
-        mock_sig = inspect.signature(MockZCloudClient.get_replication_status)
+        real_sig = inspect.signature(JavisRealClient.get_replication_status)
+        mock_sig = inspect.signature(MockJavisClient.get_replication_status)
         
         real_params = list(real_sig.parameters.keys())[1:]
         mock_params = list(mock_sig.parameters.keys())[1:]
@@ -271,12 +271,12 @@ class TestInterfaceSignatureConsistency:
     
     def test_get_tablespaces_signature(self):
         """测试get_tablespaces方法签名一致"""
-        from src.real_api import ZCloudRealClient
-        from src.mock_api import MockZCloudClient
+        from src.real_api import JavisRealClient
+        from src.mock_api import MockJavisClient
         import inspect
         
-        real_sig = inspect.signature(ZCloudRealClient.get_tablespaces)
-        mock_sig = inspect.signature(MockZCloudClient.get_tablespaces)
+        real_sig = inspect.signature(JavisRealClient.get_tablespaces)
+        mock_sig = inspect.signature(MockJavisClient.get_tablespaces)
         
         real_params = list(real_sig.parameters.keys())[1:]
         mock_params = list(mock_sig.parameters.keys())[1:]
@@ -285,12 +285,12 @@ class TestInterfaceSignatureConsistency:
     
     def test_get_backup_status_signature(self):
         """测试get_backup_status方法签名一致"""
-        from src.real_api import ZCloudRealClient
-        from src.mock_api import MockZCloudClient
+        from src.real_api import JavisRealClient
+        from src.mock_api import MockJavisClient
         import inspect
         
-        real_sig = inspect.signature(ZCloudRealClient.get_backup_status)
-        mock_sig = inspect.signature(MockZCloudClient.get_backup_status)
+        real_sig = inspect.signature(JavisRealClient.get_backup_status)
+        mock_sig = inspect.signature(MockJavisClient.get_backup_status)
         
         real_params = list(real_sig.parameters.keys())[1:]
         mock_params = list(mock_sig.parameters.keys())[1:]
@@ -299,12 +299,12 @@ class TestInterfaceSignatureConsistency:
     
     def test_get_audit_logs_signature(self):
         """测试get_audit_logs方法签名一致"""
-        from src.real_api import ZCloudRealClient
-        from src.mock_api import MockZCloudClient
+        from src.real_api import JavisRealClient
+        from src.mock_api import MockJavisClient
         import inspect
         
-        real_sig = inspect.signature(ZCloudRealClient.get_audit_logs)
-        mock_sig = inspect.signature(MockZCloudClient.get_audit_logs)
+        real_sig = inspect.signature(JavisRealClient.get_audit_logs)
+        mock_sig = inspect.signature(MockJavisClient.get_audit_logs)
         
         real_params = list(real_sig.parameters.keys())[1:]
         mock_params = list(mock_sig.parameters.keys())[1:]

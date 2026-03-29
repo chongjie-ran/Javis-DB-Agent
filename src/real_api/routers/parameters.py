@@ -2,10 +2,10 @@
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from src.real_api.client import ZCloudRealClient
+    from src.real_api.client import JavisRealClient
 
 
-async def get_parameters(client: "ZCloudRealClient", instance_id: str, category: Optional[str] = None) -> dict:
+async def get_parameters(client: "JavisRealClient", instance_id: str, category: Optional[str] = None) -> dict:
     """GET /api/v1/parameters"""
     params = {"instance_id": instance_id}
     if category:
@@ -16,7 +16,7 @@ async def get_parameters(client: "ZCloudRealClient", instance_id: str, category:
     return {}
 
 
-async def update_parameter(client: "ZCloudRealClient", instance_id: str, param_name: str, param_value: str) -> dict:
+async def update_parameter(client: "JavisRealClient", instance_id: str, param_name: str, param_value: str) -> dict:
     """PUT /api/v1/parameters/{param_name}"""
     result = await client._request(
         "PUT",

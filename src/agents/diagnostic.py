@@ -356,7 +356,7 @@ async def diagnose_with_correlation(
 
     Args:
         alert_id: 告警ID
-        mock_client: Mock zCloud客户端
+        mock_client: Mock Javis客户端
         instance_id: 实例ID(可选)
 
     Returns:

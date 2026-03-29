@@ -1,4 +1,4 @@
-# zCloudNewAgentProject - 项目整体总结
+# Javis-DB-Agent - 项目整体总结
 
 > 版本：v1.0 | 完成日期：2026-03-28 | 状态：✅ 功能完成
 
@@ -6,7 +6,7 @@
 
 ## 一、项目概述
 
-**项目名称**：zCloudNewAgentProject - 数据库运维智能体系统
+**项目名称**：Javis-DB-Agent - 数据库运维智能体系统
 
 **项目目标**：面向**数据库运维场景**的本地智能体系统，赋能DBA和运维人员实现智能诊断、自动巡检与安全闭环处置。
 
@@ -42,7 +42,7 @@ Agent Gateway（会话管理、工具注册、策略引擎、审计）
   ↓
 工具执行层（查询工具 / 分析工具 / 行动工具）
   ↓
-API层（Mock zCloud API / Real zCloud API）
+API层（Mock Javis-DB-Agent API / Real Javis-DB-Agent API）
   ↓
 LLM层（Ollama 本地运行）
 ```
@@ -65,18 +65,18 @@ LLM层（Ollama 本地运行）
 ## 五、项目结构
 
 ```
-zCloudNewAgentProject/
+Javis-DB-Agent/
 ├── src/
 │   ├── agents/          # Agent实现（编排、诊断、风险、SQL、巡检、报告）
 │   ├── gateway/         # Gateway核心（会话、策略、审计、告警关联）
 │   ├── tools/          # 工具集（查询、分析、行动）
 │   ├── knowledge/      # 知识库（告警规则、SOP、案例）
 │   ├── llm/            # LLM交互（Ollama客户端）
-│   ├── mock_api/       # Mock zCloud API
-│   ├── real_api/       # Real zCloud API Client ⭐ Round 9
+│   ├── mock_api/       # Mock Javis-DB-Agent API
+│   ├── real_api/       # Real Javis-DB-Agent API Client ⭐ Round 9
 │   └── api/            # FastAPI路由 + Dashboard ⭐ Round 9
 ├── tests/              # 测试（Round 2-4, Round 9）
-├── mock_zcloud_api/    # Mock API Server（12个接口）
+├── mock_javis_api/    # Mock API Server（12个接口）
 ├── templates/          # Web Dashboard ⭐ Round 9
 ├── scripts/            # 工具脚本（API模式切换）⭐ Round 9
 ├── configs/            # 配置文件
@@ -105,7 +105,7 @@ zCloudNewAgentProject/
 
 ### 6.4 RealClient（Round 9）⭐
 - **文件**：`src/real_api/client.py` + `src/real_api/auth.py`
-- **功能**：真实 zCloud API 客户端，支持 API Key + OAuth2
+- **功能**：真实 Javis-DB-Agent API 客户端，支持 API Key + OAuth2
 - **测试**：`tests/round9/test_real_client.py`（24个测试）
 
 ### 6.5 API 模式切换（Round 9）⭐
@@ -147,13 +147,13 @@ zCloudNewAgentProject/
 
 ### 安装依赖
 ```bash
-cd ~/SWproject/zCloudNewAgentProject
+cd ~/SWproject/Javis-DB-Agent
 pip install -r requirements.txt
 ```
 
 ### 启动 Mock API
 ```bash
-python3 -m uvicorn mock_zcloud_api.server:app --host 0.0.0.0 --port 18080
+python3 -m uvicorn mock_javis_api.server:app --host 0.0.0.0 --port 18080
 ```
 
 ### 切换 API 模式
@@ -187,8 +187,8 @@ python3 -m pytest tests/round9/ -v
 | [docs/round3-execution-report.md](docs/round3-execution-report.md) | Round 3 执行报告 |
 | [docs/round4-performance-report.md](docs/round4-performance-report.md) | Round 4 性能报告 |
 | [docs/round9-execution-report.md](docs/round9-execution-report.md) | Round 9 执行报告 |
-| [docs/zcloud-api-research.md](docs/zcloud-api-research.md) | zCloud API 研究 |
-| [docs/zcloud-auth-design.md](docs/zcloud-auth-design.md) | 认证设计 |
+| [docs/javis-db-api-research.md](docs/javis-db-api-research.md) | Javis-DB-Agent API 研究 |
+| [docs/javis-db-auth-design.md](docs/javis-db-auth-design.md) | 认证设计 |
 
 ---
 

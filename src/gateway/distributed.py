@@ -69,10 +69,10 @@ class DistributedSessionManager:
         return self._redis_ok
 
     def _redis_key(self, session_id: str) -> str:
-        return f"zcloud:session:{session_id}"
+        return f"javis-db:session:{session_id}"
 
     def _redis_user_key(self, user_id: str) -> str:
-        return f"zcloud:user_sessions:{user_id}"
+        return f"javis-db:user_sessions:{user_id}"
 
     # ==================== 会话操作（分布式） ====================
 
@@ -200,7 +200,7 @@ class DistributedSessionManager:
         stats["distributed_mode"] = self._redis_ok
         if self._redis_ok:
             try:
-                keys = self._redis.keys("zcloud:session:*")
+                keys = self._redis.keys("javis-db:session:*")
                 stats["redis_sessions"] = len(keys)
             except Exception:
                 stats["redis_sessions"] = -1
@@ -239,10 +239,10 @@ class DistributedSessionManager:
             result["session_count_local"] = local_stats["total_sessions"]
             
             # 统计Redis
-            redis_keys = self._redis.keys("zcloud:session:*")
+            redis_keys = self._redis.keys("javis-db:session:*")
             result["session_count_redis"] = len(redis_keys)
             
-            redis_sids = {k.replace("zcloud:session:", "") for k in redis_keys}
+            redis_sids = {k.replace("javis-db:session:", "") for k in redis_keys}
             
             # 获取本地所有会话ID
             with self.local._get_conn() as conn:
@@ -296,10 +296,10 @@ class DistributedApprovalManager:
         return self._redis_ok
 
     def _redis_key(self, approval_id: str) -> str:
-        return f"zcloud:approval:{approval_id}"
+        return f"javis-db:approval:{approval_id}"
 
     def _redis_pending_key(self) -> str:
-        return "zcloud:approvals:pending"
+        return "javis-db:approvals:pending"
 
     def _submit_to_redis(self, record) -> bool:
         """将审批记录同步到Redis"""
@@ -368,7 +368,7 @@ class DistributedApprovalManager:
     def get_by_tool_call(self, tool_call_id: str):
         """通过tool_call_id获取审批记录"""
         if self._redis_ok:
-            approval_id = self._redis.hget(f"zcloud:tool_call:{tool_call_id}", "approval_id")
+            approval_id = self._redis.hget(f"javis-db:tool_call:{tool_call_id}", "approval_id")
             if approval_id:
                 return self.get_approval(approval_id)
         return self.local.get_by_tool_call(tool_call_id)

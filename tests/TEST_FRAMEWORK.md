@@ -1,4 +1,4 @@
-# zCloudNewAgentProject 测试用例框架
+# Javis-DB-Agent 测试用例框架
 
 > 版本：v1.0 | 日期：2026-03-28 | 状态：✅ 准备就绪
 
@@ -70,7 +70,7 @@
 ## 4. 运行测试
 
 ```bash
-cd ~/SWproject/zCloudNewAgentProject
+cd ~/SWproject/Javis-DB-Agent
 
 # 运行所有测试
 python3 tests/run_tests.py
@@ -138,7 +138,7 @@ class TestXXX:
 ## 8. 已知限制
 
 1. **无Ollama环境**：LLM相关测试使用Mock
-2. **无zCloud平台**：数据源使用Mock数据
+2. **无Javis平台**：数据源使用Mock数据
 3. **未覆盖性能测试**：待系统完整实现后添加
 4. **未覆盖端到端场景**：需要完整Agent实现后添加
 

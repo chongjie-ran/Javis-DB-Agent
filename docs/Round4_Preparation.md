@@ -1,4 +1,4 @@
-# zCloudNewAgentProject 第四轮迭代准备报告
+# Javis-DB-Agent 第四轮迭代准备报告
 
 > 版本：v1.0 | 日期：2026-03-28 | 组织者：道衍
 
@@ -14,7 +14,7 @@
 
 ### 1.2 第三轮遗留问题
 - ❌ 知识库仍为70%，参数/容量知识缺失
-- ❌ 真实zCloud API对接为0%
+- ❌ 真实Javis API对接为0%
 - ❌ 端到端场景测试缺失
 - ❌ 性能基线未验证
 
@@ -26,7 +26,7 @@
 
 | 任务 | 负责人 | 目标 |
 |------|--------|------|
-| zCloud API文档研究与Mock数据升级 | 悟通 | 深入研究zCloud API，完善Mock数据格式 |
+| Javis-DB-Agent API文档研究与Mock数据升级 | 悟通 | 深入研究Javis API，完善Mock数据格式 |
 | 认证模块框架设计 | 悟通 | 预留OAuth2.0认证接口 |
 | 端到端测试场景设计 | 真显 | 设计完整用户旅程测试用例 |
 | 端到端测试执行 | 真显 | 执行端到端测试，修复发现的问题 |
@@ -44,19 +44,19 @@
 
 ## 三、详细任务分解
 
-### 3.1 悟通任务：zCloud API研究与Mock升级
+### 3.1 悟通任务：Javis-DB-Agent API研究与Mock升级
 
-#### Day 1-2: zCloud API文档研究
+#### Day 1-2: Javis-DB-Agent API文档研究
 
 **任务**:
-1. 研究zCloud API的认证机制（OAuth2.0/Token刷新）
+1. 研究Javis API的认证机制（OAuth2.0/Token刷新）
 2. 分析真实告警数据格式（字段结构、嵌套关系）
 3. 了解API的QPS限制和错误码
-4. 整理zCloud API接口清单
+4. 整理Javis API接口清单
 
 **输出**:
-- `docs/zcloud-api-research.md` - API研究文档
-- `docs/zcloud-auth-design.md` - 认证机制设计草案
+- `docs/javis-db-api-research.md` - API研究文档
+- `docs/javis-db-auth-design.md` - 认证机制设计草案
 
 #### Day 3: Mock数据升级
 
@@ -67,7 +67,7 @@
 4. 完善错误码映射
 
 **输出**:
-- 升级后的 `mock_zcloud_api/` 数据结构
+- 升级后的 `mock_javis_api/` 数据结构
 - QPS限制模拟器
 
 #### Day 4-5: 认证模块框架
@@ -79,7 +79,7 @@
 
 **输出**:
 - `src/mock_api/auth_framework.py` - 认证框架
-- `src/mock_api/zcloud_client.py` - 支持真实/Mock切换
+- `src/mock_api/javis_client.py` - 支持真实/Mock切换
 
 ### 3.2 真显任务：端到端测试
 
@@ -151,7 +151,7 @@
 ### 4.3 场景3：错误注入与降级
 
 ```
-触发: 错误注入（模拟zCloud API超时）
+触发: 错误注入（模拟Javis API超时）
 用户: "查询INS-001状态"
 系统: 
   1. 检测到API超时
@@ -262,7 +262,7 @@ class QPSLimiter:
 
 | 验收项 | 标准 | 负责人 |
 |--------|------|--------|
-| zCloud API研究文档 | 包含认证机制、接口清单、QPS限制 | 悟通 |
+| Javis-DB-Agent API研究文档 | 包含认证机制、接口清单、QPS限制 | 悟通 |
 | Mock数据升级 | 告警格式接近真实，字段完整 | 悟通 |
 | 认证框架 | 预留OAuth2.0接口 | 悟通 |
 | 端到端测试设计 | 5个完整用户旅程 | 真显 |

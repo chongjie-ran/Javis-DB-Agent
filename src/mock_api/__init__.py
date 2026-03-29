@@ -1,16 +1,16 @@
 # Mock API 模块
-# 模拟zCloud平台API接口，用于开发和测试
+# 模拟Javis平台API接口，用于开发和测试
 
-from src.mock_api.zcloud_client import (
-    MockZCloudClient,
+from src.mock_api.javis_client import (
+    MockJavisClient,
     MockInstance,
     MockAlert,
-    get_mock_zcloud_client,
+    get_mock_javis_client,
 )
 
 __all__ = [
-    "MockZCloudClient",
+    "MockJavisClient",
     "MockInstance",
     "MockAlert",
-    "get_mock_zcloud_client",
+    "get_mock_javis_client",
 ]

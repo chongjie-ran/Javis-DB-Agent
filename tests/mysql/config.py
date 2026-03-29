@@ -17,12 +17,12 @@ MYSQL_TEST_CONFIG = {
 # Docker MySQL 配置
 DOCKER_MYSQL_CONFIG = {
     "image": "mysql:8.0",
-    "container_name": "zcloud-mysql-test",
+    "container_name": "javis-db-mysql-test",
     "ports": {"3307": "3306"},
     "environment": {
         "MYSQL_ROOT_PASSWORD": "test123",
         "MYSQL_DATABASE": "zcloud_test_mysql",
-        "MYSQL_USER": "zcloud",
+        "MYSQL_USER": "javis-db",
         "MYSQL_PASSWORD": "zcloud123",
     },
     "args": [

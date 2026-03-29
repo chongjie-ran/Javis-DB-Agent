@@ -310,7 +310,7 @@ class FeishuChannel:
         feishu_chat_id: str,
         feishu_user_id: str,
     ) -> Optional[str]:
-        """获取zCloud会话ID"""
+        """获取Javis会话ID"""
         if not self._session_mapper:
             return None
         return self._session_mapper.get_zcloud_session_id(

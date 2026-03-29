@@ -1,6 +1,6 @@
 """工单路由"""
 from fastapi import APIRouter
-from mock_zcloud_api.models import WorkOrderCreate, gen_workorder
+from mock_javis_api.models import WorkOrderCreate, gen_workorder
 
 router = APIRouter()
 

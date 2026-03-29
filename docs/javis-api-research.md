@@ -1,12 +1,12 @@
-# zCloud API 研究文档
+# Javis-DB-Agent API 研究文档
 
 > 版本：v1.0 | 日期：2026-03-28 | 作者：悟通
 
 ---
 
-## 一、zCloud 平台概述
+## 一、Javis-DB-Agent 平台概述
 
-zCloud 是一个数据库云管平台，支持多种数据库类型（MySQL、PostgreSQL、Oracle等）的运维管理、监控告警和自动化运维。
+Javis-DB-Agent 是一个数据库云管平台，支持多种数据库类型（MySQL、PostgreSQL、Oracle等）的运维管理、监控告警和自动化运维。
 
 ---
 
@@ -731,7 +731,7 @@ class MultiTierQPSLimiter:
 
 ### 8.1 真实 API 对接步骤
 
-1. 获取 zCloud 平台的 OAuth2.0 凭证（client_id, client_secret）
+1. 获取 Javis-DB-Agent 平台的 OAuth2.0 凭证（client_id, client_secret）
 2. 配置 token URL 和 scope
 3. 实现 token 自动刷新逻辑
 4. 替换 Mock 客户端为真实客户端
@@ -765,7 +765,7 @@ class ZCloudClientFactory:
 
 ### 9.1 真实API Endpoints
 
-> ⚠️ 以下为设计文档，实际endpoint以zCloud平台提供为准
+> ⚠️ 以下为设计文档，实际endpoint以Javis平台提供为准
 
 | 方法 | Endpoint | 模块 | 说明 |
 |------|----------|------|------|
@@ -805,7 +805,7 @@ Header: Authorization: ApiKey <your-api-key>
 #### 方式二：OAuth2.0（推荐用于用户授权场景）
 ```
 1. 获取Token:
-   POST https://zcloud.example.com/oauth/token
+   POST https://javis-db.example.com/oauth/token
    Content-Type: application/x-www-form-urlencoded
    
    grant_type=client_credentials&client_id=xxx&client_secret=xxx&scope=read write
@@ -823,7 +823,7 @@ Header: Authorization: ApiKey <your-api-key>
 | 差异项 | Mock实现 | 真实API | 处理方式 |
 |--------|----------|---------|----------|
 | 认证 | 无 | 必须 | RealClient带Auth header |
-| Base URL | localhost:18080 | zcloud.example.com | 通过config切换 |
+| Base URL | localhost:18080 | javis-db.example.com | 通过config切换 |
 | 响应code字段 | 无 | 必有(code=0成功) | 统一检查code字段 |
 | 错误码 | 简版 | 详细(40001~50301) | RealClient处理429等 |
 | 重试 | 无 | HTTP 429触发重试 | RealClient内置 |
@@ -862,7 +862,7 @@ python scripts/switch_api_mode.py --mode mock
 
 # 切换到真实API
 python scripts/switch_api_mode.py --mode real \
-  --base-url https://zcloud.example.com/api/v1 \
+  --base-url https://javis-db.example.com/api/v1 \
   --api-key your-api-key-here
 ```
 

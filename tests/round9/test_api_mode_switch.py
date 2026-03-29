@@ -41,12 +41,12 @@ class TestAPIModeSwitch:
         # 初始化配置
         original_config = load_config()
         test_config = {
-            "zcloud_api": {
+            "javis_api": {
                 "use_mock": True,
                 "base_url": "http://localhost:18080",
             },
-            "zcloud_real_api": {
-                "base_url": "https://zcloud.example.com/api/v1",
+            "javis_real_api": {
+                "base_url": "https://javis-db.example.com/api/v1",
                 "auth_type": "api_key",
                 "api_key": "test-key-12345",
             }
@@ -71,7 +71,7 @@ class TestAPIModeSwitch:
         config = load_config()
         assert config is not None
         assert isinstance(config, dict)
-        assert "zcloud_api" in config
+        assert "javis_api" in config
     
     def test_get_current_mode_mock(self, temp_config):
         """测试获取当前模式 - Mock模式"""
@@ -82,7 +82,7 @@ class TestAPIModeSwitch:
     def test_get_current_mode_real(self, temp_config):
         """测试获取当前模式 - Real模式"""
         config = load_config()
-        config["zcloud_api"]["use_mock"] = False
+        config["javis_api"]["use_mock"] = False
         save_config(config)
         
         config = load_config()
@@ -94,8 +94,8 @@ class TestAPIModeSwitch:
         switch_to_mock()
         
         config = load_config()
-        assert config["zcloud_api"]["use_mock"] == True
-        assert config["zcloud_api"]["base_url"] == "http://localhost:18080"
+        assert config["javis_api"]["use_mock"] == True
+        assert config["javis_api"]["base_url"] == "http://localhost:18080"
     
     def test_switch_to_real_updates_flag(self, temp_config):
         """测试切换到Real模式 - 更新标志"""
@@ -106,7 +106,7 @@ class TestAPIModeSwitch:
         )
         
         config = load_config()
-        assert config["zcloud_api"]["use_mock"] == False
+        assert config["javis_api"]["use_mock"] == False
     
     def test_switch_to_real_with_oauth(self, temp_config):
         """测试切换到Real模式 - OAuth2认证"""
@@ -118,8 +118,8 @@ class TestAPIModeSwitch:
         )
         
         config = load_config()
-        assert config["zcloud_real_api"]["auth_type"] == "oauth2"
-        assert config["zcloud_real_api"]["oauth_client_id"] == "client-id-123"
+        assert config["javis_real_api"]["auth_type"] == "oauth2"
+        assert config["javis_real_api"]["oauth_client_id"] == "client-id-123"
     
     def test_switch_to_real_masks_api_key(self, temp_config, capsys):
         """测试切换到Real模式 - API Key脱敏显示"""
@@ -131,7 +131,7 @@ class TestAPIModeSwitch:
         
         # 验证API Key已保存
         config = load_config()
-        assert config["zcloud_real_api"]["api_key"] == "secret-api-key-12345"
+        assert config["javis_real_api"]["api_key"] == "secret-api-key-12345"
     
     def test_config_persistence(self, temp_config):
         """测试配置持久化"""
@@ -144,12 +144,12 @@ class TestAPIModeSwitch:
         
         assert config1 == config2, "配置应该持久化"
     
-    def test_zcloud_real_api_section_created(self, temp_config):
-        """测试zcloud_real_api配置段创建"""
+    def test_javis_real_api_section_created(self, temp_config):
+        """测试javis_real_api配置段创建"""
         # 确保初始状态没有real_api配置
         config = load_config()
-        if "zcloud_real_api" in config:
-            del config["zcloud_real_api"]
+        if "javis_real_api" in config:
+            del config["javis_real_api"]
             save_config(config)
         
         # 切换到real模式
@@ -157,15 +157,15 @@ class TestAPIModeSwitch:
         
         # 验证配置段已创建
         config = load_config()
-        assert "zcloud_real_api" in config
-        assert config["zcloud_real_api"]["base_url"] == "https://new-api.example.com"
+        assert "javis_real_api" in config
+        assert config["javis_real_api"]["base_url"] == "https://new-api.example.com"
 
 
 class TestAPIModeSwitchEdgeCases:
     """API模式切换边界场景测试"""
     
-    def test_missing_zcloud_api_section(self):
-        """测试缺少zcloud_api配置段"""
+    def test_missing_javis_api_section(self):
+        """测试缺少javis_api配置段"""
         temp_dir = tempfile.mkdtemp()
         temp_config_file = os.path.join(temp_dir, "config.yaml")
         
@@ -193,7 +193,7 @@ class TestAPIModeSwitchEdgeCases:
         temp_dir = tempfile.mkdtemp()
         temp_config_file = os.path.join(temp_dir, "config.yaml")
         
-        test_config = {"zcloud_api": {"use_mock": True}}
+        test_config = {"javis_api": {"use_mock": True}}
         with open(temp_config_file, "w", encoding="utf-8") as f:
             yaml.dump(test_config, f)
         
@@ -206,9 +206,9 @@ class TestAPIModeSwitchEdgeCases:
             switch_to_real(base_url="https://api.example.com", auth_type="api_key")
             
             config = load_config()
-            assert config["zcloud_api"]["use_mock"] == False
+            assert config["javis_api"]["use_mock"] == False
             # api_key应该为空字符串或不设置
-            real_api = config.get("zcloud_real_api", {})
+            real_api = config.get("javis_real_api", {})
             assert "api_key" not in real_api or real_api.get("api_key") in [None, ""]
         finally:
             module.CONFIG_FILE = original_file
@@ -224,12 +224,12 @@ class TestShowStatus:
         temp_config_file = os.path.join(temp_dir, "config.yaml")
         
         test_config = {
-            "zcloud_api": {
+            "javis_api": {
                 "use_mock": True,
                 "base_url": "http://localhost:18080",
             },
-            "zcloud_real_api": {
-                "base_url": "https://zcloud.example.com",
+            "javis_real_api": {
+                "base_url": "https://javis-db.example.com",
                 "auth_type": "api_key",
             }
         }

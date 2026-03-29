@@ -1,4 +1,4 @@
-# zCloudNewAgentProject 第二轮架构调整
+# Javis-DB-Agent 第二轮架构调整
 
 > 版本：v2.0 | 日期：2026-03-28 | 状态：执行中
 
@@ -24,8 +24,8 @@
 | get_inspection_result | 巡检与健康治理 | P1 |
 | query_config_deviation | 参数与配置风险 | P1 |
 
-### 1.3 zCloud API未Mock
-- ❌ 无zCloud API接口定义
+### 1.3 Javis-DB-Agent API未Mock
+- ❌ 无Javis API接口定义
 - ❌ 所有工具使用硬编码模拟数据
 - ❌ 无法验证真实API适配性
 
@@ -95,10 +95,10 @@ MissingTool = {
 }
 ```
 
-### 2.4 zCloud API Mock接口设计
+### 2.4 Javis-DB-Agent API Mock接口设计
 
 ```
-mock_zcloud_api/
+mock_javis_api/
 ├── server.py              # Mock API Server (FastAPI)
 ├── routers/
 │   ├── instances.py       # /api/v1/instances
@@ -154,7 +154,7 @@ qwen3:30b-a3b (18.6GB) ← tech-spec目标
 
 | 执行方 | 任务 |
 |--------|------|
-| 悟通 | 知识库扩展（告警规则+SOP+案例）+ 6个缺失工具实现 + zCloud Mock API |
+| 悟通 | 知识库扩展（告警规则+SOP+案例）+ 6个缺失工具实现 + Javis-DB-Agent Mock API |
 | 真显 | 测试用例准备 + Mock数据准备 + 验证测试 |
 
 ---

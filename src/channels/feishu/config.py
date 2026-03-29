@@ -20,7 +20,7 @@ class FeishuChannelConfig(BaseModel):
     app_secret: str = Field(default="", description="飞书 App Secret")
 
     # Bot配置
-    bot_name: str = Field(default="zCloud Agent", description="Bot名称")
+    bot_name: str = Field(default="Javis-DB-Agent Agent", description="Bot名称")
 
     # 会话管理
     session_ttl_seconds: int = Field(default=86400, description="会话TTL（秒）")

@@ -1,4 +1,4 @@
-# zCloudNewAgentProject 软件功能说明
+# Javis-DB-Agent 软件功能说明
 
 > **文档版本**: v20260329_094422
 > **项目版本**: v1.0
@@ -11,7 +11,7 @@
 
 ### 1.1 项目简介
 
-**zCloudNewAgentProject** 是面向**数据库运维场景**的本地智能体（Agent）系统，旨在赋能DBA和运维人员实现智能诊断、自动巡检与安全闭环处置。
+**Javis-DB-Agent** 是面向**数据库运维场景**的本地智能体（Agent）系统，旨在赋能DBA和运维人员实现智能诊断、自动巡检与安全闭环处置。
 
 系统以**Ollama**（本地LLM推理引擎）为智能核心，通过多Agent协作架构，连接**zCloud数据库管理平台**的Mock/真实API，实现自然语言驱动的数据库运维智能化。
 
@@ -73,7 +73,7 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                       API层                                      │
 │  ┌─────────────────────┐    ┌─────────────────────┐           │
-│  │   Mock zCloud API   │    │   Real zCloud API    │           │
+│  │   Mock Javis-DB-Agent API   │    │   Real Javis-DB-Agent API    │           │
 │  │   (本地开发测试)     │ ←→ │   (生产环境)         │           │
 │  └─────────────────────┘    └─────────────────────┘           │
 │  - 12个REST接口              - 14个Router模块                  │
@@ -95,7 +95,7 @@
 ### 1.4 项目结构
 
 ```
-zCloudNewAgentProject/
+Javis-DB-Agent/
 ├── src/                          # 核心源代码
 │   ├── agents/                   # Agent实现（6个Agent）
 │   │   ├── base.py              # Agent基类（策略检查、工具调用、审计）
@@ -120,7 +120,7 @@ zCloudNewAgentProject/
 │   │   ├── additional_query_tools.py  # 补充查询工具（4个）
 │   │   └── high_risk_tools.py  # 高风险工具（2个, L5）
 │   ├── mock_api/                # Mock API客户端
-│   │   ├── zcloud_client.py    # MockZCloudClient
+│   │   ├── javis_client.py    # MockZCloudClient
 │   │   ├── error_injector.py   # 错误注入器（超时/限流/级联故障）
 │   │   └── qps_limiter.py      # QPS限流器
 │   ├── real_api/                # 真实API客户端
@@ -148,7 +148,7 @@ zCloudNewAgentProject/
 │   ├── config.py              # 配置管理（Pydantic Settings）
 │   └── main.py                # 应用入口（FastAPI + Lifespan）
 │
-├── mock_zcloud_api/            # Mock API Server
+├── mock_javis_api/            # Mock API Server
 │   ├── server.py              # FastAPI应用 + QPS中间件
 │   ├── models.py              # 数据模型
 │   ├── models_enhanced.py     # 增强数据模型
@@ -200,14 +200,14 @@ zCloudNewAgentProject/
 │   ├── architecture.md        # 架构设计文档
 │   ├── requirements.md        # 需求文档
 │   ├── tech-spec.md           # 技术方案
-│   ├── zcloud-api-research.md # zCloud API研究
-│   ├── zcloud-auth-design.md  # 认证设计
+│   ├── javis-db-api-research.md # Javis-DB-Agent API研究
+│   ├── javis-db-auth-design.md  # 认证设计
 │   ├── round3-execution-report.md
 │   ├── round4-performance-report.md
 │   └── round9-execution-report.md
 │
 ├── data/                       # 运行时数据
-│   ├── zcloud_agent.db        # SQLite会话持久化
+│   ├── javis_db_agent.db        # SQLite会话持久化
 │   ├── audit.db               # SQLite审计日志
 │   └── audit.jsonl            # JSONL审计日志
 │
@@ -479,7 +479,7 @@ zCloudNewAgentProject/
 | **重启恢复** | 重启后从SQLite恢复会话历史 |
 | **消息历史** | `get_history(limit)` 获取最近N条消息 |
 
-**存储结构**: SQLite（`data/zcloud_agent.db`）
+**存储结构**: SQLite（`data/javis_db_agent.db`）
 
 #### 2.2.5 ToolRegistry（工具注册中心）
 
@@ -589,7 +589,7 @@ zCloudNewAgentProject/
 | `/dashboard/switch` | POST | 切换API模式（mock↔real） |
 | `/dashboard/health-check` | GET | 健康检查 |
 
-#### 2.4.3 Mock API Server（mock_zcloud_api/server.py）
+#### 2.4.3 Mock API Server（mock_javis_api/server.py）
 
 **端口**: 18080
 
@@ -868,7 +868,7 @@ RiskAgent.assess_risk()
 
 ```yaml
 # 应用配置
-app_name: zCloudNewAgentProject
+app_name: Javis-DB-Agent
 app_version: v1.0
 debug: false
 
@@ -883,15 +883,15 @@ ollama:
   model: glm4:latest           # 可切换 qwen3:30b-a3b
   timeout: 60
 
-# zCloud API 模式切换
-zcloud_api:
+# Javis-DB-Agent API 模式切换
+javis_api:
   base_url: http://localhost:18080
   timeout: 30
   use_mock: true               # ← 切换开关
 
-# zCloud 真实API配置
-zcloud_real_api:
-  base_url: https://zcloud.example.com/api/v1
+# Javis-DB-Agent 真实API配置
+javis_real_api:
+  base_url: https://javis-db.example.com/api/v1
   auth_type: api_key           # 或 oauth2
   api_key: ""
   api_key_header: X-API-Key
@@ -901,7 +901,7 @@ zcloud_real_api:
 
 # 数据库/存储
 database:
-  db_path: data/zcloud_agent.db
+  db_path: data/javis_db_agent.db
   audit_db_path: data/audit.db
 
 # 向量数据库
@@ -927,7 +927,7 @@ python scripts/switch_api_mode.py --mode mock
 
 # 切换到真实API模式（API Key）
 python scripts/switch_api_mode.py --mode real \
-  --base-url https://zcloud.example.com/api/v1 \
+  --base-url https://javis-db.example.com/api/v1 \
   --api-key YOUR_API_KEY
 
 # 切换到真实API模式（OAuth2）
@@ -1035,9 +1035,9 @@ system_prompts:
 **处理流程**:
 1. 用户在Dashboard点击"切换到真实API"
 2. Dashboard调用 `/dashboard/switch` 接口
-3. 脚本修改 `configs/config.yaml` 中 `zcloud_api.use_mock`
+3. 脚本修改 `configs/config.yaml` 中 `javis_api.use_mock`
 4. RealClient自动重置单例，重新加载配置
-5. 系统切换至真实zCloud API
+5. 系统切换至真实Javis API
 
 **应用场景**: 开发测试用Mock，生产环境用Real
 

@@ -1,4 +1,4 @@
-# zCloudNewAgentProject 第三轮架构 - 告警关联推理链
+# Javis-DB-Agent 第三轮架构 - 告警关联推理链
 
 > 版本：v1.0 | 日期：2026-03-28 | 状态：规划中
 
@@ -10,7 +10,7 @@
 | 任务 | 描述 | 优先级 |
 |------|------|--------|
 | 告警关联推理链 | 实现A告警→B告警→C告警的链式诊断逻辑 | P0 |
-| Mock zCloud API增强 | 模拟超时、限流、级联故障等真实场景 | P0 |
+| Mock Javis-DB-Agent API增强 | 模拟超时、限流、级联故障等真实场景 | P0 |
 | Session持久化 | 支持重启后恢复对话上下文 | P0 |
 
 ---
@@ -197,7 +197,7 @@ src/
 │   ├── session.py          # [重构] 持久化SessionManager
 │   └── alert_correlator.py # [新增] 告警关联引擎
 ├── mock_api/
-│   ├── zcloud_client.py    # [增强] 错误注入
+│   ├── javis_client.py    # [增强] 错误注入
 │   ├── error_injector.py   # [新增] 错误注入器
 │   └── cascade_simulator.py # [新增] 级联故障模拟
 └── tools/

@@ -1,6 +1,6 @@
 """
-zCloud API Mock Server - 增强版数据模型
-接近真实 zCloud API 格式，添加了 custom_fields、annotations、nested_alerts 等嵌套结构
+Javis-DB-Agent API Mock Server - 增强版数据模型
+接近真实 Javis-DB-Agent API 格式，添加了 custom_fields、annotations、nested_alerts 等嵌套结构
 """
 import time
 import random
@@ -50,7 +50,7 @@ class AlertCustomFields(BaseModel):
 
 
 class EnhancedAlert(BaseModel):
-    """增强版告警模型（接近真实 zCloud API）"""
+    """增强版告警模型（接近真实 Javis-DB-Agent API）"""
     # 基础信息
     alert_id: str
     alert_code: str
@@ -71,7 +71,7 @@ class EnhancedAlert(BaseModel):
     status: str = "firing"  # firing/resolved
     acknowledged: bool = False
     
-    # 嵌套结构（真实 zCloud API 特有）
+    # 嵌套结构（真实 Javis-DB-Agent API 特有）
     custom_fields: AlertCustomFields = Field(default_factory=AlertCustomFields)
     annotations: AlertAnnotation = Field(default_factory=AlertAnnotation)
     nested_alerts: list[NestedAlert] = Field(default_factory=list)

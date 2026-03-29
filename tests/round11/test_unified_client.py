@@ -26,9 +26,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_FILE = PROJECT_ROOT / "configs" / "config.yaml"
 MOCK_CONFIG = {
-    "zcloud_api": {"use_mock": True, "base_url": "http://localhost:18080"},
-    "zcloud_real_api": {
-        "base_url": "https://zcloud.example.com/api/v1",
+    "javis_api": {"use_mock": True, "base_url": "http://localhost:18080"},
+    "javis_real_api": {
+        "base_url": "https://javis-db.example.com/api/v1",
         "auth_type": "api_key",
         "api_key": "test-key-12345",
     },
@@ -71,7 +71,7 @@ class TestUnifiedClientFactory:
         assert isinstance(result, bool)
 
     def test_unified_client_mock_mode(self, temp_config, reset_client):
-        """测试Mock模式下使用MockZCloudClient"""
+        """测试Mock模式下使用MockJavisClient"""
         from src.api_client_factory import get_unified_client
         client = get_unified_client()
         assert client.use_mock is True
@@ -477,7 +477,7 @@ class TestConfigModeSwitch:
         temp_dir = tempfile.mkdtemp()
         temp_config_file = os.path.join(temp_dir, "config.yaml")
         cfg = {
-            "zcloud_api": {"use_mock": True},
+            "javis_api": {"use_mock": True},
             "ollama": {"base_url": "http://localhost:11434", "model": "glm4:latest"},
         }
         with open(temp_config_file, "w") as f:
@@ -492,7 +492,7 @@ def temp_config():
     temp_dir = tempfile.mkdtemp()
     temp_config_file = os.path.join(temp_dir, "config.yaml")
     cfg = {
-        "zcloud_api": {"use_mock": True},
+        "javis_api": {"use_mock": True},
         "ollama": {"base_url": "http://localhost:11434", "model": "glm4:latest"},
     }
     with open(temp_config_file, "w") as f:

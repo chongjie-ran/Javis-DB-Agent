@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test runner script for zCloudNewAgentProject
+Test runner script for Javis-DB-Agent
 
 Usage:
     python tests/run_tests.py              # Run all tests
@@ -39,7 +39,7 @@ def run_tests(test_type="all", coverage=False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run zCloudNewAgentProject tests")
+    parser = argparse.ArgumentParser(description="Run Javis-DB-Agent tests")
     parser.add_argument("--unit", action="store_true", help="Run unit tests only")
     parser.add_argument("--integration", action="store_true", help="Run integration tests only")
     parser.add_argument("--coverage", action="store_true", help="Generate coverage report")

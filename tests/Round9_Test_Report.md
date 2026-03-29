@@ -42,8 +42,8 @@
 | test_switch_to_real_with_oauth | ✅ PASSED |
 | test_switch_to_real_masks_api_key | ✅ PASSED |
 | test_config_persistence | ✅ PASSED |
-| test_zcloud_real_api_section_created | ✅ PASSED |
-| test_missing_zcloud_api_section | ✅ PASSED |
+| test_javis_real_api_section_created | ✅ PASSED |
+| test_missing_javis_api_section | ✅ PASSED |
 | test_switch_without_api_key | ✅ PASSED |
 | test_show_status_output | ✅ PASSED |
 

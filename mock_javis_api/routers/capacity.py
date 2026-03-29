@@ -1,6 +1,6 @@
 """容量路由"""
 from fastapi import APIRouter, Query
-from mock_zcloud_api.models import gen_disk_usage, gen_config_deviation
+from mock_javis_api.models import gen_disk_usage, gen_config_deviation
 
 router = APIRouter()
 

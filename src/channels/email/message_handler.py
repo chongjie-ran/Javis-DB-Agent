@@ -36,7 +36,7 @@ class EmailChannelConfig:
     # Bot配置
     bot_address: str = ""           # Bot邮箱地址
     allowed_senders: list[str] = field(default_factory=list)  # 允许的发件人白名单，空=全部允许
-    bot_name: str = "zCloud Agent"  # Bot显示名称
+    bot_name: str = "Javis-DB-Agent Agent"  # Bot显示名称
 
     # 轮询配置
     poll_interval: int = 30         # 轮询间隔（秒）
@@ -65,7 +65,7 @@ class EmailChannelConfig:
                 for s in os.getenv("EMAIL_ALLOWED_SENDERS", "").split(",")
                 if s.strip()
             ],
-            bot_name=os.getenv("EMAIL_BOT_NAME", "zCloud Agent"),
+            bot_name=os.getenv("EMAIL_BOT_NAME", "Javis-DB-Agent Agent"),
             poll_interval=int(os.getenv("EMAIL_POLL_INTERVAL", "30")),
             batch_size=int(os.getenv("EMAIL_BATCH_SIZE", "20")),
             session_db_path=os.getenv("EMAIL_SESSION_DB", "data/email_sessions.db"),
@@ -293,7 +293,7 @@ class EmailChannel(BaseChannel):
             ChannelResponse
         """
         try:
-            subject = kwargs.get("subject", "zCloud Agent 回复")
+            subject = kwargs.get("subject", "Javis-DB-Agent Agent 回复")
             html_body = kwargs.get("html_body", "")
             attachments = kwargs.get("attachments", [])
             in_reply_to = kwargs.get("in_reply_to", "")
@@ -487,7 +487,7 @@ class EmailMessageHandler:
                 </div>
             </div>
             <p style="color: #888; font-size: 12px; border-top: 1px solid #eee; padding-top: 12px;">
-                🤖 zCloud Agent 自动回复<br>
+                🤖 Javis-DB-Agent Agent 自动回复<br>
                 时间: {time.strftime('%Y-%m-%d %H:%M:%S')}<br>
                 <a href="#">查看历史对话</a>
             </p>

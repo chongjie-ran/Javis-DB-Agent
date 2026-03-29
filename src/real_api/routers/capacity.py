@@ -2,11 +2,11 @@
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from src.real_api.client import ZCloudRealClient
+    from src.real_api.client import JavisRealClient
 
 
 async def get_tablespaces(
-    client: "ZCloudRealClient",
+    client: "JavisRealClient",
     instance_id: str,
     tablespace_name: Optional[str] = None,
 ) -> dict:
@@ -21,7 +21,7 @@ async def get_tablespaces(
 
 
 async def get_backup_status(
-    client: "ZCloudRealClient",
+    client: "JavisRealClient",
     instance_id: str,
     backup_type: Optional[str] = None,
 ) -> dict:
@@ -36,7 +36,7 @@ async def get_backup_status(
 
 
 async def get_audit_logs(
-    client: "ZCloudRealClient",
+    client: "JavisRealClient",
     instance_id: str,
     start_time: Optional[float] = None,
     end_time: Optional[float] = None,

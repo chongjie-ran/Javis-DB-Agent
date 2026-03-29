@@ -2,11 +2,11 @@
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from src.real_api.client import ZCloudRealClient
+    from src.real_api.client import JavisRealClient
 
 
 async def list_workorders(
-    client: "ZCloudRealClient",
+    client: "JavisRealClient",
     instance_id: Optional[str] = None,
     status: Optional[str] = None,
 ) -> list[dict]:
@@ -22,7 +22,7 @@ async def list_workorders(
     return []
 
 
-async def get_workorder_detail(client: "ZCloudRealClient", workorder_id: str) -> dict:
+async def get_workorder_detail(client: "JavisRealClient", workorder_id: str) -> dict:
     """GET /api/v1/workorders/{workorder_id}"""
     result = await client._request("GET", f"/workorders/{workorder_id}")
     if result.get("code") == 0:

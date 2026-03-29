@@ -14,9 +14,9 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
-# 项目根目录 - zCloudNewAgentProject
+# 项目根目录 - Javis-DB-Agent
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-assert PROJECT_ROOT.name == "zCloudNewAgentProject", f"Expected zCloudNewAgentProject, got {PROJECT_ROOT}"
+assert PROJECT_ROOT.name == "Javis-DB-Agent", f"Expected Javis-DB-Agent, got {PROJECT_ROOT}"
 sys.path.insert(0, str(PROJECT_ROOT))
 
 
@@ -41,7 +41,7 @@ class TestSwitchApiModeScript:
         assert "def show_status" in content
         assert "def get_current_mode" in content
         assert "use_mock" in content
-        assert "zcloud_real_api" in content
+        assert "javis_real_api" in content
     
     def test_switch_api_mode_script_has_main(self):
         """测试switch_api_mode.py有main入口"""
@@ -68,12 +68,12 @@ class TestDashboardRoutes:
         # 创建测试用临时配置
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
             test_config = {
-                "zcloud_api": {
+                "javis_api": {
                     "base_url": "http://localhost:18080",
                     "use_mock": True
                 },
-                "zcloud_real_api": {
-                    "base_url": "https://zcloud.example.com/api/v1",
+                "javis_real_api": {
+                    "base_url": "https://javis-db.example.com/api/v1",
                     "auth_type": "api_key",
                     "api_key": "test-key"
                 },
@@ -132,17 +132,17 @@ class TestDashboardRoutes:
 # ==================== RealClient Tests ====================
 
 class TestRealClientBasics:
-    """测试 ZCloudRealClient 基础功能"""
+    """测试 JavisRealClient 基础功能"""
     
     def test_import_real_client(self):
         """测试可以正确导入RealClient"""
-        from src.real_api.client import ZCloudRealClient
-        assert ZCloudRealClient is not None
+        from src.real_api.client import JavisRealClient
+        assert JavisRealClient is not None
     
     def test_import_real_api_modules(self):
         """测试可以导入所有real_api子模块"""
         from src.real_api import (
-            ZCloudRealClient,
+            JavisRealClient,
             get_real_client,
             reset_real_client,
             AuthProvider,
@@ -153,7 +153,7 @@ class TestRealClientBasics:
             get_real_api_config,
             reload_real_api_config,
         )
-        assert ZCloudRealClient is not None
+        assert JavisRealClient is not None
         assert get_real_client is not None
         assert reset_real_client is not None
         assert AuthProvider is not None
@@ -164,7 +164,7 @@ class TestRealClientBasics:
     
     def test_real_client_init(self):
         """测试RealClient可以初始化"""
-        from src.real_api.client import ZCloudRealClient
+        from src.real_api.client import JavisRealClient
         from src.real_api.config import RealAPIConfig
         
         config = RealAPIConfig(
@@ -172,7 +172,7 @@ class TestRealClientBasics:
             auth_type="api_key",
             api_key="test-key"
         )
-        client = ZCloudRealClient(config=config)
+        client = JavisRealClient(config=config)
         assert client.config.base_url == "https://test.example.com"
     
     def test_get_real_client_singleton(self):
@@ -328,7 +328,7 @@ class TestRealAPIConfig:
         from src.real_api.config import RealAPIConfig
         
         config = RealAPIConfig()
-        assert config.base_url == "https://zcloud.example.com/api/v1"
+        assert config.base_url == "https://javis-db.example.com/api/v1"
         assert config.auth_type == "api_key"
         assert config.timeout == 30
         assert config.max_retries == 3
@@ -377,7 +377,7 @@ class TestDashboardTemplate:
         
         # 检查关键元素
         assert "<html" in content
-        assert "zCloud Agent" in content
+        assert "Javis-DB-Agent Agent" in content
         assert 'id="mode-badge"' in content
         assert 'id="btn-mock"' in content
         assert 'id="btn-real"' in content

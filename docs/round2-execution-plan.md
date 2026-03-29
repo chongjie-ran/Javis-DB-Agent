@@ -1,4 +1,4 @@
-# zCloudNewAgentProject 第二轮执行计划
+# Javis-DB-Agent 第二轮执行计划
 
 > 版本：v1.0 | 日期：2026-03-28 | 状态：待执行
 
@@ -40,22 +40,22 @@
 | get_inspection_result | ✅ 已实现 | 巡检结果获取 |
 | query_config_deviation | ✅ 已实现 | 配置偏差查询 |
 
-### 任务D：Mock zCloud API接口 ✅ 已完成
+### 任务D：Mock Javis-DB-Agent API接口 ✅ 已完成
 
 | 组件 | 状态 | 说明 |
 |------|------|------|
-| `mock_zcloud_api/server.py` | ✅ 已创建 | FastAPI主服务 |
-| `mock_zcloud_api/routers/instances.py` | ✅ | /api/v1/instances |
-| `mock_zcloud_api/routers/alerts.py` | ✅ | /api/v1/alerts |
-| `mock_zcloud_api/routers/sessions.py` | ✅ | /api/v1/sessions |
-| `mock_zcloud_api/routers/locks.py` | ✅ | /api/v1/locks |
-| `mock_zcloud_api/routers/sqls.py` | ✅ | /api/v1/sqls |
-| `mock_zcloud_api/routers/replication.py` | ✅ | /api/v1/replication |
-| `mock_zcloud_api/routers/parameters.py` | ✅ | /api/v1/parameters |
-| `mock_zcloud_api/routers/capacity.py` | ✅ | /api/v1/capacity |
-| `mock_zcloud_api/routers/inspection.py` | ✅ | /api/v1/inspection |
-| `mock_zcloud_api/routers/workorders.py` | ✅ | /api/v1/workorders |
-| `mock_zcloud_api/models.py` | ✅ | Pydantic模型+Mock数据 |
+| `mock_javis_api/server.py` | ✅ 已创建 | FastAPI主服务 |
+| `mock_javis_api/routers/instances.py` | ✅ | /api/v1/instances |
+| `mock_javis_api/routers/alerts.py` | ✅ | /api/v1/alerts |
+| `mock_javis_api/routers/sessions.py` | ✅ | /api/v1/sessions |
+| `mock_javis_api/routers/locks.py` | ✅ | /api/v1/locks |
+| `mock_javis_api/routers/sqls.py` | ✅ | /api/v1/sqls |
+| `mock_javis_api/routers/replication.py` | ✅ | /api/v1/replication |
+| `mock_javis_api/routers/parameters.py` | ✅ | /api/v1/parameters |
+| `mock_javis_api/routers/capacity.py` | ✅ | /api/v1/capacity |
+| `mock_javis_api/routers/inspection.py` | ✅ | /api/v1/inspection |
+| `mock_javis_api/routers/workorders.py` | ✅ | /api/v1/workorders |
+| `mock_javis_api/models.py` | ✅ | Pydantic模型+Mock数据 |
 
 ---
 
@@ -64,9 +64,9 @@
 ### E. Mock API Server 启动验证
 
 ```bash
-cd ~/SWproject/zCloudNewAgentProject
+cd ~/SWproject/Javis-DB-Agent
 # 启动Mock API Server
-python3 -m uvicorn mock_zcloud_api.server:app --host 0.0.0.0 --port 18080
+python3 -m uvicorn mock_javis_api.server:app --host 0.0.0.0 --port 18080
 
 # 测试接口
 curl http://localhost:18080/health
@@ -75,8 +75,8 @@ curl http://localhost:18080/api/v1/instances/INS-001
 
 ### F. Agent与Mock API集成
 
-1. 更新 `src/config.py`，添加 `zcloud_api_base_url`
-2. 创建 `src/tools/zcloud_client.py`，封装Mock API调用
+1. 更新 `src/config.py`，添加 `javis_api_base_url`
+2. 创建 `src/tools/javis_client.py`，封装Mock API调用
 3. 修改现有工具，从Mock API获取数据（而非硬编码）
 4. 测试告警诊断场景：`python3 scripts/verify_ollama.py`
 
@@ -159,7 +159,7 @@ knowledge/
     ├── 2026-02-20-慢SQL风暴.md   # 新增
     └── 2026-03-10-主从延迟.md    # 新增
 
-mock_zcloud_api/               # 新增目录
+mock_javis_api/               # 新增目录
 ├── __init__.py
 ├── server.py                 # FastAPI主服务
 ├── models.py                 # 数据模型+Mock数据

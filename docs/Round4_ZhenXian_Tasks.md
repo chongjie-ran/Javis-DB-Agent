@@ -1,7 +1,7 @@
 # 第四轮迭代 - 真显任务清单
 
 ## 项目信息
-- 项目路径: `/Users/chongjieran/SWproject/zCloudNewAgentProject/`
+- 项目路径: `/Users/chongjieran/SWproject/Javis-DB-Agent/`
 - 任务类型: 端到端测试场景设计 + 性能基线验证
 
 ## 任务说明
@@ -87,7 +87,7 @@
 ## 执行命令
 
 ```bash
-cd /Users/chongjieran/SWproject/zCloudNewAgentProject
+cd /Users/chongjieran/SWproject/Javis-DB-Agent
 
 # 运行现有测试确认环境正常
 python3 -m pytest tests/ -v --tb=short
@@ -111,7 +111,7 @@ mkdir -p tests/round4/
 
 ## 已知限制
 
-- 无真实zCloud环境，使用Mock数据
+- 无真实Javis环境，使用Mock数据
 - 性能测试依赖Mock客户端，可能与真实环境有差异
 - 部分场景需要悟通完成Mock升级后才能测试
 

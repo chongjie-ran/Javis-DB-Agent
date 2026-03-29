@@ -1,6 +1,6 @@
-"""飞书会话与zCloud会话ID映射管理
+"""飞书会话与Javis会话ID映射管理
 
-负责维护 Feishu chat_id/user_id -> zCloud session_id 的映射关系，
+负责维护 Feishu chat_id/user_id -> Javis-DB-Agent session_id 的映射关系，
 支持多用户并发场景下的会话隔离。
 """
 import time
@@ -29,7 +29,7 @@ class FeishuSessionMapper:
     """
     飞书会话映射器
 
-    管理 Feishu 会话（chat_id + user_id）与 zCloud session_id 的映射。
+    管理 Feishu 会话（chat_id + user_id）与 Javis-DB-Agent session_id 的映射。
     线程安全，支持多用户并发。
     """
 
@@ -63,7 +63,7 @@ class FeishuSessionMapper:
         metadata: Optional[dict] = None,
     ) -> str:
         """
-        获取或创建 zCloud session_id
+        获取或创建 Javis-DB-Agent session_id
 
         Args:
             feishu_chat_id: 飞书会话ID
@@ -74,7 +74,7 @@ class FeishuSessionMapper:
             metadata: 额外元数据
 
         Returns:
-            zCloud session_id
+            Javis-DB-Agent session_id
         """
         with self._lock:
             # 先尝试查找已存在的会话
@@ -163,7 +163,7 @@ class FeishuSessionMapper:
         is_thread: bool = False,
         thread_id: Optional[str] = None,
     ) -> Optional[str]:
-        """获取 zCloud session_id（公开接口）"""
+        """获取 Javis-DB-Agent session_id（公开接口）"""
         return self.get_session(feishu_chat_id, feishu_user_id, is_thread, thread_id)
 
     def clear_session(self, zcloud_session_id: str) -> bool:

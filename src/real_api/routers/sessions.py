@@ -2,11 +2,11 @@
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from src.real_api.client import ZCloudRealClient
+    from src.real_api.client import JavisRealClient
 
 
 async def get_sessions(
-    client: "ZCloudRealClient",
+    client: "JavisRealClient",
     instance_id: str,
     limit: int = 20,
     filter_expr: Optional[str] = None,
@@ -22,7 +22,7 @@ async def get_sessions(
 
 
 async def get_session_detail(
-    client: "ZCloudRealClient",
+    client: "JavisRealClient",
     instance_id: str,
     sid: int,
     serial: int,

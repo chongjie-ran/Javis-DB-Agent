@@ -410,7 +410,7 @@ class TestEmailMessageHandler:
         )
         assert "<strong>" in html or "<b>" in html
         assert "<br>" in html
-        assert "zCloud Agent" in html
+        assert "Javis-DB-Agent Agent" in html
 
 
 # ==================== 命令解析集成测试 ====================

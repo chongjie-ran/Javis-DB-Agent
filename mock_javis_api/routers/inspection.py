@@ -1,6 +1,6 @@
 """巡检路由"""
 from fastapi import APIRouter, Path, Query
-from mock_zcloud_api.models import gen_inspection_result
+from mock_javis_api.models import gen_inspection_result
 import time
 
 router = APIRouter()

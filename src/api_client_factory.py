@@ -4,8 +4,8 @@ import yaml
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.mock_api.zcloud_client import MockZCloudClient
-    from src.real_api.client import ZCloudRealClient
+    from src.mock_api.javis_client import MockJavisClient
+    from src.real_api.client import JavisRealClient
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_FILE = os.path.join(PROJECT_ROOT, "configs", "config.yaml")
@@ -22,7 +22,7 @@ def load_api_config() -> dict:
 def is_use_mock() -> bool:
     """检查是否使用Mock模式"""
     config = load_api_config()
-    return config.get("zcloud_api", {}).get("use_mock", True)
+    return config.get("javis_api", {}).get("use_mock", True)
 
 
 class UnifiedZCloudClient:
@@ -36,14 +36,14 @@ class UnifiedZCloudClient:
         data = await client.get_instance("INS-001")
     
     配置切换：
-        - use_mock: true  → 使用 MockZCloudClient（本地开发测试）
-        - use_mock: false → 使用 ZCloudRealClient（连接真实zCloud）
+        - use_mock: true  → 使用 MockJavisClient（本地开发测试）
+        - use_mock: false → 使用 JavisRealClient（连接真实zCloud）
     """
     
     def __init__(self):
         self._use_mock = is_use_mock()
-        self._mock_client: Optional["MockZCloudClient"] = None
-        self._real_client: Optional["ZCloudRealClient"] = None
+        self._mock_client: Optional["MockJavisClient"] = None
+        self._real_client: Optional["JavisRealClient"] = None
     
     @property
     def use_mock(self) -> bool:
@@ -54,8 +54,8 @@ class UnifiedZCloudClient:
         """获取当前活跃的客户端"""
         if self._use_mock:
             if self._mock_client is None:
-                from src.mock_api.zcloud_client import get_mock_zcloud_client
-                self._mock_client = get_mock_zcloud_client()
+                from src.mock_api.javis_client import get_mock_javis_client
+                self._mock_client = get_mock_javis_client()
             return self._mock_client
         else:
             if self._real_client is None:

@@ -177,7 +177,7 @@ def create_sample_sop():
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("zCloudNewAgentProject 知识库初始化")
+    print("Javis-DB-Agent 知识库初始化")
     print("=" * 50)
     ensure_knowledge_dirs()
     create_sample_alert_rules()

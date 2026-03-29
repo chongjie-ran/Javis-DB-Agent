@@ -1,5 +1,5 @@
-"""Mock zCloud API Client
-模拟zCloud平台的API接口结构，用于开发和测试
+"""Mock Javis-DB-Agent API Client
+模拟Javis平台的API接口结构，用于开发和测试
 """
 import time
 import random
@@ -43,8 +43,8 @@ class MockAlert:
     status: str  # active/acknowledged/resolved
 
 
-class MockZCloudClient:
-    """Mock zCloud API客户端"""
+class MockJavisClient:
+    """Mock Javis-DB-Agent API客户端"""
     
     def __init__(self, base_url: str = "http://localhost:8080/api/v1"):
         self.base_url = base_url
@@ -570,7 +570,7 @@ class MockZCloudClient:
         """健康检查"""
         return {
             "status": "ok",
-            "service": "zcloud-mock-api",
+            "service": "javis-db-mock-api",
             "timestamp": time.time(),
         }
     
@@ -715,12 +715,12 @@ class MockZCloudClient:
 
 
 # 单例模式
-_mock_client: Optional[MockZCloudClient] = None
+_mock_client: Optional[MockJavisClient] = None
 
 
-def get_mock_zcloud_client() -> MockZCloudClient:
+def get_mock_javis_client() -> MockJavisClient:
     """获取Mock客户端单例"""
     global _mock_client
     if _mock_client is None:
-        _mock_client = MockZCloudClient()
+        _mock_client = MockJavisClient()
     return _mock_client

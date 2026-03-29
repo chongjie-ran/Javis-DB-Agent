@@ -26,7 +26,7 @@ from src.gateway.alert_correlator import (
     CorrelationResult,
     get_mock_alert_correlator,
 )
-from src.mock_api.zcloud_client import MockZCloudClient
+from src.mock_api.javis_client import MockJavisClient
 
 
 # ============================================================================
@@ -63,8 +63,8 @@ def create_mock_alert(
 # ============================================================================
 
 @pytest.fixture
-def mock_zcloud_client():
-    """Mock zCloud客户端"""
+def mock_javis_client():
+    """Mock Javis客户端"""
     client = MagicMock()
     
     alerts = [
@@ -112,15 +112,15 @@ def mock_zcloud_client():
 @pytest.fixture
 def real_client():
     """RealClient测试夹具"""
-    from src.real_api import ZCloudRealClient, RealAPIConfig
+    from src.real_api import JavisRealClient, RealAPIConfig
     
     config = RealAPIConfig(
-        base_url="https://zcloud.example.com/api/v1",
+        base_url="https://javis-db.example.com/api/v1",
         auth_type="api_key",
         api_key="test-key",
         use_mock=True,  # 使用mock模式
     )
-    return ZCloudRealClient(config=config)
+    return JavisRealClient(config=config)
 
 
 # ============================================================================
@@ -131,14 +131,14 @@ class TestAlertToDiagnosisE2E:
     """告警到诊断端到端测试"""
     
     @pytest.mark.asyncio
-    async def test_alert_chain_diagnosis_flow(self, mock_zcloud_client):
+    async def test_alert_chain_diagnosis_flow(self, mock_javis_client):
         """
         测试告警链诊断完整流程
         
         流程：告警列表 → 关联分析 → 诊断 → 结果
         """
         # Step 1: 获取告警列表
-        alerts = await mock_zcloud_client.get_alerts(status="active")
+        alerts = await mock_javis_client.get_alerts(status="active")
         assert len(alerts) >= 3, "告警列表获取失败"
         
         # Step 2: 选择主告警进行诊断
@@ -149,18 +149,18 @@ class TestAlertToDiagnosisE2E:
         correlation_result = await correlator.correlate_alerts(
             primary_alert_id=primary_alert["alert_id"],
             all_alerts=alerts,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         assert correlation_result is not None, "关联分析失败"
         assert len(correlation_result.correlation_chain) >= 1, "关联链为空"
         
         # Step 4: 获取实例详情
-        instance = await mock_zcloud_client.get_instance(primary_alert["instance_id"])
+        instance = await mock_javis_client.get_instance(primary_alert["instance_id"])
         assert instance is not None, "实例详情获取失败"
         
         # Step 5: 获取会话信息
-        sessions = await mock_zcloud_client.get_sessions(primary_alert["instance_id"])
+        sessions = await mock_javis_client.get_sessions(primary_alert["instance_id"])
         assert sessions is not None, "会话信息获取失败"
         
         print(f"\n=== 告警→诊断流程完成 ===")
@@ -169,7 +169,7 @@ class TestAlertToDiagnosisE2E:
         print(f"根因: {correlation_result.root_cause}")
     
     @pytest.mark.asyncio
-    async def test_diagnosis_with_session_context(self, mock_zcloud_client):
+    async def test_diagnosis_with_session_context(self, mock_javis_client):
         """
         测试带会话上下文的诊断
         
@@ -177,23 +177,23 @@ class TestAlertToDiagnosisE2E:
         """
         correlator = get_mock_alert_correlator()
         
-        alerts = await mock_zcloud_client.get_alerts(status="active")
-        sessions = await mock_zcloud_client.get_sessions("INS-PROD-001")
-        locks = await mock_zcloud_client.get_locks("INS-PROD-001")
+        alerts = await mock_javis_client.get_alerts(status="active")
+        sessions = await mock_javis_client.get_sessions("INS-PROD-001")
+        locks = await mock_javis_client.get_locks("INS-PROD-001")
         
         # 构建上下文
         context = {
             "alerts": alerts,
             "sessions": sessions,
             "locks": locks,
-            "mock_client": mock_zcloud_client,
+            "mock_client": mock_javis_client,
         }
         
         # 执行关联分析
         result = await correlator.correlate_alerts(
             primary_alert_id="ALT-004",  # LOCK_WAIT
             all_alerts=alerts,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         assert result is not None
@@ -204,10 +204,10 @@ class TestMockVsRealClientConsistency:
     """Mock与Real客户端一致性测试"""
     
     @pytest.mark.asyncio
-    async def test_get_alerts_interface_consistency(self, mock_zcloud_client, real_client):
+    async def test_get_alerts_interface_consistency(self, mock_javis_client, real_client):
         """测试get_alerts接口一致性"""
         # Mock客户端调用
-        mock_result = await mock_zcloud_client.get_alerts(
+        mock_result = await mock_javis_client.get_alerts(
             instance_id="INS-001",
             severity="warning",
             status="active",
@@ -228,7 +228,7 @@ class TestMockVsRealClientConsistency:
         assert real_params == expected_params, f"Real接口参数: {real_params}"
     
     @pytest.mark.asyncio
-    async def test_get_instance_interface_consistency(self, mock_zcloud_client, real_client):
+    async def test_get_instance_interface_consistency(self, mock_javis_client, real_client):
         """测试get_instance接口一致性"""
         assert hasattr(real_client, "get_instance")
         
@@ -245,20 +245,20 @@ class TestAlertCorrelationRegression:
     """告警关联回归测试（复用Round4）"""
     
     @pytest.mark.asyncio
-    async def test_full_diagnostic_chain_regression(self, mock_zcloud_client):
+    async def test_full_diagnostic_chain_regression(self, mock_javis_client):
         """
         回归测试：完整诊断链路
         
         这是Round4的test_full_diagnostic_chain测试的回归验证
         """
-        all_alerts = await mock_zcloud_client.get_alerts(status="active")
+        all_alerts = await mock_javis_client.get_alerts(status="active")
         assert len(all_alerts) >= 3, "告警采集失败"
         
         correlator = get_mock_alert_correlator()
         correlation_result = await correlator.correlate_alerts(
             primary_alert_id="ALT-004",
             all_alerts=all_alerts,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         assert correlation_result is not None, "关联分析失败"
@@ -267,7 +267,7 @@ class TestAlertCorrelationRegression:
         assert 0.0 <= correlation_result.confidence <= 1.0, "置信度无效"
     
     @pytest.mark.asyncio
-    async def test_multi_level_correlation_regression(self, mock_zcloud_client):
+    async def test_multi_level_correlation_regression(self, mock_javis_client):
         """
         回归测试：多层级关联
         
@@ -286,7 +286,7 @@ class TestAlertCorrelationRegression:
         result = await correlator.correlate_alerts(
             primary_alert_id="ALT-E",
             all_alerts=alerts,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         assert len(result.correlation_chain) >= 3, "多层级关联失败"
@@ -296,7 +296,7 @@ class TestAlertCorrelationRegression:
             f"第一个告警应该是根因，实际角色: {root_alert.role}"
     
     @pytest.mark.asyncio
-    async def test_root_cause_identification_regression(self, mock_zcloud_client):
+    async def test_root_cause_identification_regression(self, mock_javis_client):
         """
         回归测试：根因识别
         
@@ -306,8 +306,8 @@ class TestAlertCorrelationRegression:
         
         result = await correlator.correlate_alerts(
             primary_alert_id="ALT-004",
-            all_alerts=await mock_zcloud_client.get_alerts(status="active"),
-            mock_client=mock_zcloud_client,
+            all_alerts=await mock_javis_client.get_alerts(status="active"),
+            mock_client=mock_javis_client,
         )
         
         root_cause_text = result.root_cause.lower()
@@ -315,7 +315,7 @@ class TestAlertCorrelationRegression:
             f"根因描述不准确: {result.root_cause}"
     
     @pytest.mark.asyncio
-    async def test_time_window_correlation_regression(self, mock_zcloud_client):
+    async def test_time_window_correlation_regression(self, mock_javis_client):
         """
         回归测试：时间窗口关联
         
@@ -331,13 +331,13 @@ class TestAlertCorrelationRegression:
         result = await correlator.correlate_alerts(
             primary_alert_id="ALT-1",
             all_alerts=alerts,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         assert len(result.correlation_chain) >= 2, "时间窗口内告警未完全关联"
     
     @pytest.mark.asyncio
-    async def test_cross_instance_isolation_regression(self, mock_zcloud_client):
+    async def test_cross_instance_isolation_regression(self, mock_javis_client):
         """
         回归测试：跨实例隔离
         
@@ -353,7 +353,7 @@ class TestAlertCorrelationRegression:
         result = await correlator.correlate_alerts(
             primary_alert_id="ALT-1",
             all_alerts=alerts,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         instance_ids = {node.instance_id for node in result.correlation_chain}
@@ -361,7 +361,7 @@ class TestAlertCorrelationRegression:
         assert "INS-A" in instance_ids, "应只关联INS-A的告警"
     
     @pytest.mark.asyncio
-    async def test_edge_case_empty_alerts_regression(self, mock_zcloud_client):
+    async def test_edge_case_empty_alerts_regression(self, mock_javis_client):
         """
         回归测试：空告警列表处理
         
@@ -372,14 +372,14 @@ class TestAlertCorrelationRegression:
         result = await correlator.correlate_alerts(
             primary_alert_id="ALT-999",
             all_alerts=[],
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         assert result is not None, "空列表不应返回None"
         assert len(result.correlation_chain) >= 1, "应至少包含主告警"
     
     @pytest.mark.asyncio
-    async def test_edge_case_single_alert_regression(self, mock_zcloud_client):
+    async def test_edge_case_single_alert_regression(self, mock_javis_client):
         """
         回归测试：单告警处理
         
@@ -391,7 +391,7 @@ class TestAlertCorrelationRegression:
         result = await correlator.correlate_alerts(
             primary_alert_id="ALT-001",
             all_alerts=alerts,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         assert result.primary_alert_id == "ALT-001"
@@ -403,14 +403,14 @@ class TestEndToEndScenarios:
     """端到端场景测试"""
     
     @pytest.mark.asyncio
-    async def test_lock_wait_full_flow(self, mock_zcloud_client):
+    async def test_lock_wait_full_flow(self, mock_javis_client):
         """
         测试LOCK_WAIT完整处理流程
         
         场景：数据库出现锁等待告警的完整处理流程
         """
         # 1. 告警检测
-        alerts = await mock_zcloud_client.get_alerts(status="active")
+        alerts = await mock_javis_client.get_alerts(status="active")
         lock_wait_alert = next(
             (a for a in alerts if a["alert_type"] == "LOCK_WAIT"),
             None
@@ -422,15 +422,15 @@ class TestEndToEndScenarios:
         result = await correlator.correlate_alerts(
             primary_alert_id=lock_wait_alert["alert_id"],
             all_alerts=alerts,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         # 3. 获取锁信息
-        locks = await mock_zcloud_client.get_locks(lock_wait_alert["instance_id"])
+        locks = await mock_javis_client.get_locks(lock_wait_alert["instance_id"])
         assert locks is not None
         
         # 4. 获取慢SQL
-        slow_sql = await mock_zcloud_client.get_slow_sql(lock_wait_alert["instance_id"])
+        slow_sql = await mock_javis_client.get_slow_sql(lock_wait_alert["instance_id"])
         assert slow_sql is not None
         
         print(f"\n=== LOCK_WAIT完整流程 ===")
@@ -440,7 +440,7 @@ class TestEndToEndScenarios:
         print(f"慢SQL数: {slow_sql.get('count', 0)}")
     
     @pytest.mark.asyncio
-    async def test_cpu_high_escalation_flow(self, mock_zcloud_client):
+    async def test_cpu_high_escalation_flow(self, mock_javis_client):
         """
         测试CPU高负载告警升级流程
         
@@ -459,7 +459,7 @@ class TestEndToEndScenarios:
         result = await correlator.correlate_alerts(
             primary_alert_id="ALT-CPU-3",
             all_alerts=alerts,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         # 验证能溯源到CPU问题

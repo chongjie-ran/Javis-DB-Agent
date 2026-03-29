@@ -1,16 +1,16 @@
 # 第四轮迭代 - 悟通任务清单
 
 ## 项目信息
-- 项目路径: `/Users/chongjieran/SWproject/zCloudNewAgentProject/`
-- 任务类型: zCloud API研究 + Mock数据升级 + 认证框架
+- 项目路径: `/Users/chongjieran/SWproject/Javis-DB-Agent/`
+- 任务类型: Javis-DB-Agent API研究 + Mock数据升级 + 认证框架
 
 ## 任务说明
 
 第四轮迭代中，你（悟通）负责以下工作：
 
-### Day 1-2: zCloud API文档研究
+### Day 1-2: Javis-DB-Agent API文档研究
 
-1. **研究zCloud API认证机制**
+1. **研究Javis API认证机制**
    - 分析OAuth2.0认证流程
    - Token刷新机制
    - API Key vs OAuth对比
@@ -25,8 +25,8 @@
    - 错误码体系
 
 4. **输出文档**
-   - `docs/zcloud-api-research.md`
-   - `docs/zcloud-auth-design.md`
+   - `docs/javis-db-api-research.md`
+   - `docs/javis-db-auth-design.md`
 
 ### Day 3: Mock数据升级
 
@@ -45,12 +45,12 @@
    - Token管理接口
 
 2. **实现真实/Mock切换开关**
-   - `src/mock_api/zcloud_client.py` 支持切换
+   - `src/mock_api/javis_client.py` 支持切换
 
 ## 执行命令
 
 ```bash
-cd /Users/chongjieran/SWproject/zCloudNewAgentProject
+cd /Users/chongjieran/SWproject/Javis-DB-Agent
 
 # 运行现有测试确认环境正常
 python3 -m pytest tests/ -v --tb=short
@@ -69,7 +69,7 @@ python3 -m pytest tests/ -v --tb=short
 
 ## 已知限制
 
-- 无真实zCloud环境，依赖文档研究
+- 无真实Javis环境，依赖文档研究
 - Mock API需要兼容现有189个测试
 - 认证框架仅为预留位置，不实现完整OAuth
 

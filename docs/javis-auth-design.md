@@ -1,4 +1,4 @@
-# zCloud 认证机制设计草案
+# Javis-DB-Agent 认证机制设计草案
 
 > 版本：v1.0 | 日期：2026-03-28 | 作者：悟通
 
@@ -6,7 +6,7 @@
 
 ## 一、背景
 
-zCloud 智能体系统需要与真实的 zCloud 平台对接，需要设计一套统一的认证框架，支持：
+Javis-DB-Agent 智能体系统需要与真实的 Javis-DB-Agent 平台对接，需要设计一套统一的认证框架，支持：
 - OAuth2.0 授权码模式（用户授权场景）
 - API Key 认证（机器到机器场景）
 - Token 自动刷新机制
@@ -338,7 +338,7 @@ from typing import Protocol, Optional
 
 
 class ZCloudClientProtocol(Protocol):
-    """zCloud 客户端协议"""
+    """Javis-DB-Agent 客户端协议"""
     
     async def get_instance(self, instance_id: str) -> dict:
         """获取实例详情"""
@@ -358,7 +358,7 @@ class ZCloudClientProtocol(Protocol):
 
 
 class RealZCloudClient:
-    """真实 zCloud API 客户端"""
+    """真实 Javis-DB-Agent API 客户端"""
     
     def __init__(
         self,
@@ -437,7 +437,7 @@ class RealZCloudClient:
 
 ```python
 class ZCloudClientFactory:
-    """zCloud 客户端工厂"""
+    """Javis-DB-Agent 客户端工厂"""
     
     @staticmethod
     def create(
@@ -462,8 +462,8 @@ class ZCloudClientFactory:
             timeout: 请求超时时间
         """
         if use_mock:
-            from mock_zcloud_api.zcloud_client import get_mock_zcloud_client
-            return get_mock_zcloud_client()
+            from mock_javis_api.javis_client import get_mock_javis_client
+            return get_mock_javis_client()
         else:
             if not real_base_url:
                 raise ValueError("real_base_url is required when use_mock=False")
@@ -503,7 +503,7 @@ alerts = await client.get_alerts()
 # 配置文件
 config = {
     "use_mock": False,
-    "real_base_url": "https://zcloud.example.com/api/v1",
+    "real_base_url": "https://javis-db.example.com/api/v1",
     "auth_config": AuthConfig(
         auth_type=AuthType.API_KEY,
         api_key="your-api-key-here"
@@ -523,8 +523,8 @@ auth_config = AuthConfig(
     auth_type=AuthType.OAUTH2,
     client_id="your-client-id",
     client_secret="your-client-secret",
-    token_url="https://zcloud.example.com/oauth/token",
-    authorization_url="https://zcloud.example.com/oauth/authorize",
+    token_url="https://javis-db.example.com/oauth/token",
+    authorization_url="https://javis-db.example.com/oauth/authorize",
     redirect_uri="http://localhost:8080/callback",
     scope="read write"
 )
@@ -542,7 +542,7 @@ auth_manager.get_provider().exchange_code_for_token(code)
 # 创建客户端
 client = ZCloudClientFactory.create(
     use_mock=False,
-    real_base_url="https://zcloud.example.com/api/v1",
+    real_base_url="https://javis-db.example.com/api/v1",
     auth_config=auth_config
 )
 ```
@@ -585,9 +585,9 @@ def load_auth_config_from_env() -> Optional[AuthConfig]:
 
 ```yaml
 # config.yaml
-zcloud:
+javis-db:
   use_mock: false
-  base_url: https://zcloud.example.com/api/v1
+  base_url: https://javis-db.example.com/api/v1
   
   auth:
     type: api_key  # oauth2, api_key, mock
@@ -621,7 +621,7 @@ zcloud:
 
 ### 6.2 待接入真实环境
 
-1. 获取 zCloud 平台的 OAuth2.0 凭证
+1. 获取 Javis-DB-Agent 平台的 OAuth2.0 凭证
 2. 配置生产环境的 token URL
 3. 完善 token 刷新失败的处理逻辑
 4. 添加 token 缓存到文件系统

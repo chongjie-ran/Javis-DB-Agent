@@ -4,7 +4,7 @@ import random
 from typing import Optional
 
 from fastapi import APIRouter, Path, Query, HTTPException
-from mock_zcloud_api.models_enhanced import (
+from mock_javis_api.models_enhanced import (
     gen_enhanced_instance,
     gen_enhanced_sessions,
     gen_enhanced_locks,

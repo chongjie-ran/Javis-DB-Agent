@@ -1,6 +1,6 @@
 """
 API Mock测试框架 - 第二轮测试
-用于模拟zCloud平台API接口
+用于模拟Javis平台API接口
 """
 import pytest
 from unittest.mock import AsyncMock, Mock, MagicMock
@@ -8,8 +8,8 @@ from typing import Dict, Any, Optional
 import json
 
 
-class MockZCloudAPIResponse:
-    """Mock zCloud API响应封装"""
+class MockJavisAPIResponse:
+    """Mock Javis-DB-Agent API响应封装"""
     
     def __init__(self, status_code: int = 200, data: Any = None, error: Optional[str] = None):
         self.status_code = status_code
@@ -26,8 +26,8 @@ class MockZCloudAPIResponse:
             raise Exception(f"HTTP {self.status_code}: {self.error or 'Unknown error'}")
 
 
-class MockZCloudInstanceAPI:
-    """Mock zCloud实例API"""
+class MockJavisInstanceAPI:
+    """Mock Javis实例API"""
     
     def __init__(self):
         self._instances = {
@@ -66,8 +66,8 @@ class MockZCloudInstanceAPI:
         return {"status": "restarting", "instance_id": instance_id}
 
 
-class MockZCloudSessionAPI:
-    """Mock zCloud会话API"""
+class MockJavisSessionAPI:
+    """Mock Javis会话API"""
     
     def __init__(self):
         self._sessions = {
@@ -112,8 +112,8 @@ class MockZCloudSessionAPI:
         return {"status": "killed", "instance_id": instance_id, "pid": pid}
 
 
-class MockZCloudLockAPI:
-    """Mock zCloud锁API"""
+class MockJavisLockAPI:
+    """Mock Javis锁API"""
     
     def __init__(self):
         self._locks = {
@@ -162,8 +162,8 @@ class MockZCloudLockAPI:
         return chain
 
 
-class MockZCloudAlertAPI:
-    """Mock zCloud告警API"""
+class MockJavisAlertAPI:
+    """Mock Javis告警API"""
     
     def __init__(self):
         self._alerts = {
@@ -211,8 +211,8 @@ class MockZCloudAlertAPI:
         return self._alerts[alert_id]
 
 
-class MockZCloudInspectionAPI:
-    """Mock zCloud巡检API"""
+class MockJavisInspectionAPI:
+    """Mock Javis巡检API"""
     
     def __init__(self):
         self._inspections = {}
@@ -236,15 +236,15 @@ class MockZCloudInspectionAPI:
         return self._inspections[inspection_id]
 
 
-class MockZCloudAPIClient:
-    """Mock zCloud API客户端（聚合所有Mock API）"""
+class MockJavisAPIClient:
+    """Mock Javis-DB-Agent API客户端（聚合所有Mock API）"""
     
     def __init__(self):
-        self.instances = MockZCloudInstanceAPI()
-        self.sessions = MockZCloudSessionAPI()
-        self.locks = MockZCloudLockAPI()
-        self.alerts = MockZCloudAlertAPI()
-        self.inspections = MockZCloudInspectionAPI()
+        self.instances = MockJavisInstanceAPI()
+        self.sessions = MockJavisSessionAPI()
+        self.locks = MockJavisLockAPI()
+        self.alerts = MockJavisAlertAPI()
+        self.inspections = MockJavisInspectionAPI()
     
     async def health_check(self) -> bool:
         """健康检查"""
@@ -252,18 +252,18 @@ class MockZCloudAPIClient:
 
 
 @pytest.fixture
-def mock_zcloud_client():
-    """Mock zCloud API客户端fixture"""
-    return MockZCloudAPIClient()
+def mock_javis_client():
+    """Mock Javis-DB-Agent API客户端fixture"""
+    return MockJavisAPIClient()
 
 
-class TestMockZCloudAPI:
-    """Mock zCloud API测试"""
+class TestMockJavisAPI:
+    """Mock Javis-DB-Agent API测试"""
     
     @pytest.mark.asyncio
-    async def test_get_instance_status(self, mock_zcloud_client):
+    async def test_get_instance_status(self, mock_javis_client):
         """测试获取实例状态"""
-        result = await mock_zcloud_client.instances.get_instance_status("INS-TEST-001")
+        result = await mock_javis_client.instances.get_instance_status("INS-TEST-001")
         
         assert result is not None
         assert result["instance_id"] == "INS-TEST-001"
@@ -271,34 +271,34 @@ class TestMockZCloudAPI:
         assert "metrics" in result
     
     @pytest.mark.asyncio
-    async def test_get_sessions(self, mock_zcloud_client):
+    async def test_get_sessions(self, mock_javis_client):
         """测试获取会话列表"""
-        result = await mock_zcloud_client.sessions.get_sessions("INS-TEST-001")
+        result = await mock_javis_client.sessions.get_sessions("INS-TEST-001")
         
         assert "sessions" in result
         assert len(result["sessions"]) > 0
         assert result["total_count"] > 0
     
     @pytest.mark.asyncio
-    async def test_get_locks(self, mock_zcloud_client):
+    async def test_get_locks(self, mock_javis_client):
         """测试获取锁信息"""
-        result = await mock_zcloud_client.locks.get_locks("INS-TEST-001")
+        result = await mock_javis_client.locks.get_locks("INS-TEST-001")
         
         assert "locks" in result
         assert "lock_wait_chain" in result
     
     @pytest.mark.asyncio
-    async def test_get_alert_detail(self, mock_zcloud_client):
+    async def test_get_alert_detail(self, mock_javis_client):
         """测试获取告警详情"""
-        result = await mock_zcloud_client.alerts.get_alert_detail("ALT-20260328-001")
+        result = await mock_javis_client.alerts.get_alert_detail("ALT-20260328-001")
         
         assert result["alert_id"] == "ALT-20260328-001"
         assert result["alert_code"] == "ALT_LOCK_WAIT"
     
     @pytest.mark.asyncio
-    async def test_trigger_inspection(self, mock_zcloud_client):
+    async def test_trigger_inspection(self, mock_javis_client):
         """测试触发巡检"""
-        result = await mock_zcloud_client.inspections.trigger_inspection(
+        result = await mock_javis_client.inspections.trigger_inspection(
             "INS-TEST-001",
             "full"
         )
@@ -308,17 +308,17 @@ class TestMockZCloudAPI:
         assert result["status"] == "running"
     
     @pytest.mark.asyncio
-    async def test_kill_session(self, mock_zcloud_client):
+    async def test_kill_session(self, mock_javis_client):
         """测试终止会话"""
-        result = await mock_zcloud_client.sessions.kill_session("INS-TEST-001", 5678)
+        result = await mock_javis_client.sessions.kill_session("INS-TEST-001", 5678)
         
         assert result["status"] == "killed"
         assert result["pid"] == 5678
     
     @pytest.mark.asyncio
-    async def test_health_check(self, mock_zcloud_client):
+    async def test_health_check(self, mock_javis_client):
         """测试健康检查"""
-        result = await mock_zcloud_client.health_check()
+        result = await mock_javis_client.health_check()
         assert result is True
 
 
@@ -328,7 +328,7 @@ class TestMockAPIErrorHandling:
     @pytest.mark.asyncio
     async def test_instance_not_found(self):
         """测试实例不存在错误"""
-        client = MockZCloudAPIClient()
+        client = MockJavisAPIClient()
         
         with pytest.raises(Exception) as exc_info:
             await client.instances.get_instance_status("INS-INVALID")
@@ -338,7 +338,7 @@ class TestMockAPIErrorHandling:
     @pytest.mark.asyncio
     async def test_alert_not_found(self):
         """测试告警不存在错误"""
-        client = MockZCloudAPIClient()
+        client = MockJavisAPIClient()
         
         with pytest.raises(Exception) as exc_info:
             await client.alerts.get_alert_detail("ALT-INVALID")
@@ -348,7 +348,7 @@ class TestMockAPIErrorHandling:
     @pytest.mark.asyncio
     async def test_kill_nonexistent_session(self):
         """测试终止不存在的会话"""
-        client = MockZCloudAPIClient()
+        client = MockJavisAPIClient()
         
         with pytest.raises(Exception) as exc_info:
             await client.sessions.kill_session("INS-TEST-001", 99999)

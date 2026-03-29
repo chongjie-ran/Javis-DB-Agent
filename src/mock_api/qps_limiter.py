@@ -1,6 +1,6 @@
 """
 QPS 限制模拟器
-用于模拟 zCloud API 的请求频率限制
+用于模拟 Javis-DB-Agent API 的请求频率限制
 """
 import time
 import threading

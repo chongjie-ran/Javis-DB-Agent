@@ -11,7 +11,7 @@ from src.knowledge.vector_store import VectorStore, _load_alert_rules, _load_sop
 
 def main():
     print("=" * 60)
-    print("zCloud 知识库向量化")
+    print("Javis-DB-Agent 知识库向量化")
     print("=" * 60)
 
     # 创建向量存储

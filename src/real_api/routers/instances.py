@@ -2,10 +2,10 @@
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from src.real_api.client import ZCloudRealClient
+    from src.real_api.client import JavisRealClient
 
 
-async def get_instance(client: "ZCloudRealClient", instance_id: str) -> Optional[dict]:
+async def get_instance(client: "JavisRealClient", instance_id: str) -> Optional[dict]:
     """GET /api/v1/instances/{instance_id}"""
     result = await client._request("GET", f"/instances/{instance_id}")
     if result.get("code") == 0:
@@ -13,7 +13,7 @@ async def get_instance(client: "ZCloudRealClient", instance_id: str) -> Optional
     return None
 
 
-async def list_instances(client: "ZCloudRealClient", status: Optional[str] = None) -> list[dict]:
+async def list_instances(client: "JavisRealClient", status: Optional[str] = None) -> list[dict]:
     """GET /api/v1/instances"""
     params = {}
     if status:
@@ -25,7 +25,7 @@ async def list_instances(client: "ZCloudRealClient", status: Optional[str] = Non
 
 
 async def get_instance_metrics(
-    client: "ZCloudRealClient",
+    client: "JavisRealClient",
     instance_id: str,
     metrics: Optional[list[str]] = None,
     start_time: Optional[float] = None,

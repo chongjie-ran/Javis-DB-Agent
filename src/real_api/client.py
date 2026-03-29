@@ -1,4 +1,4 @@
-"""真实zCloud API Client"""
+"""真实Javis API Client"""
 import httpx
 import time
 from typing import Optional, Any
@@ -11,12 +11,12 @@ from src.real_api.routers import (
 )
 
 
-class ZCloudRealClient:
+class JavisRealClient:
     """
-    真实zCloud API客户端
+    真实Javis API客户端
     
     接口设计原则：
-    - 与 MockZCloudClient 保持接口一致
+    - 与 MockJavisClient 保持接口一致
     - 支持 config 中 use_mock 开关切换
     - 保留 Mock 作为 fallback
     """
@@ -243,14 +243,14 @@ class ZCloudRealClient:
 
 
 # 单例
-_real_client: Optional[ZCloudRealClient] = None
+_real_client: Optional[JavisRealClient] = None
 
 
-def get_real_client() -> ZCloudRealClient:
+def get_real_client() -> JavisRealClient:
     """获取真实API客户端单例"""
     global _real_client
     if _real_client is None:
-        _real_client = ZCloudRealClient()
+        _real_client = JavisRealClient()
     return _real_client
 
 

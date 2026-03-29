@@ -86,8 +86,8 @@ MAX_CONCURRENT_TEST = 10
 # ============================================================================
 
 @pytest.fixture
-def mock_zcloud_client():
-    """Mock zCloud客户端"""
+def mock_javis_client():
+    """Mock Javis客户端"""
     client = MagicMock()
     client.get_instance = AsyncMock(return_value={
         "instance_id": "INS-PROD-001",
@@ -179,7 +179,7 @@ class TestResponseTimeSLA:
     """响应时间SLA测试"""
     
     @pytest.mark.asyncio
-    async def test_single_alert_diagnosis_response_time(self, mock_zcloud_client, mock_llm_response):
+    async def test_single_alert_diagnosis_response_time(self, mock_javis_client, mock_llm_response):
         """
         测试单个告警诊断的响应时间
         
@@ -191,7 +191,7 @@ class TestResponseTimeSLA:
         
         context = {
             "instance_id": "INS-PROD-001",
-            "mock_client": mock_zcloud_client,
+            "mock_client": mock_javis_client,
         }
         
         metrics = PerformanceMetrics()
@@ -208,7 +208,7 @@ class TestResponseTimeSLA:
             f"响应时间超过SLA: {metrics.elapsed_ms:.0f}ms > {RESPONSE_TIME_SLA_MS}ms"
     
     @pytest.mark.asyncio
-    async def test_query_tool_response_time(self, mock_zcloud_client):
+    async def test_query_tool_response_time(self, mock_javis_client):
         """
         测试查询工具响应时间
         
@@ -218,7 +218,7 @@ class TestResponseTimeSLA:
         
         tool = QueryInstanceStatusTool()
         params = {"instance_id": "INS-PROD-001", "metrics": ["cpu", "memory", "io"]}
-        context = {"mock_client": mock_zcloud_client}
+        context = {"mock_client": mock_javis_client}
         
         metrics = PerformanceMetrics()
         metrics.start()
@@ -260,7 +260,7 @@ class TestResponseTimeSLA:
                 f"意图识别超时: '{inp}' - {metrics.elapsed_ms:.0f}ms > {INTENT_SLA_MS}ms"
     
     @pytest.mark.asyncio
-    async def test_alert_correlation_response_time(self, mock_zcloud_client):
+    async def test_alert_correlation_response_time(self, mock_javis_client):
         """
         测试告警关联分析响应时间
         
@@ -271,7 +271,7 @@ class TestResponseTimeSLA:
         from src.gateway.alert_correlator import get_mock_alert_correlator
         
         correlator = get_mock_alert_correlator()
-        all_alerts = await mock_zcloud_client.get_alerts(status="active")
+        all_alerts = await mock_javis_client.get_alerts(status="active")
         
         metrics = PerformanceMetrics()
         metrics.start()
@@ -279,7 +279,7 @@ class TestResponseTimeSLA:
         result = await correlator.correlate_alerts(
             primary_alert_id="ALT-001",
             all_alerts=all_alerts,
-            mock_client=mock_zcloud_client,
+            mock_client=mock_javis_client,
         )
         
         metrics.stop()
@@ -297,7 +297,7 @@ class TestConcurrentPerformance:
     """并发性能测试"""
     
     @pytest.mark.asyncio
-    async def test_concurrent_diagnosis_requests(self, mock_zcloud_client, mock_llm_response):
+    async def test_concurrent_diagnosis_requests(self, mock_javis_client, mock_llm_response):
         """
         测试并发诊断请求
         
@@ -315,7 +315,7 @@ class TestConcurrentPerformance:
             
             context = {
                 "instance_id": f"INS-PROD-{idx:03d}",
-                "mock_client": mock_zcloud_client,
+                "mock_client": mock_javis_client,
             }
             
             metrics = PerformanceMetrics()
@@ -352,7 +352,7 @@ class TestConcurrentPerformance:
             f"平均响应时间过高: {avg_response:.0f}ms > {MAX_AVG_RESPONSE_MS}ms"
     
     @pytest.mark.asyncio
-    async def test_concurrent_query_requests(self, mock_zcloud_client):
+    async def test_concurrent_query_requests(self, mock_javis_client):
         """
         测试并发查询请求
         
@@ -367,7 +367,7 @@ class TestConcurrentPerformance:
         
         async def single_query(idx: int) -> bool:
             params = {"instance_id": f"INS-PROD-{idx:03d}"}
-            context = {"mock_client": mock_zcloud_client}
+            context = {"mock_client": mock_javis_client}
             result = await tool.execute(params, context)
             return result.success
         
@@ -390,7 +390,7 @@ class TestConcurrentPerformance:
         assert success_rate == 100.0, f"存在失败请求: {success_count}/{NUM_CONCURRENT}"
     
     @pytest.mark.asyncio
-    async def test_sustained_load_performance(self, mock_zcloud_client, mock_llm_response):
+    async def test_sustained_load_performance(self, mock_javis_client, mock_llm_response):
         """
         测试持续负载性能
         
@@ -415,7 +415,7 @@ class TestConcurrentPerformance:
         while time.time() - start_time < DURATION_S:
             context = {
                 "instance_id": "INS-PROD-001",
-                "mock_client": mock_zcloud_client,
+                "mock_client": mock_javis_client,
             }
             
             metrics = PerformanceMetrics()
@@ -461,7 +461,7 @@ class TestResourceConsumption:
     """资源消耗评估测试"""
     
     @pytest.mark.asyncio
-    async def test_memory_usage_per_request(self, mock_zcloud_client, mock_llm_response):
+    async def test_memory_usage_per_request(self, mock_javis_client, mock_llm_response):
         """
         测试每次请求的内存消耗
         
@@ -480,7 +480,7 @@ class TestResourceConsumption:
         
         context = {
             "instance_id": "INS-PROD-001",
-            "mock_client": mock_zcloud_client,
+            "mock_client": mock_javis_client,
         }
         
         result = await agent.diagnose_alert("ALT-001", context)
@@ -505,7 +505,7 @@ class TestResourceConsumption:
             f"单次请求内存变化过大: {memory_delta:.1f}% > 10%"
     
     @pytest.mark.asyncio
-    async def test_cpu_usage_during_correlation(self, mock_zcloud_client):
+    async def test_cpu_usage_during_correlation(self, mock_javis_client):
         """
         测试告警关联分析的CPU使用
         
@@ -516,7 +516,7 @@ class TestResourceConsumption:
         from src.gateway.alert_correlator import get_mock_alert_correlator
         
         correlator = get_mock_alert_correlator()
-        all_alerts = await mock_zcloud_client.get_alerts(status="active")
+        all_alerts = await mock_javis_client.get_alerts(status="active")
         
         # 添加更多告警以增加计算量
         all_alerts.extend([
@@ -543,7 +543,7 @@ class TestResourceConsumption:
         
         # 并行执行关联分析和CPU采样
         await asyncio.gather(
-            correlator.correlate_alerts("ALT-001", all_alerts, mock_zcloud_client),
+            correlator.correlate_alerts("ALT-001", all_alerts, mock_javis_client),
             sample_cpu(),
         )
         
@@ -558,7 +558,7 @@ class TestResourceConsumption:
         assert max_cpu < 80, f"CPU峰值过高: {max_cpu:.1f}%"
     
     @pytest.mark.asyncio
-    async def test_process_file_descriptors(self, mock_zcloud_client, mock_llm_response):
+    async def test_process_file_descriptors(self, mock_javis_client, mock_llm_response):
         """
         测试文件描述符使用
         
@@ -579,7 +579,7 @@ class TestResourceConsumption:
             agent = DiagnosticAgent()
             agent.think = AsyncMock(return_value=mock_llm_response["response"])
             
-            context = {"instance_id": "INS-PROD-001", "mock_client": mock_zcloud_client}
+            context = {"instance_id": "INS-PROD-001", "mock_client": mock_javis_client}
             await agent.diagnose_alert("ALT-001", context)
         
         try:
@@ -607,7 +607,7 @@ class TestPerformanceRegression:
     """性能回归测试基线"""
     
     @pytest.mark.asyncio
-    async def test_baseline_diagnosis_response_time(self, mock_zcloud_client, mock_llm_response):
+    async def test_baseline_diagnosis_response_time(self, mock_javis_client, mock_llm_response):
         """
         建立诊断响应时间基线
         
@@ -623,7 +623,7 @@ class TestPerformanceRegression:
         for i in range(NUM_SAMPLES):
             context = {
                 "instance_id": f"INS-PROD-{i:03d}",
-                "mock_client": mock_zcloud_client,
+                "mock_client": mock_javis_client,
             }
             
             metrics = PerformanceMetrics()

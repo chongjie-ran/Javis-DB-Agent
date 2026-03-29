@@ -1,6 +1,6 @@
 """会话路由"""
 from fastapi import APIRouter, Query
-from mock_zcloud_api.models import gen_sessions
+from mock_javis_api.models import gen_sessions
 
 router = APIRouter()
 

@@ -28,7 +28,7 @@ class QueryInstanceStatusTool(BaseTool):
         instance_id = params["instance_id"]
         metrics = params.get("metrics", ["cpu", "memory", "io", "connections"])
         
-        # 模拟数据（实际应从zCloud API获取）
+        # 模拟数据（实际应从Javis API获取）
         data = {
             "instance_id": instance_id,
             "status": "running",

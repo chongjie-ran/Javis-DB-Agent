@@ -2,10 +2,10 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.real_api.client import ZCloudRealClient
+    from src.real_api.client import JavisRealClient
 
 
-async def get_locks(client: "ZCloudRealClient", instance_id: str, include_blocker: bool = True) -> dict:
+async def get_locks(client: "JavisRealClient", instance_id: str, include_blocker: bool = True) -> dict:
     """GET /api/v1/locks"""
     params = {"instance_id": instance_id, "include_blocker": include_blocker}
     result = await client._request("GET", "/locks", params=params)

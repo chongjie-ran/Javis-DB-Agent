@@ -1,5 +1,5 @@
 """
-Integration tests for zCloudNewAgentProject
+Integration tests for Javis-DB-Agent
 
 These tests require:
 1. PostgreSQL running with test database

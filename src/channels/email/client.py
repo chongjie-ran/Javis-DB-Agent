@@ -272,7 +272,7 @@ class EmailClient:
         msg["From"] = self.bot_address
         msg["To"] = ", ".join(to)
         msg["Subject"] = subject
-        msg["Message-ID"] = f"<{uuid.uuid4().hex}@zcloud-agent>"
+        msg["Message-ID"] = f"<{uuid.uuid4().hex}@javis-db-agent>"
 
         if in_reply_to:
             msg["In-Reply-To"] = in_reply_to
@@ -415,7 +415,7 @@ class EmailClient:
                 <div style="white-space: pre-wrap;">{alert_content}</div>
             </div>
             <p style="color: #666; font-size: 12px;">
-                本邮件由 zCloud Agent 自动发送<br>
+                本邮件由 Javis-DB-Agent Agent 自动发送<br>
                 时间: {time.strftime('%Y-%m-%d %H:%M:%S')}
             </p>
         </body>
@@ -463,7 +463,7 @@ class EmailClient:
                 <div style="white-space: pre-wrap; line-height: 1.6;">{report_content}</div>
                 <hr style="margin-top: 24px;">
                 <p style="color: #666; font-size: 12px;">
-                    zCloud Agent 报告生成<br>
+                    Javis-DB-Agent Agent 报告生成<br>
                     生成时间: {time.strftime('%Y-%m-%d %H:%M:%S')}
                 </p>
             </body>

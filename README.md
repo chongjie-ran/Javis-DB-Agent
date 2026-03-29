@@ -1,4 +1,4 @@
-# zCloudNewAgentProject - 数据库运维智能体系统
+# Javis-DB-Agent - 数据库运维智能体系统
 
 > 版本：v1.0 | 日期：2026-03-28 | 状态：✅ Round 9 完成（90个新测试 + 329个回归测试通过）
 
@@ -35,7 +35,7 @@ Agent Gateway（会话管理、工具注册、策略引擎、审计）
   ↓
 工具执行层（查询工具 / 分析工具 / 行动工具）
   ↓
-API层（Mock zCloud API / Real zCloud API） ⭐ Round 9
+API层（Mock Javis-DB-Agent API / Real Javis-DB-Agent API） ⭐ Round 9
   ↓
 LLM层（Ollama 本地运行）
 ```
@@ -47,20 +47,20 @@ LLM层（Ollama 本地运行）
 ## 项目结构
 
 ```
-zCloudNewAgentProject/
+Javis-DB-Agent/
 ├── src/
 │   ├── agents/          # Agent实现（编排、诊断、风险、SQL、巡检、报告）
 │   ├── gateway/         # Gateway核心（会话、策略、审计、告警关联）
 │   ├── tools/          # 工具集（查询、分析、行动）
 │   ├── knowledge/      # 知识库（告警规则、SOP、案例）
 │   ├── llm/            # LLM交互（Ollama客户端）
-│   ├── mock_api/       # Mock zCloud API
-│   ├── real_api/       # Real zCloud API Client ⭐ Round 9
+│   ├── mock_api/       # Mock Javis-DB-Agent API
+│   ├── real_api/       # Real Javis-DB-Agent API Client ⭐ Round 9
 │   └── api/            # FastAPI路由 + Dashboard ⭐ Round 9
 ├── templates/           # Web Dashboard ⭐ Round 9
 ├── scripts/             # 工具脚本（API模式切换）⭐ Round 9
 ├── tests/              # 测试（Round 2-4, Round 9，共419个测试）
-├── mock_zcloud_api/    # Mock API Server（12个接口）
+├── mock_javis_api/    # Mock API Server（12个接口）
 ├── configs/            # 配置文件
 ├── knowledge/          # 知识内容（15条告警规则、8个SOP、3个案例）
 └── docs/               # 架构文档、需求文档、执行报告
@@ -85,8 +85,8 @@ pip install -r requirements.txt
 ### 启动 Mock API
 
 ```bash
-cd ~/SWproject/zCloudNewAgentProject
-python3 -m uvicorn mock_zcloud_api.server:app --host 0.0.0.0 --port 18080
+cd ~/SWproject/Javis-DB-Agent
+python3 -m uvicorn mock_javis_api.server:app --host 0.0.0.0 --port 18080
 ```
 
 ### API 模式切换（Round 9 新增）
@@ -147,7 +147,7 @@ python3 -m pytest tests/round9/ -v
 ### RealClient（Round 9）⭐
 
 - **文件**：`src/real_api/client.py` + `src/real_api/auth.py`
-- **功能**：真实 zCloud API 客户端，支持 API Key + OAuth2
+- **功能**：真实 Javis-DB-Agent API 客户端，支持 API Key + OAuth2
 - **测试**：`tests/round9/test_real_client.py`（24个测试）
 
 ### API 模式切换（Round 9）⭐
@@ -180,8 +180,8 @@ python3 -m pytest tests/round9/ -v
 - [架构文档](docs/architecture.md)
 - [需求文档](docs/requirements.md)
 - [技术方案](docs/tech-spec.md)
-- [zCloud API研究](docs/zcloud-api-research.md)
-- [认证设计](docs/zcloud-auth-design.md)
+- [Javis-DB-Agent API研究](docs/javis-db-api-research.md)
+- [认证设计](docs/javis-db-auth-design.md)
 - [Round 3执行报告](docs/round3-execution-report.md)
 - [Round 4性能报告](docs/round4-performance-report.md)
 - [Round 9执行报告](docs/round9-execution-report.md)
@@ -191,7 +191,7 @@ python3 -m pytest tests/round9/ -v
 
 ## 下一步
 
-1. ~~接入真实 zCloud API（替换 Mock）~~ ✅ Round 9 完成
+1. ~~接入真实 Javis-DB-Agent API（替换 Mock）~~ ✅ Round 9 完成
 2. ~~前端界面开发~~ ✅ Round 9 完成
 3. 修复 OAuth2Provider.refresh_token() 实现（P0）
 4. 生产环境部署验证

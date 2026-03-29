@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     """应用配置"""
     
     # 应用
-    app_name: str = "zCloudNewAgentProject"
+    app_name: str = "Javis-DB-Agent"
     app_version: str = "v1.0"
     debug: bool = False
     
@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     ollama_timeout: int = 60
     
     # 数据库
-    db_path: str = "data/zcloud_agent.db"
+    db_path: str = "data/javis_db_agent.db"
     audit_db_path: str = "data/audit.db"
     
     # Redis

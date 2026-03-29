@@ -2,10 +2,10 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.real_api.client import ZCloudRealClient
+    from src.real_api.client import JavisRealClient
 
 
-async def get_replication_status(client: "ZCloudRealClient", instance_id: str) -> dict:
+async def get_replication_status(client: "JavisRealClient", instance_id: str) -> dict:
     """GET /api/v1/replication"""
     result = await client._request("GET", "/replication", params={"instance_id": instance_id})
     if result.get("code") == 0:

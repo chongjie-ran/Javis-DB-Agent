@@ -2,11 +2,11 @@
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from src.real_api.client import ZCloudRealClient
+    from src.real_api.client import JavisRealClient
 
 
 async def get_alerts(
-    client: "ZCloudRealClient",
+    client: "JavisRealClient",
     instance_id: Optional[str] = None,
     severity: Optional[str] = None,
     status: Optional[str] = None,
@@ -26,7 +26,7 @@ async def get_alerts(
     return []
 
 
-async def get_alert_detail(client: "ZCloudRealClient", alert_id: str) -> Optional[dict]:
+async def get_alert_detail(client: "JavisRealClient", alert_id: str) -> Optional[dict]:
     """GET /api/v1/alerts/{alert_id}"""
     result = await client._request("GET", f"/alerts/{alert_id}")
     if result.get("code") == 0:
@@ -35,7 +35,7 @@ async def get_alert_detail(client: "ZCloudRealClient", alert_id: str) -> Optiona
 
 
 async def acknowledge_alert(
-    client: "ZCloudRealClient",
+    client: "JavisRealClient",
     alert_id: str,
     acknowledged_by: str,
     comment: str = "",
@@ -53,7 +53,7 @@ async def acknowledge_alert(
 
 
 async def resolve_alert(
-    client: "ZCloudRealClient",
+    client: "JavisRealClient",
     alert_id: str,
     resolved_by: str,
     resolution: str,

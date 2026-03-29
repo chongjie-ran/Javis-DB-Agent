@@ -57,10 +57,10 @@ async def dashboard_index():
 async def get_status():
     """获取当前API模式状态"""
     config = load_api_config()
-    zcloud_api = config.get("zcloud_api", {})
-    real_api = config.get("zcloud_real_api", {})
+    javis_api = config.get("javis_api", {})
+    real_api = config.get("javis_real_api", {})
     
-    use_mock = zcloud_api.get("use_mock", True)
+    use_mock = javis_api.get("use_mock", True)
     
     # 检查Ollama状态
     ollama_status = "unknown"
@@ -78,7 +78,7 @@ async def get_status():
     return ModeStatus(
         mode="Mock" if use_mock else "Real API",
         use_mock=use_mock,
-        base_url=real_api.get("base_url", zcloud_api.get("base_url", "")) if not use_mock else zcloud_api.get("base_url", ""),
+        base_url=real_api.get("base_url", javis_api.get("base_url", "")) if not use_mock else javis_api.get("base_url", ""),
         auth_type=real_api.get("auth_type"),
         api_key_configured=bool(real_api.get("api_key")),
         ollama_status=ollama_status,
@@ -91,27 +91,27 @@ async def switch_mode(request: SwitchRequest):
     """切换API模式"""
     config = load_api_config()
     
-    if "zcloud_api" not in config:
-        config["zcloud_api"] = {}
+    if "javis_api" not in config:
+        config["javis_api"] = {}
     
     if request.mode == "mock":
-        config["zcloud_api"]["use_mock"] = True
+        config["javis_api"]["use_mock"] = True
         save_api_config(config)
         return {"success": True, "mode": "Mock", "message": "已切换到 Mock 模式"}
     
     elif request.mode == "real":
         # 验证真实API配置
-        real_api = config.get("zcloud_real_api", {})
+        real_api = config.get("javis_real_api", {})
         if not real_api.get("base_url"):
-            raise HTTPException(status_code=400, detail="真实API base_url 未配置，请先配置 zcloud_real_api.base_url")
+            raise HTTPException(status_code=400, detail="真实API base_url 未配置，请先配置 javis_real_api.base_url")
         
         if real_api.get("auth_type") == "api_key" and not real_api.get("api_key"):
-            raise HTTPException(status_code=400, detail="API Key 未配置，请先配置 zcloud_real_api.api_key")
+            raise HTTPException(status_code=400, detail="API Key 未配置，请先配置 javis_real_api.api_key")
         
         if real_api.get("auth_type") == "oauth2" and not real_api.get("oauth_client_id"):
-            raise HTTPException(status_code=400, detail="OAuth2 client_id 未配置，请先配置 zcloud_real_api.oauth_client_id")
+            raise HTTPException(status_code=400, detail="OAuth2 client_id 未配置，请先配置 javis_real_api.oauth_client_id")
         
-        config["zcloud_api"]["use_mock"] = False
+        config["javis_api"]["use_mock"] = False
         save_api_config(config)
         return {"success": True, "mode": "Real API", "message": "已切换到真实API模式"}
     
@@ -122,8 +122,8 @@ async def switch_mode(request: SwitchRequest):
 async def health_check():
     """健康检查"""
     config = load_api_config()
-    zcloud_api = config.get("zcloud_api", {})
-    use_mock = zcloud_api.get("use_mock", True)
+    javis_api = config.get("javis_api", {})
+    use_mock = javis_api.get("use_mock", True)
     
     result = {
         "timestamp": time.time(),
@@ -142,7 +142,7 @@ async def health_check():
     
     if not use_mock:
         # 真实API检查
-        real_api = config.get("zcloud_real_api", {})
+        real_api = config.get("javis_real_api", {})
         base_url = real_api.get("base_url", "")
         try:
             import httpx
