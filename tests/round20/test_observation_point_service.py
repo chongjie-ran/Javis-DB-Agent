@@ -52,11 +52,12 @@ class TestObservationPointService:
         svc = ObservationPointService(mock_repo)
         return svc
 
-    def test_get_observation_point(self, service, mock_repo, sample_op):
+    @pytest.mark.asyncio
+    async def test_get_observation_point(self, service, mock_repo, sample_op):
         """Test getting observation point metadata"""
         mock_repo.get_observation_point_by_resource_metric = AsyncMock(return_value=sample_op)
         
-        result = service.get_observation_point("OS.CPU", "usage_percent")
+        result = await service.get_observation_point("OS.CPU", "usage_percent")
         
         assert result is not None
         assert result["resource_type"] == "OS.CPU"
@@ -65,35 +66,39 @@ class TestObservationPointService:
         assert "representation" in result
         mock_repo.get_observation_point_by_resource_metric.assert_called_once_with("OS.CPU", "usage_percent")
 
-    def test_list_observation_points(self, service, mock_repo, sample_op):
+    @pytest.mark.asyncio
+    async def test_list_observation_points(self, service, mock_repo, sample_op):
         """Test listing all observation points"""
         mock_repo.list_observation_points = AsyncMock(return_value=[sample_op])
         
-        result = service.list_observation_points()
+        result = await service.list_observation_points()
         
         assert len(result) == 1
         assert result[0]["resource_type"] == "OS.CPU"
         mock_repo.list_observation_points.assert_called_once()
 
-    def test_list_observation_points_by_entity_type(self, service, mock_repo, sample_op):
+    @pytest.mark.asyncio
+    async def test_list_observation_points_by_entity_type(self, service, mock_repo, sample_op):
         """Test listing observation points by entity type"""
         mock_repo.list_observation_points_by_resource_type = AsyncMock(return_value=[sample_op])
         
-        result = service.list_observation_points(entity_type="OS.CPU")
+        result = await service.list_observation_points(entity_type="OS.CPU")
         
         assert len(result) == 1
         mock_repo.list_observation_points_by_resource_type.assert_called_with("OS.CPU")
 
-    def test_add_observation_point(self, service, mock_repo, sample_op_dict, sample_op):
+    @pytest.mark.asyncio
+    async def test_add_observation_point(self, service, mock_repo, sample_op_dict, sample_op):
         """Test adding a new observation point"""
         mock_repo.create_observation_point = AsyncMock(return_value=sample_op)
         
-        result = service.add_observation_point(sample_op_dict)
+        result = await service.add_observation_point(sample_op_dict)
         
         assert result.resource_type == "OS.CPU"
         mock_repo.create_observation_point.assert_called_once()
 
-    def test_generate_alert_context(self, service, mock_repo, sample_op):
+    @pytest.mark.asyncio
+    async def test_generate_alert_context(self, service, mock_repo, sample_op):
         """Test generating alert context with observation point metadata"""
         mock_repo.get_observation_point_by_resource_metric = AsyncMock(return_value=sample_op)
         
@@ -115,7 +120,7 @@ class TestObservationPointService:
             "message": "CPU使用率超过90%",
         }
         
-        result = service.generate_alert_context(alert)
+        result = await service.generate_alert_context(alert)
         
         assert "alert" in result
         assert "observation_point" in result
@@ -126,7 +131,8 @@ class TestObservationPointService:
         assert result["collection_info"] == "/proc/stat, psutil.cpu_percent()"
         assert "持续>90%超过5分钟" in result["explanation"]
 
-    def test_generate_alert_context_not_found(self, service, mock_repo):
+    @pytest.mark.asyncio
+    async def test_generate_alert_context_not_found(self, service, mock_repo):
         """Test generating alert context when observation point not found"""
         mock_repo.get_observation_point_by_resource_metric = AsyncMock(return_value=None)
         
@@ -144,7 +150,7 @@ class TestObservationPointService:
             "severity": "warning",
         }
         
-        result = service.generate_alert_context(alert)
+        result = await service.generate_alert_context(alert)
         
         assert "alert" in result
         assert "observation_point" in result
@@ -152,7 +158,8 @@ class TestObservationPointService:
         assert "explanation" in result
         assert "未找到" in result["explanation"]
 
-    def test_generate_alert_context_with_dict(self, service, mock_repo, sample_op):
+    @pytest.mark.asyncio
+    async def test_generate_alert_context_with_dict(self, service, mock_repo, sample_op):
         """Test generating alert context when alert is a dict"""
         mock_repo.get_observation_point_by_resource_metric = AsyncMock(return_value=sample_op)
         
@@ -165,7 +172,7 @@ class TestObservationPointService:
             "threshold": 90.0,
         }
         
-        result = service.generate_alert_context(alert)
+        result = await service.generate_alert_context(alert)
         
         assert result["observation_point"]["resource_type"] == "OS.CPU"
 
@@ -249,7 +256,8 @@ class TestAlertContextIntegration:
         repo = ObservationPointRepository(mock_conn)
         return ObservationPointService(repo)
 
-    def test_cpu_alert_context(self, service_with_repo):
+    @pytest.mark.asyncio
+    async def test_cpu_alert_context(self, service_with_repo):
         """Test CPU alert context generation"""
         cpu_op = ObservationPoint(
             id="op-cpu-001",
@@ -277,7 +285,7 @@ class TestAlertContextIntegration:
         alert.metric = "usage_percent"
         alert.to_dict = lambda: {"alert_id": "ALT-CPU-001", "severity": "critical"}
         
-        result = service_with_repo.generate_alert_context(alert)
+        result = await service_with_repo.generate_alert_context(alert)
         
         assert result["observation_point"]["anomaly_pattern"] == "持续>90%超过5分钟"
         assert "collection_method" in result["observation_point"]
@@ -286,7 +294,8 @@ class TestAlertContextIntegration:
         assert "95.5" in result["anomaly_explanation"]
         assert "90.0" in result["anomaly_explanation"]
 
-    def test_memory_alert_context(self, service_with_repo):
+    @pytest.mark.asyncio
+    async def test_memory_alert_context(self, service_with_repo):
         """Test memory alert context generation"""
         mem_op = ObservationPoint(
             id="op-mem-001",
@@ -314,12 +323,13 @@ class TestAlertContextIntegration:
         alert.metric = "usage_percent"
         alert.to_dict = lambda: {"alert_id": "ALT-MEM-001", "severity": "warning"}
         
-        result = service_with_repo.generate_alert_context(alert)
+        result = await service_with_repo.generate_alert_context(alert)
         
         assert result["observation_point"]["anomaly_pattern"] == "持续>85%超过10分钟"
         assert result["observation_point"]["anomaly_condition"] == "avg(10m) > 85"
 
-    def test_db_conn_alert_context(self, service_with_repo):
+    @pytest.mark.asyncio
+    async def test_db_conn_alert_context(self, service_with_repo):
         """Test DB connection alert context generation"""
         db_op = ObservationPoint(
             id="op-db-conn-001",
@@ -347,12 +357,13 @@ class TestAlertContextIntegration:
         alert.metric = "active_count"
         alert.to_dict = lambda: {"alert_id": "ALT-DB-001", "severity": "warning"}
         
-        result = service_with_repo.generate_alert_context(alert)
+        result = await service_with_repo.generate_alert_context(alert)
         
         assert result["observation_point"]["anomaly_pattern"] == "连接数>最大连接数80%"
         assert result["observation_point"]["collection_method"] == "SHOW STATUS / pg_stat_activity"
 
-    def test_async_service_methods(self, service_with_repo):
+    @pytest.mark.asyncio
+    async def test_async_service_methods(self, service_with_repo):
         """Test async versions of service methods"""
         cpu_op = ObservationPoint(
             id="op-cpu-001",
@@ -370,15 +381,10 @@ class TestAlertContextIntegration:
         service_with_repo._repo.get_observation_point_by_resource_metric = AsyncMock(return_value=cpu_op)
         service_with_repo._repo.list_observation_points = AsyncMock(return_value=[cpu_op])
         
-        # Test async get
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
-            service_with_repo.get_observation_point_async("OS.CPU", "usage_percent")
-        )
+        # Test async get (now the main method is async)
+        result = await service_with_repo.get_observation_point("OS.CPU", "usage_percent")
         assert result["resource_type"] == "OS.CPU"
         
-        # Test async list
-        result = asyncio.get_event_loop().run_until_complete(
-            service_with_repo.list_observation_points_async()
-        )
+        # Test async list (now the main method is async)
+        result = await service_with_repo.list_observation_points()
         assert len(result) == 1

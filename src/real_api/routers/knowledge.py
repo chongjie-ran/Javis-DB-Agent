@@ -450,9 +450,9 @@ async def list_observation_points(
     可按资源类型过滤。
     """
     if resource_type:
-        results = service.list_observation_points(entity_type=resource_type)
+        results = await service.list_observation_points(entity_type=resource_type)
     else:
-        results = service.list_observation_points()
+        results = await service.list_observation_points()
     
     return {"code": 0, "data": results, "count": len(results)}
 
@@ -466,14 +466,7 @@ async def get_observation_point(
     conn = await get_knowledge_db()
     repo = ObservationPointRepository(conn)
     
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    op = loop.run_until_complete(repo.get_observation_point_by_id(op_id))
+    op = await repo.get_observation_point_by_id(op_id)
     await close_knowledge_db(conn)
     
     if not op:
@@ -488,7 +481,7 @@ async def get_observation_points_by_resource(
     service: ObservationPointService = Depends(get_op_service)
 ):
     """获取指定资源类型的所有观察点"""
-    results = service.list_observation_points(entity_type=resource_type)
+    results = await service.list_observation_points(entity_type=resource_type)
     
     return {"code": 0, "data": results, "count": len(results)}
 
@@ -501,7 +494,7 @@ async def create_observation_point(
     """创建新的观察点"""
     op_data = op.model_dump()
     try:
-        result = service.add_observation_point(op_data)
+        result = await service.add_observation_point(op_data)
         return {"code": 0, "data": result.to_dict()}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -548,14 +541,7 @@ async def get_alert_context_by_params(
     repo = ObservationPointRepository(conn)
     service = ObservationPointService(repo)
     
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    op_dict = service.get_observation_point(resource_type, metric)
+    op_dict = await service.get_observation_point(resource_type, metric)
     await close_knowledge_db(conn)
     
     if not op_dict:
@@ -572,7 +558,7 @@ async def get_alert_context_by_params(
         import json
         try:
             alert = json.loads(alert_data)
-            context = service.generate_alert_context(alert)
+            context = await service.generate_alert_context(alert)
             context["observation_point"] = op_dict
             return {"code": 0, "data": context}
         except json.JSONDecodeError:
