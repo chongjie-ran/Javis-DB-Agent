@@ -1,5 +1,5 @@
 """统一编排Agent - 任务分解与多Agent协同"""
-from typing import Optional
+from typing import Optional, AsyncIterator
 from enum import Enum
 
 from src.agents.base import BaseAgent, AgentResponse
@@ -201,6 +201,78 @@ class OrchestratorAgent(BaseAgent):
     async def handle_chat(self, user_input: str, context: dict) -> AgentResponse:
         """处理对话"""
         return await self.process(user_input, context)
+
+    async def handle_chat_stream(self, user_input: str, context: dict) -> AsyncIterator[dict]:
+        """
+        流式处理对话，yield 事件字典:
+        - {"type": "thinking", "content": "正在分析..."}
+        - {"type": "content", "content": "token"}
+        - {"type": "done", "agent": "orchestrator", "content": "完整回复"}
+        """
+        import time
+        start = time.time()
+
+        # 1. 识别意图（快速，不流式）
+        yield {"type": "thinking", "content": "🤔 正在理解你的问题..."}
+        try:
+            intent = await self._recognize_intent(user_input)
+            intent_label = {
+                "diagnose": "告警诊断",
+                "sql_analyze": "SQL分析",
+                "inspect": "健康巡检",
+                "report": "报告生成",
+                "risk_assess": "风险评估",
+                "general": "通用问答",
+            }.get(intent.value, "通用问答")
+            yield {"type": "thinking", "content": f"📋 识别为「{intent_label}」任务，准备调用专业Agent..."}
+        except Exception as e:
+            intent = None
+            yield {"type": "thinking", "content": "⚠️ 意图识别跳过，直接开始生成回复..."}
+
+        # 2. 选择Agent
+        if intent:
+            try:
+                selected = self._select_agents(intent, user_input)
+                if selected:
+                    names = " → ".join([a.name for a in selected])
+                    yield {"type": "thinking", "content": f"🔧 调度Agent: {names}"}
+            except Exception:
+                pass
+
+        # 3. 构建Plan（快速）
+        try:
+            if intent and hasattr(self, '_select_agents') and intent:
+                plan = self._build_plan(selected if 'selected' in dir() else [], user_input, context)
+                if plan:
+                    yield {"type": "thinking", "content": f"📝 执行计划（共{len(plan)}步）..."}
+        except Exception:
+            pass
+
+        # 4. 流式生成回复
+        yield {"type": "thinking", "content": "✨ 正在生成回复..."}
+        full_response = ""
+
+        try:
+            async for token in self.think_stream(user_input):
+                full_response += token
+                yield {"type": "content", "content": token}
+        except Exception as e:
+            # Fallback: 非流式
+            try:
+                response = await self._process_direct(user_input, context)
+                full_response = response.content or str(response)
+                yield {"type": "content", "content": full_response}
+            except Exception as e2:
+                full_response = f"处理出错: {e2}"
+                yield {"type": "content", "content": full_response}
+
+        # 5. 完成
+        yield {
+            "type": "done",
+            "agent": self.name,
+            "content": full_response,
+            "execution_time_ms": int((time.time() - start) * 1000),
+        }
     
     async def handle_diagnose(self, alert_id: str, context: dict) -> AgentResponse:
         """处理告警诊断"""

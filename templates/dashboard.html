@@ -75,6 +75,48 @@
         .health-warn { color: #ffd60a; }
         .health-bad { color: #f4212e; }
         
+        /* Chat interface */
+        .chat-container {
+            display: flex; flex-direction: column; height: calc(100vh - 300px); min-height: 400px;
+            background: #16181c; border-radius: 16px; border: 1px solid #2f3336; overflow: hidden;
+        }
+        .chat-header {
+            padding: 16px 20px; border-bottom: 1px solid #2f3336; display: flex;
+            align-items: center; gap: 12px; flex-shrink: 0;
+        }
+        .chat-header-title { font-weight: 600; font-size: 1em; }
+        .chat-messages {
+            flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;
+        }
+        .chat-msg {
+            max-width: 80%; padding: 10px 14px; border-radius: 12px;
+            font-size: 0.9em; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+        }
+        .chat-msg-user { align-self: flex-end; background: #1d9bf0; color: #fff; border-bottom-right-radius: 4px; }
+        .chat-msg-assistant { align-self: flex-start; background: #0f1419; color: #e7e9ea; border-bottom-left-radius: 4px; }
+        .chat-msg-error { align-self: flex-start; background: #3a1a1a; color: #f4212e; }
+        .chat-msg-system { align-self: center; background: transparent; color: #71767b; font-size: 0.8em; text-align: center; border: none; }
+        .chat-thinking {
+            align-self: flex-start; background: #0f1419; padding: 8px 14px; border-radius: 12px;
+            border-bottom-left-radius: 4px; color: #71767b; font-size: 0.85em;
+        }
+        .chat-input-area {
+            padding: 12px 16px; border-top: 1px solid #2f3336; display: flex; gap: 10px; flex-shrink: 0;
+        }
+        .chat-input {
+            flex: 1; padding: 10px 14px; border-radius: 24px; border: 1px solid #2f3336;
+            background: #0f1419; color: #e7e9ea; font-size: 0.9em; resize: none;
+        }
+        .chat-input:focus { outline: none; border-color: #1d9bf0; }
+        .chat-send-btn {
+            padding: 10px 20px; border-radius: 24px; border: none;
+            background: #1d9bf0; color: #fff; font-weight: 600; font-size: 0.9em; cursor: pointer;
+        }
+        .chat-send-btn:hover { background: #1a8cd8; }
+        .chat-send-btn:disabled { background: #2f3336; color: #71767b; cursor: not-allowed; }
+        .chat-agent-tag { font-size: 0.75em; color: #71767b; margin-top: 4px; }
+        .chat-empty-hint { text-align: center; color: #71767b; padding: 40px; font-size: 0.9em; }
+        
         /* Alert table */
         .alert-table { width: 100%; border-collapse: collapse; }
         .alert-table th {
@@ -115,6 +157,40 @@
         }
         .chain-ok { color: #00ba7c; }
         .chain-bad { color: #f4212e; }
+        
+        /* Chat styles */
+        .chat-container { display: flex; flex-direction: column; height: calc(100vh - 260px); min-height: 400px; }
+        .chat-history { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+        .chat-msg { max-width: 85%; padding: 12px 16px; border-radius: 16px; line-height: 1.6; font-size: 0.9em; word-break: break-word; }
+        .chat-msg.user { align-self: flex-end; background: #1d9bf0; color: #fff; border-bottom-right-radius: 4px; }
+        .chat-msg.assistant { align-self: flex-start; background: #16181c; border: 1px solid #2f3336; border-bottom-left-radius: 4px; }
+        .chat-msg.system { align-self: center; background: transparent; color: #71767b; font-size: 0.8em; border: none; text-align: center; }
+        .chat-msg .msg-role { font-size: 0.75em; color: #71767b; margin-bottom: 4px; font-weight: 500; }
+        .chat-msg.assistant .msg-role { color: #1d9bf0; }
+        .chat-msg pre { background: #0f1419; padding: 8px 12px; border-radius: 8px; overflow-x: auto; font-size: 0.85em; margin-top: 8px; }
+        .chat-msg code { font-family: 'Monaco', 'Menlo', monospace; font-size: 0.85em; }
+        .chat-typing { display: flex; align-items: center; gap: 8px; color: #71767b; font-size: 0.85em; padding: 8px 0; }
+        .typing-dots { display: flex; gap: 4px; }
+        .typing-dots span { width: 6px; height: 6px; background: #71767b; border-radius: 50%; animation: typing 1.4s infinite; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+        .chat-input-row { display: flex; gap: 12px; padding: 12px 16px; border-top: 1px solid #2f3336; align-items: flex-end; }
+        .chat-input { flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid #2f3336; background: #0f1419; color: #e7e9ea; font-size: 0.95em; resize: none; min-height: 48px; max-height: 120px; font-family: inherit; }
+        .chat-input:focus { outline: none; border-color: #1d9bf0; }
+        .chat-send { padding: 12px 24px; border-radius: 24px; border: none; background: #1d9bf0; color: #fff; font-weight: 600; cursor: pointer; font-size: 0.95em; transition: background 0.2s; white-space: nowrap; }
+        .chat-send:hover { background: #1a8cd8; }
+        .chat-send:disabled { background: #2f3336; color: #71767b; cursor: not-allowed; }
+        .chat-tool-badge { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 0.75em; background: #1a2a3a; color: #1d9bf0; margin-right: 4px; margin-bottom: 4px; }
+        .chat-tool-result { background: #0f1419; border-radius: 8px; padding: 8px 12px; font-size: 0.8em; color: #71767b; margin-top: 6px; border-left: 3px solid #1d9bf0; }
+        .chat-session-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; padding: 0 4px; }
+        .chat-session-bar input { padding: 4px 10px; border-radius: 8px; border: 1px solid #2f3336; background: #0f1419; color: #e7e9ea; font-size: 0.8em; width: 160px; }
+        .chat-session-bar label { font-size: 0.8em; color: #71767b; }
+        .chat-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #71767b; gap: 12px; }
+        .chat-empty-icon { font-size: 3em; }
+        .chat-commands { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
+        .cmd-chip { padding: 6px 12px; background: #1a2a3a; border: 1px solid #2f3336; border-radius: 20px; font-size: 0.8em; color: #1d9bf0; cursor: pointer; text-align: center; transition: background 0.2s; }
+        .cmd-chip:hover { background: #1d9bf0; color: #fff; }
         
         /* Auth form */
         .form-group { margin-bottom: 16px; }
@@ -224,6 +300,7 @@
             <button class="tab" onclick="showTab('audit')">📋 审计日志</button>
             <button class="tab" onclick="showTab('auth')">🔐 用户认证</button>
             <button class="tab" onclick="showTab('settings')">⚙️ 系统设置</button>
+            <button class="tab" onclick="showTab('chat')">💬 对话</button>
         </div>
         
         <!-- Tab: 实时监控 -->
@@ -372,8 +449,6 @@
                 </div>
             </div>
         </div>
-        
-        <!-- Tab: 系统设置 -->
         <div id="tab-settings" class="tab-content">
             <div class="card">
                 <div class="card-title">📡 当前 API 模式</div>
@@ -423,6 +498,38 @@
             </div>
         </div>
         
+        <!-- Tab: 对话 -->
+        <div id="tab-chat" class="tab-content">
+            <div class="card" style="padding: 16px;">
+                <div class="card-title">💬 智能助手</div>
+                <div class="chat-session-bar">
+                    <label>会话ID:</label>
+                    <input id="chat-session-id" placeholder="留空自动创建新会话" />
+                    <button class="btn" style="background:#2f3336;color:#e7e9ea;padding:4px 14px;font-size:0.8em" onclick="chatLoadHistory()">📂 加载历史</button>
+                    <button class="btn" style="background:#2f3336;color:#e7e9ea;padding:4px 14px;font-size:0.8em" onclick="chatNewSession()">🆕 新会话</button>
+                </div>
+                <div class="chat-commands">
+                    <div class="cmd-chip" onclick="chatSendSuggestion('帮我检查所有实例的健康状态')">🏥 检查实例健康</div>
+                    <div class="cmd-chip" onclick="chatSendSuggestion('查看当前所有告警')">🚨 查看告警</div>
+                    <div class="cmd-chip" onclick="chatSendSuggestion('分析主从复制延迟原因')">🔍 分析主从延迟</div>
+                    <div class="cmd-chip" onclick="chatSendSuggestion('帮我评估当前风险等级')">⚠️ 风险评估</div>
+                </div>
+                <div class="chat-container">
+                    <div class="chat-history" id="chat-history">
+                        <div class="chat-empty" id="chat-empty">
+                            <div class="chat-empty-icon">🤖</div>
+                            <div>输入问题，智能助手帮你分析zCloud运维状态</div>
+                            <div style="font-size:0.8em">支持：实例查询、告警诊断、会话管理、审批查询等</div>
+                        </div>
+                    </div>
+                    <div class="chat-input-row">
+                        <textarea id="chat-input" class="chat-input" placeholder="输入你的问题，按 Enter 发送，Shift+Enter 换行..." rows="1" onkeydown="chatOnKeyDown(event)"></textarea>
+                        <button class="chat-send" id="chat-send-btn" onclick="chatSend()">发送</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <div class="footer">
             zCloudNewAgentProject v1.0 &nbsp;|&nbsp;
             <a href="/api/v1/health">API Health</a> &nbsp;|&nbsp;
@@ -452,6 +559,7 @@
             if (name === 'alerts') loadAlerts();
             if (name === 'audit') { loadAuditActionTypes(); loadAuditLogs(); verifyChain(); }
             if (name === 'settings') refreshStatus();
+            if (name === 'chat') document.getElementById('chat-input').focus();
         }
         
         // ===== Auth =====
@@ -806,6 +914,494 @@
                 area.textContent = '检查失败: ' + e.message;
                 log('\u274c 健康检查失败: ' + e.message, 'error');
             }
+        }
+        
+        // ===== Chat =====
+        let chatCurrentSession = null;
+        let chatEventSource = null;
+        let chatProcessing = false;
+        
+        function chatNewSession() {
+            document.getElementById('chat-session-id').value = '';
+            chatCurrentSession = null;
+            document.getElementById('chat-history').innerHTML = '<div class="chat-empty" id="chat-empty"><div class="chat-empty-icon">🤖</div><div>输入问题，智能助手帮你分析zCloud运维状态</div><div style="font-size:0.8em">支持：实例查询、告警诊断、会话管理、审批查询等</div></div>';
+        }
+        
+        async function chatLoadHistory() {
+            const sid = document.getElementById('chat-session-id').value.trim();
+            if (!sid) { alert('请输入会话ID'); return; }
+            try {
+                const res = await fetch('/api/v1/chat/history/' + sid);
+                if (!res.ok) throw new Error('会话不存在');
+                const data = await res.json();
+                chatCurrentSession = sid;
+                const hist = document.getElementById('chat-history');
+                hist.innerHTML = '';
+                (data.messages || []).forEach(msg => {
+                    chatAppendMsg(msg.role === 'user' ? 'user' : 'assistant', msg.content);
+                });
+                if (!hist.children.length) {
+                    hist.innerHTML = '<div class="chat-empty"><div class="chat-empty-icon">📭</div><div>该会话暂无历史记录</div></div>';
+                }
+            } catch(e) { alert('加载失败: ' + e.message); }
+        }
+        
+        function chatAppendMsg(role, content, toolName, toolResult) {
+            const hist = document.getElementById('chat-history');
+            const empty = document.getElementById('chat-empty');
+            if (empty) empty.remove();
+            
+            // Escape HTML
+            const escape = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            
+            // Format markdown-like content
+            const formatContent = (text) => {
+                if (!text) return '';
+                // Code blocks
+                text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+                // Inline code
+                text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+                // Bold
+                text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                // Lists
+                text = text.replace(/^- (.+)$/gm, '<li>$1</li>');
+                text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+                // Line breaks
+                text = text.replace(/\n/g, '<br>');
+                return text;
+            };
+            
+            const div = document.createElement('div');
+            div.className = 'chat-msg ' + role;
+            
+            if (role === 'system') {
+                div.innerHTML = '<span style="color:#71767b;font-size:0.8em">' + escape(content) + '</span>';
+            } else {
+                const roleLabel = role === 'user' ? '🙋 你' : '🤖 助手';
+                let inner = '<div class="msg-role">' + roleLabel + '</div>';
+                inner += formatContent(content);
+                if (toolName) {
+                    inner += '<div class="chat-tool-result">🔧 <b>' + escape(toolName) + '</b>: ' + escape(String(toolResult || '').substring(0, 200)) + '</div>';
+                }
+                div.innerHTML = inner;
+            }
+            
+            hist.appendChild(div);
+            hist.scrollTop = hist.scrollHeight;
+            return div;
+        }
+        
+        function chatShowTyping() {
+            const hist = document.getElementById('chat-history');
+            const empty = document.getElementById('chat-empty');
+            if (empty) empty.remove();
+            
+            let typing = document.getElementById('chat-typing');
+            if (!typing) {
+                typing = document.createElement('div');
+                typing.id = 'chat-typing';
+                typing.className = 'chat-typing';
+                typing.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div> 助手正在思考...';
+                hist.appendChild(typing);
+            }
+            hist.scrollTop = hist.scrollHeight;
+        }
+        
+        function chatHideTyping() {
+            const typing = document.getElementById('chat-typing');
+            if (typing) typing.remove();
+        }
+        
+        function chatSetInputEnabled(enabled) {
+            const input = document.getElementById('chat-input');
+            const btn = document.getElementById('chat-send-btn');
+            input.disabled = !enabled;
+            btn.disabled = !enabled;
+            chatProcessing = !enabled;
+        }
+        
+        function chatSendSuggestion(text) {
+            document.getElementById('chat-input').value = text;
+            chatSend();
+        }
+        
+        function chatOnKeyDown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatSend();
+            }
+        }
+        
+        function chatAutoResize(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+        }
+        
+        async function chatSend() {
+            if (chatProcessing) return;
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            input.value = '';
+            input.style.height = 'auto';
+            
+            // Append user message
+            chatAppendMsg('user', message);
+            chatSetInputEnabled(false);
+            chatShowTyping();
+            
+            const sessionId = document.getElementById('chat-session-id').value.trim() || chatCurrentSession || '';
+            
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                if (token) headers['Authorization'] = 'Bearer ' + token;
+                
+                const res = await fetch('/api/v1/chat/stream', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ message, session_id: sessionId || undefined })
+                });
+                
+                chatHideTyping();
+                
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+                    chatAppendMsg('system', '❌ 请求失败: ' + (err.detail || err.message || JSON.stringify(err)));
+                    chatSetInputEnabled(true);
+                    return;
+                }
+                
+                // Create assistant message bubble
+                const assistantDiv = chatAppendMsg('assistant', '');
+                const contentDiv = assistantDiv.querySelector('.msg-role').nextSibling;
+                if (!contentDiv || contentDiv.nodeType !== 3) {
+                    // find the content div
+                    const divs = assistantDiv.querySelectorAll('div, span');
+                }
+                
+                // Process SSE stream
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let fullContent = '';
+                let done = false;
+                let lastToolName = null;
+                let lastToolResult = null;
+                
+                // Create tool display area
+                let toolDiv = null;
+                
+                while (!done) {
+                    const { value, done: d } = await reader.read();
+                    done = d;
+                    if (value) {
+                        buffer += decoder.decode(value, { stream: !done });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+                        
+                        for (const line of lines) {
+                            if (!line.startsWith('event:')) continue;
+                            const eventType = line.slice(6).trim();
+                            
+                            // Find data line
+                            const dataLineIdx = lines.indexOf(line) + 1;
+                            if (dataLineIdx >= lines.length) continue;
+                            const dataLine = lines[dataLineIdx];
+                            if (!dataLine.startsWith('data:')) continue;
+                            
+                            try {
+                                const data = JSON.parse(dataLine.slice(5));
+                                
+                                if (eventType === 'session') {
+                                    chatCurrentSession = data.session_id;
+                                    document.getElementById('chat-session-id').value = data.session_id;
+                                } else if (eventType === 'thinking') {
+                                    if (data.thinking) {
+                                        chatShowTyping();
+                                    } else {
+                                        chatHideTyping();
+                                    }
+                                } else if (eventType === 'chunk') {
+                                    chatHideTyping();
+                                    fullContent += data.content;
+                                    // Update assistant bubble incrementally
+                                    if (!assistantDiv.dataset.updated) {
+                                        assistantDiv.dataset.updated = 'true';
+                                        assistantDiv.innerHTML = '<div class="msg-role">🤖 助手</div><div class="chat-msg-content"></div>';
+                                    }
+                                    assistantDiv.querySelector('.chat-msg-content').innerHTML = formatMarkdown(fullContent);
+                                    document.getElementById('chat-history').scrollTop = document.getElementById('chat-history').scrollHeight;
+                                } else if (eventType === 'tool') {
+                                    lastToolName = data.tool;
+                                    lastToolResult = null;
+                                    chatHideTyping();
+                                } else if (eventType === 'tool_result') {
+                                    lastToolResult = data.result;
+                                    chatHideTyping();
+                                } else if (eventType === 'done') {
+                                    chatHideTyping();
+                                    fullContent = data.content;
+                                    // Final render
+                                    assistantDiv.innerHTML = '<div class="msg-role">🤖 助手</div><div class="chat-msg-content"></div>';
+                                    assistantDiv.querySelector('.chat-msg-content').innerHTML = formatMarkdown(fullContent);
+                                    if (lastToolName && lastToolResult) {
+                                        const rDiv = document.createElement('div');
+                                        rDiv.className = 'chat-tool-result';
+                                        rDiv.textContent = '🔧 ' + lastToolName + ': ' + String(lastToolResult).substring(0, 200);
+                                        assistantDiv.appendChild(rDiv);
+                                    }
+                                    document.getElementById('chat-history').scrollTop = document.getElementById('chat-history').scrollHeight;
+                                } else if (eventType === 'error') {
+                                    chatAppendMsg('system', '❌ 错误: ' + data.error);
+                                }
+                            } catch(e) { /* skip malformed JSON */ }
+                        }
+                    }
+                }
+                
+                // Final fallback if no done event
+                if (!fullContent && !assistantDiv.dataset.updated) {
+                    assistantDiv.innerHTML = '<div class="msg-role">🤖 助手</div><div class="chat-msg-content">响应结束（无内容）</div>';
+                }
+                
+            } catch(e) {
+                chatHideTyping();
+                chatAppendMsg('system', '❌ 连接异常: ' + e.message);
+            }
+            
+            chatSetInputEnabled(true);
+            document.getElementById('chat-input').focus();
+        }
+        
+        function formatMarkdown(text) {
+            if (!text) return '';
+            // Escape first
+            const escape = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            // Code blocks
+            text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => '<pre><code class="lang-' + lang + '">' + escape(code) + '</code></pre>');
+            // Inline code
+            text = text.replace(/`([^`]+)`/g, '<code>' + escape('$1') + '</code>');
+            // Bold
+            text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            // Headers
+            text = text.replace(/^### (.+)$/gm, '<strong>$1</strong>');
+            text = text.replace(/^## (.+)$/gm, '<strong>$1</strong>');
+            text = text.replace(/^# (.+)$/gm, '<strong>$1</strong>');
+            // Lists
+            text = text.replace(/^(\d+)\. (.+)$/gm, '<li style="margin-left:16px">$2</li>');
+            text = text.replace(/^- (.+)$/gm, '<li style="margin-left:16px">$1</li>');
+            // Tables - simple
+            text = text.replace(/\|(.+)\|/g, (m) => {
+                const cells = m.split('|').filter(c => c.trim());
+                if (cells.some(c => /^-+$/.test(c.trim()))) return '';
+                return '<div style="display:flex;gap:8px;font-size:0.85em;margin:2px 0">' + 
+                    cells.map(c => '<span style="flex:1">' + c.trim() + '</span>').join('') + '</div>';
+            });
+            // Line breaks
+            text = text.replace(/\n/g, '<br>');
+            return text;
+        }
+        
+        // ===== Chat =====
+        let chatSessionId = null;
+        let chatEventSource = null;
+        let isStreaming = false;
+        
+        function scrollChatToBottom() {
+            const el = document.getElementById('chat-messages');
+            if (el) el.scrollTop = el.scrollHeight;
+        }
+        
+        function addChatMsg(role, content, agentName) {
+            const el = document.getElementById('chat-messages');
+            // Remove empty hint if present
+            const hint = el.querySelector('.chat-empty-hint');
+            if (hint) hint.remove();
+            
+            if (role === 'system') {
+                const div = document.createElement('div');
+                div.className = 'chat-msg chat-msg-system';
+                div.textContent = content;
+                el.appendChild(div);
+            } else {
+                const div = document.createElement('div');
+                div.className = 'chat-msg ' + (role === 'user' ? 'chat-msg-user' : 'chat-msg-assistant');
+                
+                if (role === 'user') {
+                    div.textContent = content;
+                } else {
+                    // Assistant message - create container
+                    const agentTag = document.createElement('div');
+                    agentTag.className = 'chat-agent-tag';
+                    agentTag.textContent = '🤖 ' + (agentName || 'zCloud Agent');
+                    
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'chat-msg-text';
+                    contentDiv.textContent = content;
+                    
+                    div.appendChild(agentTag);
+                    div.appendChild(contentDiv);
+                }
+                el.appendChild(div);
+            }
+            scrollChatToBottom();
+        }
+        
+        function addThinkingMsg() {
+            const el = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = 'chat-thinking';
+            div.id = 'chat-thinking-msg';
+            div.textContent = '🤖 正在思考...';
+            el.appendChild(div);
+            scrollChatToBottom();
+        }
+        
+        function removeThinkingMsg() {
+            const el = document.getElementById('chat-thinking-msg');
+            if (el) el.remove();
+        }
+        
+        function updateLastAssistantMsg(content) {
+            const msgs = document.querySelectorAll('.chat-msg-assistant');
+            if (msgs.length === 0) return;
+            const last = msgs[msgs.length - 1];
+            const textEl = last.querySelector('.chat-msg-text');
+            if (textEl) textEl.textContent = content;
+            else last.textContent = content;
+            scrollChatToBottom();
+        }
+        
+        function appendToLastAssistantMsg(chunk) {
+            const msgs = document.querySelectorAll('.chat-msg-assistant');
+            if (msgs.length === 0) return;
+            const last = msgs[msgs.length - 1];
+            const textEl = last.querySelector('.chat-msg-text');
+            if (textEl) textEl.textContent += chunk;
+            else last.textContent = (last.textContent || '') + chunk;
+            scrollChatToBottom();
+        }
+        
+        function handleChatKey(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChat();
+            }
+        }
+        
+        async function sendChat() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg || isStreaming) return;
+            
+            // Add user message
+            addChatMsg('user', msg);
+            input.value = '';
+            
+            // Set streaming state
+            isStreaming = true;
+            const sendBtn = document.getElementById('chat-send-btn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = '思考中...';
+            
+            // Add placeholder for thinking
+            addThinkingMsg();
+            
+            // Prepare SSE request
+            const body = {
+                message: msg,
+                session_id: chatSessionId || undefined,
+                user_id: 'dashboard_user',
+                context: {}
+            };
+            
+            // Get auth headers if available
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            
+            try {
+                const response = await fetch('/api/v1/chat/stream', {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(body)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('请求失败: ' + response.status);
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let assistantContent = '';
+                let currentAgent = 'orchestrator';
+                
+                removeThinkingMsg();
+                
+                // Create assistant message placeholder
+                addChatMsg('assistant', '', 'zCloud Agent');
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();  // Keep incomplete line in buffer
+                    
+                    for (const line of lines) {
+                        if (!line.startsWith('event:')) continue;
+                        
+                        const eventType = line.slice(6).trim();
+                        const dataLineIdx = lines.indexOf(line) + 1;
+                        if (dataLineIdx >= lines.length) continue;
+                        
+                        const dataLine = lines[dataLineIdx];
+                        if (!dataLine.startsWith('data:')) continue;
+                        
+                        let data;
+                        try {
+                            data = JSON.parse(dataLine.slice(5));
+                        } catch (e) { continue; }
+                        
+                        if (eventType === 'session') {
+                            chatSessionId = data.session_id;
+                            document.getElementById('chat-session-badge').style.display = 'inline';
+                            document.getElementById('chat-session-id').textContent = chatSessionId;
+                        } else if (eventType === 'thinking') {
+                            if (data.thinking) {
+                                removeThinkingMsg();
+                                addThinkingMsg();
+                            } else {
+                                removeThinkingMsg();
+                            }
+                        } else if (eventType === 'chunk') {
+                            assistantContent += data.content;
+                            appendToLastAssistantMsg(data.content);
+                        } else if (eventType === 'done') {
+                            currentAgent = data.agent || 'orchestrator';
+                        } else if (eventType === 'error') {
+                            appendToLastAssistantMsg('\n\n❌ 错误: ' + data.error);
+                        }
+                    }
+                }
+                
+            } catch (e) {
+                removeThinkingMsg();
+                addChatMsg('error', '请求失败: ' + e.message);
+            } finally {
+                isStreaming = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = '发送';
+            }
+        }
+        
+        function clearChat() {
+            const el = document.getElementById('chat-messages');
+            el.innerHTML = '<div class="chat-empty-hint">💬 会话已清空，继续对话吧<br/><span style="font-size:0.85em;margin-top:8px;display:inline-block;color:#71767b">例如：「检查所有实例的健康状态」「帮我分析INS-001的慢SQL」</span></div>';
+            chatSessionId = null;
+            document.getElementById('chat-session-badge').style.display = 'none';
         }
         
         // ===== Init =====
