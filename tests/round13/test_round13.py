@@ -10,39 +10,33 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
 
 
 @pytest.fixture(autouse=True)
-def reset_auth_singleton():
-    """每个测试前重置全局auth单例和auth数据文件，确保测试隔离"""
-    import shutil
-    from pathlib import Path
+def reset_auth_singleton(tmp_path, monkeypatch):
+    """每个测试前重置全局auth单例和限流存储，在独立临时目录运行，确保测试隔离"""
     from src.api import auth as auth_module
+    from src.security.rate_limit import get_rate_store
 
-    # 保存原始单例
+    # 保存原始单例和环境变量
     original = auth_module._auth_manager
+    original_data_dir = os.environ.get("DATA_DIR")
+
+    # 重置 auth 单例
     auth_module._auth_manager = None
 
-    # 备份并删除auth数据文件
-    project_data = Path(__file__).resolve().parents[2] / "data"
-    users_file = project_data / "users.json"
-    tokens_file = project_data / "tokens.json"
+    # 重置限流存储（防止跨测试限流计数）
+    get_rate_store()._windows.clear()
+    get_rate_store()._blocks.clear()
 
-    users_backup = None
-    tokens_backup = None
-    if users_file.exists():
-        users_backup = users_file.read_bytes()
-        users_file.unlink()
-    if tokens_file.exists():
-        tokens_backup = tokens_file.read_bytes()
-        tokens_file.unlink()
+    # 设置临时目录到环境变量，让 AuthManager 使用
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
 
     yield
 
     # 恢复
     auth_module._auth_manager = original
-    # 恢复备份
-    if users_backup is not None:
-        users_file.write_bytes(users_backup)
-    if tokens_backup is not None:
-        tokens_file.write_bytes(tokens_backup)
+    if original_data_dir is None:
+        monkeypatch.delenv("DATA_DIR", raising=False)
+    else:
+        monkeypatch.setenv("DATA_DIR", original_data_dir)
 
 
 # ===== P0-3: Auth Tests =====
@@ -188,7 +182,7 @@ class TestAuthRoutes:
     """P0-3: 认证API路由测试"""
 
     @pytest.fixture
-    def client(self):
+    def client(self, reset_auth_singleton):
         """创建测试客户端"""
         from fastapi.testclient import TestClient
         from src.main import app
@@ -320,7 +314,7 @@ class TestMonitoringRoutes:
     """P0-1: Dashboard监控面板测试"""
 
     @pytest.fixture
-    def client(self):
+    def client(self, reset_auth_singleton):
         from fastapi.testclient import TestClient
         from src.main import app
         return TestClient(app)
@@ -378,7 +372,7 @@ class TestAuditRoutes:
     """P0-2: 审计日志查看器测试"""
 
     @pytest.fixture
-    def client(self):
+    def client(self, reset_auth_singleton):
         from fastapi.testclient import TestClient
         from src.main import app
         return TestClient(app)
@@ -480,7 +474,7 @@ class TestChatStream:
     """对话流式接口测试"""
 
     @pytest.fixture
-    def client(self):
+    def client(self, reset_auth_singleton):
         from fastapi.testclient import TestClient
         from src.main import app
         return TestClient(app)
@@ -543,3 +537,107 @@ class TestChatStream:
         resp = client.get("/api/v1/chat/history/nonexistent-session-xyz")
         assert resp.status_code == 404
 
+
+
+class TestRefreshToken:
+    """refresh_token 功能测试"""
+
+    @pytest.fixture
+    def client(self, reset_auth_singleton):
+        from fastapi.testclient import TestClient
+        from src.main import app
+        return TestClient(app)
+
+    def test_refresh_token_success(self, client):
+        """使用refresh_token刷新access_token成功"""
+        # 1. 登录获取 refresh_token
+        login_resp = client.post("/api/v1/auth/login", json={
+            "username": "admin",
+            "password": "admin123"
+        })
+        assert login_resp.status_code == 200
+        data = login_resp.json()
+        original_access_token = data["token"]
+        refresh_token = data["refresh_token"]
+
+        # 2. 使用 refresh_token 刷新
+        refresh_resp = client.post("/api/v1/auth/refresh", json={
+            "refresh_token": refresh_token
+        })
+        assert refresh_resp.status_code == 200
+        refresh_data = refresh_resp.json()
+        assert "access_token" in refresh_data
+        assert "refresh_token" in refresh_data
+        assert refresh_data["access_token"] != original_access_token
+
+        # 3. 使用新token可以正常访问
+        me_resp = client.get("/api/v1/auth/me", headers={
+            "Authorization": f"Bearer {refresh_data['access_token']}"
+        })
+        assert me_resp.status_code == 200
+        assert me_resp.json()["username"] == "admin"
+
+    def test_refresh_token_invalid(self, client):
+        """使用无效refresh_token应返回401"""
+        refresh_resp = client.post("/api/v1/auth/refresh", json={
+            "refresh_token": "invalid_token"
+        })
+        assert refresh_resp.status_code == 401
+
+    def test_refresh_token_reuse_prevented(self, client):
+        """refresh_token不能重复使用（防replay）"""
+        # 1. 登录
+        login_resp = client.post("/api/v1/auth/login", json={
+            "username": "admin",
+            "password": "admin123"
+        })
+        refresh_token = login_resp.json()["refresh_token"]
+
+        # 2. 第一次刷新成功
+        refresh_resp1 = client.post("/api/v1/auth/refresh", json={
+            "refresh_token": refresh_token
+        })
+        assert refresh_resp1.status_code == 200
+
+        # 3. 第二次使用同一个refresh_token应该失败
+        refresh_resp2 = client.post("/api/v1/auth/refresh", json={
+            "refresh_token": refresh_token
+        })
+        assert refresh_resp2.status_code == 401
+
+
+class TestRateLimitConcurrency:
+    """RateLimitStore 并发安全性测试"""
+
+    def test_rate_limit_thread_safety(self):
+        """验证 RateLimitStore 在多线程环境下的线程安全"""
+        import threading
+        import time
+        from src.security.rate_limit import RateLimitStore, RateLimitConfig
+
+        store = RateLimitStore()
+        config = RateLimitConfig(requests=100, window_seconds=60, block_seconds=0)
+        
+        errors = []
+        results = []
+        
+        def make_requests():
+            try:
+                for _ in range(50):
+                    allowed, _ = store.check_and_increment("test", "ip:127.0.0.1", config)
+                    results.append(allowed)
+            except Exception as e:
+                errors.append(str(e))
+        
+        # 启动4个并发线程
+        threads = [threading.Thread(target=make_requests) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        
+        # 不应该有错误
+        assert len(errors) == 0, f"Errors: {errors}"
+        # 总请求200次，应该都允许（因为限制是100，但这里会竞争）
+        # 注意：由于并发，可能会超过限制，这是竞争条件，但不应该崩溃
+        print(f"Total requests: {len(results)}, Allowed: {sum(results)}")

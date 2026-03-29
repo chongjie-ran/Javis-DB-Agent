@@ -9,14 +9,25 @@ from typing import Optional
 from dataclasses import dataclass
 from pathlib import Path
 
-# 全局默认存储文件路径
-_USERS_FILE = Path("data/users.json")
-_SECRET_FILE = Path("data/auth_secret.key")
+
+def _get_data_dir() -> Path:
+    """获取数据目录路径"""
+    return Path(os.environ.get("DATA_DIR", "data"))
+
+
+def _get_users_file() -> Path:
+    """获取用户文件路径"""
+    return _get_data_dir() / "users.json"
+
+
+def _get_secret_file() -> Path:
+    """获取密钥文件路径"""
+    return _get_data_dir() / "auth_secret.key"
 
 
 def _get_secret(secret_file: Optional[Path] = None) -> str:
     """获取或生成JWT密钥"""
-    secret_file = secret_file or _SECRET_FILE
+    secret_file = secret_file or _get_secret_file()
     if secret_file.exists():
         return secret_file.read_text().strip()
     secret = secrets.token_hex(32)
@@ -27,7 +38,7 @@ def _get_secret(secret_file: Optional[Path] = None) -> str:
 
 
 def _load_users(users_file: Optional[Path] = None) -> dict:
-    users_file = users_file or _USERS_FILE
+    users_file = users_file or _get_users_file()
     if not users_file.exists():
         return {}
     with open(users_file, "r", encoding="utf-8") as f:
@@ -35,7 +46,7 @@ def _load_users(users_file: Optional[Path] = None) -> dict:
 
 
 def _save_users(users: dict, users_file: Optional[Path] = None):
-    users_file = users_file or _USERS_FILE
+    users_file = users_file or _get_users_file()
     users_file.parent.mkdir(parents=True, exist_ok=True)
     with open(users_file, "w", encoding="utf-8") as f:
         json.dump(users, f, ensure_ascii=False, indent=2)
@@ -95,10 +106,10 @@ class AuthManager:
     """认证管理器"""
 
     def __init__(self, users_file: Optional[Path] = None, secret_file: Optional[Path] = None):
-        self._users_file = users_file or _USERS_FILE
-        self._secret_file = secret_file or _SECRET_FILE
+        self._users_file = users_file or _get_users_file()
+        self._secret_file = secret_file or _get_secret_file()
         self._secret = _get_secret(self._secret_file)
-        self._token_file = Path("data/tokens.json")
+        self._token_file = _get_data_dir() / "tokens.json"
         self._tokens: dict = {}  # token -> {user_id, expires_at, revoked: bool}
         self._revoked: set = set()  # 已撤销的jti集合
         self._load_tokens()

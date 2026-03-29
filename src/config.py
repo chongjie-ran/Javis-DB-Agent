@@ -1,8 +1,14 @@
 """配置管理"""
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 from typing import Optional
 import os
+from pathlib import Path
+
+
+def _get_data_dir() -> str:
+    """获取数据目录路径，默认为 ./data"""
+    return os.environ.get("DATA_DIR", "data")
 
 
 class Settings(BaseSettings):
@@ -49,6 +55,18 @@ class Settings(BaseSettings):
     alert_rules_path: str = "knowledge/alert_rules.yaml"
     sop_path: str = "knowledge/sop/"
     cases_path: str = "knowledge/cases/"
+    
+    @field_validator("db_path", "audit_db_path", "chroma_db_path", mode="before")
+    @classmethod
+    def resolve_data_dir(cls, v: str) -> str:
+        """将相对路径转换为基于 DATA_DIR 的绝对路径"""
+        if v.startswith("/"):
+            return v  # 已经是绝对路径
+        data_dir = _get_data_dir()
+        # 如果 v 是 "data/xxx" 形式，替换为 DATA_DIR/xxx
+        if v.startswith("data/"):
+            return str(Path(data_dir) / v[5:])
+        return str(Path(data_dir) / v)
     
     model_config = ConfigDict(
         env_file=".env",

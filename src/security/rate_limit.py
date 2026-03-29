@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -83,7 +84,7 @@ class RateLimitStore:
         self._windows: dict[str, RateWindow] = defaultdict(RateWindow)
         # key: "block:identifier" -> unblock_timestamp
         self._blocks: dict[str, float] = defaultdict(float)
-        self._lock = asyncio.Lock()
+        self._lock = threading.Lock()
 
     def _make_key(self, limiter_type: str, identifier: str) -> str:
         return f"{limiter_type}:{identifier}"
@@ -111,37 +112,38 @@ class RateLimitStore:
         Returns:
             (是否允许, retry_after秒数) - 如果被限速，retry_after > 0
         """
-        key = self._make_key(limiter_type, identifier)
+        with self._lock:
+            key = self._make_key(limiter_type, identifier)
 
-        # 检查封禁
-        blocked, remaining = self._is_blocked(key)
-        if blocked:
-            return False, remaining
+            # 检查封禁
+            blocked, remaining = self._is_blocked(key)
+            if blocked:
+                return False, remaining
 
-        now = time.time()
-        window = self._windows[key]
+            now = time.time()
+            window = self._windows[key]
 
-        # 判断是否在同一个时间窗口内
-        if now - window.window_start >= config.window_seconds:
-            # 新窗口
-            window.count = 1
-            window.window_start = now
-        else:
-            window.count += 1
+            # 判断是否在同一个时间窗口内
+            if now - window.window_start >= config.window_seconds:
+                # 新窗口
+                window.count = 1
+                window.window_start = now
+            else:
+                window.count += 1
 
-        if window.count > config.requests:
-            # 超限！计算重试时间
-            elapsed_in_window = now - window.window_start
-            retry_after = int(config.window_seconds - elapsed_in_window) + 1
-            retry_after = max(retry_after, 1)
+            if window.count > config.requests:
+                # 超限！计算重试时间
+                elapsed_in_window = now - window.window_start
+                retry_after = int(config.window_seconds - elapsed_in_window) + 1
+                retry_after = max(retry_after, 1)
 
-            if config.block_seconds > 0:
-                # 触发封禁
-                self._blocks[key] = now + config.block_seconds
+                if config.block_seconds > 0:
+                    # 触发封禁
+                    self._blocks[key] = now + config.block_seconds
 
-            return False, retry_after
+                return False, retry_after
 
-        return True, 0
+            return True, 0
 
     def clear_expired(self):
         """清理过期数据（防止内存泄漏）"""
