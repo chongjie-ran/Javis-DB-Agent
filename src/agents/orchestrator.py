@@ -8,12 +8,16 @@ from src.agents.risk import RiskAgent
 from src.agents.sql_analyzer import SQLAnalyzerAgent
 from src.agents.inspector import InspectorAgent
 from src.agents.reporter import ReporterAgent
+from src.agents.session_analyzer_agent import SessionAnalyzerAgent
 
 
 class Intent(Enum):
     """用户意图"""
     DIAGNOSE = "diagnose"           # 告警诊断
     SQL_ANALYZE = "sql_analyze"    # SQL分析
+    ANALYZE_SESSION = "analyze_session"  # 会话分析
+    DETECT_DEADLOCK = "detect_deadlock"  # 死锁检测
+    SUGGEST_INDEX = "suggest_index"  # 索引建议
     INSPECT = "inspect"            # 健康巡检
     REPORT = "report"              # 报告生成
     RISK_ASSESS = "risk_assess"    # 风险评估
@@ -37,9 +41,10 @@ class OrchestratorAgent(BaseAgent):
 你的专长Agent团队：
 1. diagnostic: 诊断Agent - 告警根因分析
 2. risk: 风险评估Agent - 风险分级和处置建议
-3. sql_analyzer: SQL分析Agent - SQL性能分析
+3. sql_analyzer: SQL分析Agent - SQL性能分析、索引建议、SQL改写
 4. inspector: 巡检Agent - 健康检查
 5. reporter: 报告Agent - 报告生成
+6. session_analyzer: 会话分析Agent - 会话状态、连接池、死锁检测
 
 工作流程：
 1. 理解用户目标
@@ -77,6 +82,7 @@ class OrchestratorAgent(BaseAgent):
             "sql_analyzer": SQLAnalyzerAgent(),
             "inspector": InspectorAgent(),
             "reporter": ReporterAgent(),
+            "session_analyzer": SessionAnalyzerAgent(),
         }
     
     def get_agent(self, name: str) -> Optional[BaseAgent]:
@@ -122,6 +128,9 @@ class OrchestratorAgent(BaseAgent):
 可选意图：
 - diagnose: 告警诊断、根因分析
 - sql_analyze: SQL分析、慢SQL分析
+- analyze_session: 会话分析、连接池分析
+- detect_deadlock: 死锁检测
+- suggest_index: 索引建议
 - inspect: 健康巡检、状态检查
 - report: 报告生成
 - risk_assess: 风险评估
@@ -142,6 +151,9 @@ class OrchestratorAgent(BaseAgent):
         mapping = {
             Intent.DIAGNOSE: ["diagnostic", "risk"],
             Intent.SQL_ANALYZE: ["sql_analyzer", "risk"],
+            Intent.ANALYZE_SESSION: ["session_analyzer"],
+            Intent.DETECT_DEADLOCK: ["session_analyzer", "risk"],
+            Intent.SUGGEST_INDEX: ["sql_analyzer"],
             Intent.INSPECT: ["inspector"],
             Intent.REPORT: ["reporter"],
             Intent.RISK_ASSESS: ["risk"],
@@ -219,6 +231,9 @@ class OrchestratorAgent(BaseAgent):
             intent_label = {
                 "diagnose": "告警诊断",
                 "sql_analyze": "SQL分析",
+                "analyze_session": "会话分析",
+                "detect_deadlock": "死锁检测",
+                "suggest_index": "索引建议",
                 "inspect": "健康巡检",
                 "report": "报告生成",
                 "risk_assess": "风险评估",

@@ -38,6 +38,13 @@ from src.tools.high_risk_tools import (
     KillSessionTool,
     AnalyzeExplainPlanTool,
 )
+from src.tools.session_tools import (
+    register_session_tools,
+    SessionListTool,
+    SessionDetailTool,
+    ConnectionPoolTool,
+    DeadlockDetectionTool,
+)
 
 
 def register_all_tools(registry):
@@ -47,6 +54,7 @@ def register_all_tools(registry):
     register_analysis_tools(registry)
     register_additional_query_tools(registry)
     register_high_risk_tools(registry)
+    register_session_tools(registry)
     return registry
 
 
@@ -87,6 +95,12 @@ __all__ = [
     "register_high_risk_tools",
     "KillSessionTool",
     "AnalyzeExplainPlanTool",
+    # 会话分析工具
+    "register_session_tools",
+    "SessionListTool",
+    "SessionDetailTool",
+    "ConnectionPoolTool",
+    "DeadlockDetectionTool",
     # 全量注册
     "register_all_tools",
 ]
