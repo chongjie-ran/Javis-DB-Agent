@@ -1,21 +1,34 @@
-"""LLM层 - Ollama客户端封装"""
+"""LLM层 - Ollama客户端封装（支持TLS加密）"""
+import ssl
 import httpx
 import json
 from typing import Optional, AsyncIterator
 from src.config import get_settings
+from src.security.tls import TLSConfig
 
 
 class OllamaClient:
-    """Ollama API客户端"""
+    """Ollama API客户端（支持TLS加密通信）"""
     
     def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None):
         settings = get_settings()
         self.base_url = base_url or settings.ollama_base_url
         self.model = model or settings.ollama_model
         self.timeout = settings.ollama_timeout
+        self._tls_config = TLSConfig.from_env()
+        self._ssl_context: Optional[ssl.SSLContext] = None
+        if not self._tls_config.ollama_verify_ssl:
+            self._ssl_context = ssl.create_default_context()
+            self._ssl_context.check_hostname = False
+            self._ssl_context.verify_mode = ssl.CERT_NONE
     
     def _get_client(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout)
+        kwargs = {"base_url": self.base_url, "timeout": self.timeout}
+        if self._ssl_context:
+            kwargs["verify"] = self._ssl_context
+        elif not self._tls_config.ollama_verify_ssl:
+            kwargs["verify"] = False
+        return httpx.AsyncClient(**kwargs)
     
     async def complete(self, prompt: str, system: Optional[str] = None, **kwargs) -> str:
         """同步补全（用于Agent推理）"""

@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     policy_require_approval_l4: bool = True  # L4及以上需要审批
     policy_require_dual_approval_l5: bool = True  # L5需要双人审批
     
+    # TLS/SSL配置
+    https_enabled: bool = False  # 强制HTTPS
+    hsts_enabled: bool = False  # HSTS头
+    ssl_cert_file: Optional[str] = None  # SSL证书路径
+    ssl_key_file: Optional[str] = None  # SSL私钥路径
+    verify_ssl: bool = True  # 验证SSL证书
+    ollama_verify_ssl: bool = True  # Ollama SSL验证
+    
     # 知识库
     knowledge_base_path: str = "knowledge/"
     alert_rules_path: str = "knowledge/alert_rules.yaml"

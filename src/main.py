@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from src.config import get_settings
+from src.security.tls import TLSConfig, TLSMiddleware
 from src.api.routes import router
 from src.api.dashboard import router as dashboard_router
 from src.api.auth_routes import router as auth_router
@@ -84,6 +85,11 @@ def create_app() -> FastAPI:
         description="zCloud数据库运维智能体系统",
         lifespan=lifespan,
     )
+    
+    # 安全中间件 - TLS/HTTPS
+    tls_config = TLSConfig.from_env()
+    if tls_config.enabled:
+        app.add_middleware(TLSMiddleware, config=tls_config)
     
     # CORS
     app.add_middleware(
