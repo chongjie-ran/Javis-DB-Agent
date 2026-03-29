@@ -563,6 +563,155 @@ class MockZCloudClient:
             "end_time": end_time,
             "timestamp": time.time(),
         }
+    
+    # ==================== 健康检查 ====================
+    
+    async def health_check(self) -> dict:
+        """健康检查"""
+        return {
+            "status": "ok",
+            "service": "zcloud-mock-api",
+            "timestamp": time.time(),
+        }
+    
+    # ==================== 告警确认/解决 ====================
+    
+    async def acknowledge_alert(self, alert_id: str, acknowledged_by: str, comment: str = "") -> dict:
+        """确认告警"""
+        return {
+            "alert_id": alert_id,
+            "acknowledged_by": acknowledged_by,
+            "comment": comment,
+            "acknowledged_at": time.time(),
+            "status": "acknowledged",
+        }
+    
+    async def resolve_alert(self, alert_id: str, resolved_by: str, resolution: str, resolution_type: str = "fixed") -> dict:
+        """解决告警"""
+        return {
+            "alert_id": alert_id,
+            "resolved_by": resolved_by,
+            "resolution": resolution,
+            "resolution_type": resolution_type,
+            "resolved_at": time.time(),
+            "status": "resolved",
+        }
+    
+    # ==================== 参数管理 ====================
+    
+    async def get_parameters(self, instance_id: str, category: Optional[str] = None) -> dict:
+        """获取参数列表"""
+        params = [
+            {"name": "max_connections", "value": "500", "category": "connection", "description": "最大连接数"},
+            {"name": "innodb_buffer_pool_size", "value": "134217728", "category": "memory", "description": "InnoDB缓冲池大小"},
+            {"name": "query_cache_size", "value": "16777216", "category": "query", "description": "查询缓存大小"},
+            {"name": "log_error", "value": "/var/log/mysql/error.log", "category": "logging", "description": "错误日志路径"},
+            {"name": "slow_query_log", "value": "ON", "category": "logging", "description": "慢查询日志"},
+        ]
+        
+        if category:
+            params = [p for p in params if p["category"] == category]
+        
+        return {
+            "instance_id": instance_id,
+            "parameters": params,
+            "total": len(params),
+            "timestamp": time.time(),
+        }
+    
+    async def update_parameter(self, instance_id: str, param_name: str, param_value: str) -> dict:
+        """更新参数"""
+        return {
+            "instance_id": instance_id,
+            "param_name": param_name,
+            "param_value": param_value,
+            "status": "pending_reboot",
+            "message": f"参数 {param_name} 已更新，需要重启实例生效",
+            "timestamp": time.time(),
+        }
+    
+    # ==================== 巡检管理 ====================
+    
+    async def get_inspection_results(self, instance_id: str) -> dict:
+        """获取巡检结果"""
+        return {
+            "instance_id": instance_id,
+            "inspection_id": f"INS-{int(time.time())}",
+            "status": "completed",
+            "score": 85,
+            "items": [
+                {"category": "性能", "item": "CPU使用率", "status": "warning", "message": "CPU使用率偏高"},
+                {"category": "性能", "item": "内存使用率", "status": "normal", "message": "正常"},
+                {"category": "可用性", "item": "实例状态", "status": "normal", "message": "运行中"},
+                {"category": "安全", "item": "密码策略", "status": "normal", "message": "符合要求"},
+            ],
+            "timestamp": time.time(),
+        }
+    
+    async def trigger_inspection(self, instance_id: str) -> dict:
+        """触发巡检"""
+        return {
+            "instance_id": instance_id,
+            "inspection_id": f"INS-{int(time.time())}",
+            "status": "triggered",
+            "message": "巡检任务已触发，正在执行中",
+            "estimated_duration_seconds": 60,
+            "timestamp": time.time(),
+        }
+    
+    # ==================== 工单管理 ====================
+    
+    async def list_workorders(self, instance_id: Optional[str] = None, status: Optional[str] = None) -> list[dict]:
+        """列出工单"""
+        workorders = [
+            {
+                "workorder_id": "WO-001",
+                "instance_id": "INS-001",
+                "type": "parameter_change",
+                "title": "调整最大连接数",
+                "status": "pending_approval",
+                "requester": "admin",
+                "created_at": time.time() - 86400,
+            },
+            {
+                "workorder_id": "WO-002",
+                "instance_id": "INS-002",
+                "type": "backup",
+                "title": "执行全量备份",
+                "status": "completed",
+                "requester": "admin",
+                "created_at": time.time() - 172800,
+            },
+        ]
+        
+        if instance_id:
+            workorders = [w for w in workorders if w["instance_id"] == instance_id]
+        if status:
+            workorders = [w for w in workorders if w["status"] == status]
+        
+        return workorders
+    
+    async def get_workorder_detail(self, workorder_id: str) -> dict:
+        """获取工单详情"""
+        return {
+            "workorder_id": workorder_id,
+            "instance_id": "INS-001",
+            "type": "parameter_change",
+            "title": "调整最大连接数",
+            "description": "将max_connections从500调整为800",
+            "status": "pending_approval",
+            "requester": "admin",
+            "approver": None,
+            "created_at": time.time() - 86400,
+            "approved_at": None,
+            "completed_at": None,
+            "steps": [
+                {"step": 1, "action": "修改参数", "status": "completed"},
+                {"step": 2, "action": "审批", "status": "pending"},
+                {"step": 3, "action": "重启实例", "status": "pending"},
+            ],
+            "timestamp": time.time(),
+        }
 
 
 # 单例模式
