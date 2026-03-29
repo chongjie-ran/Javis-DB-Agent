@@ -187,10 +187,25 @@ class TestRealClientBasics:
         
         assert client1 is client2  # 应该是同一个对象（单例）
     
-    @pytest.mark.skip(reason="reset_real_client requires async event loop")
     def test_reset_real_client(self):
-        """测试reset_real_client重置单例 - 跳过因为需要async event loop"""
-        pass
+        """测试reset_real_client重置单例（同步安全）"""
+        from src.real_api import get_real_client, reset_real_client
+        import src.real_api.client as client_mod
+
+        # 重置到干净状态
+        client_mod._real_client = None
+
+        # 获取一个client
+        c1 = get_real_client()
+        assert c1 is not None
+
+        # reset应该能同步执行不崩溃
+        reset_real_client()
+
+        # 重置后应创建新实例
+        c2 = get_real_client()
+        assert c2 is not None
+        assert c1 is not c2  # 应该是不同对象
 
 
 # ==================== Auth Provider Tests ====================
@@ -239,15 +254,35 @@ class TestAuthProviders:
         headers = provider.get_auth_headers()
         assert headers == {"Authorization": "ApiKey test-key"}
     
-    @pytest.mark.skip(reason="OAuth2Provider.refresh_token abstract method not implemented")
     def test_oauth2_provider_init(self):
-        """测试OAuth2Provider初始化 - 跳过因为refresh_token未实现"""
-        pass
-    
-    @pytest.mark.skip(reason="OAuth2Provider.refresh_token abstract method not implemented")
+        """测试OAuth2Provider初始化"""
+        from src.real_api.auth import OAuth2Provider
+
+        provider = OAuth2Provider(
+            token_url="https://auth.example.com/oauth/token",
+            client_id="client-123",
+            client_secret="secret-456",
+        )
+        assert provider.token_url == "https://auth.example.com/oauth/token"
+        assert provider.client_id == "client-123"
+        assert provider.client_secret == "secret-456"
+        # refresh_token已实现，不应抛出TypeError
+        assert callable(provider.refresh_token)
+
     def test_oauth2_provider_not_valid_without_token(self):
-        """测试OAuth2Provider未授权时无效 - 跳过因为refresh_token未实现"""
-        pass
+        """测试OAuth2Provider未授权时无效"""
+        from src.real_api.auth import OAuth2Provider
+
+        provider = OAuth2Provider(
+            token_url="https://auth.example.com/oauth/token",
+            client_id="client-123",
+            client_secret="secret-456",
+        )
+        # 无token时无效
+        assert provider.is_token_valid() is False
+        # refresh_token调用不抛异常
+        result = provider.refresh_token()
+        assert isinstance(result, bool)
     
     def test_create_auth_provider_api_key(self):
         """测试create_auth_provider创建APIKeyProvider"""
@@ -259,10 +294,19 @@ class TestAuthProviders:
         assert isinstance(provider, APIKeyProvider)
         assert provider._api_key == "test-key"
     
-    @pytest.mark.skip(reason="OAuth2Provider.refresh_token abstract method not implemented")
     def test_create_auth_provider_oauth2(self):
-        """测试create_auth_provider创建OAuth2Provider - 跳过因为refresh_token未实现"""
-        pass
+        """测试create_auth_provider创建OAuth2Provider"""
+        from src.real_api.auth import create_auth_provider, OAuth2Provider
+
+        provider = create_auth_provider({
+            "auth_type": "oauth2",
+            "oauth_token_url": "https://auth.example.com/oauth/token",
+            "oauth_client_id": "client-id",
+            "oauth_client_secret": "client-secret",
+        })
+        assert isinstance(provider, OAuth2Provider)
+        assert provider.token_url == "https://auth.example.com/oauth/token"
+        assert provider.client_id == "client-id"
     
     def test_create_auth_provider_default(self):
         """测试create_auth_provider默认创建APIKeyProvider"""
@@ -355,9 +399,9 @@ class TestDashboardTemplate:
 class TestRound9Integration:
     """Round9功能集成测试"""
     
-    @pytest.mark.skip(reason="reset_real_client requires async event loop")
+    @pytest.mark.skip(reason="需要运行中的event loop，P2")
     def test_mock_to_real_workflow(self):
-        """测试Mock到Real的完整工作流 - 跳过因为需要async event loop"""
+        """测试Mock到Real的完整工作流 - 需要async context"""
         pass
     
     def test_auth_provider_switch(self):

@@ -247,18 +247,24 @@ def get_real_client() -> ZCloudRealClient:
 
 
 def reset_real_client():
-    """重置客户端（切换配置后调用）"""
+    """重置客户端（切换配置后调用）
+
+    同步安全：无论是否有running event loop都能正常工作。
+    在有running loop时异步调度close任务；在无running loop时同步执行close。
+    """
     global _real_client
     if _real_client:
         import asyncio
         try:
             loop = asyncio.get_running_loop()
-            # 如果有running loop，用create_task
+            # 有running loop：异步调度关闭任务（不等待）
             loop.create_task(_real_client.close())
         except RuntimeError:
-            # 没有running loop，Python 3.10+ 不再隐式创建event loop
-            # 使用 new_event_loop + run_until_complete（同步安全关闭）
+            # 没有running loop：创建新的event loop同步执行关闭
             loop = asyncio.new_event_loop()
-            loop.run_until_complete(_real_client.close())
-            loop.close()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(_real_client.close())
+            finally:
+                loop.close()
     _real_client = None
