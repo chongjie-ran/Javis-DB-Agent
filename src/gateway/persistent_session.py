@@ -522,7 +522,8 @@ class PersistentSessionManager:
                 # 清理缓存
                 for row in rows:
                     self._cache.pop(row["session_id"], None)
-                    self._user_sessions[row["user_id"]].remove(row["session_id"])
+                    if row["session_id"] in self._user_sessions[row["user_id"]]:
+                        self._user_sessions[row["user_id"]].remove(row["session_id"])
         
         # 限制总会话数
         while len(self._cache) > self.max_sessions:
