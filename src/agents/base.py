@@ -134,6 +134,26 @@ class BaseAgent(ABC):
                 tool_name=tool_name
             )
         
+        # L5高风险工具：检查审批状态
+        tool_call_id = f"call_{tool_name}_{user_id}_{int(start_time * 1000)}"
+        if risk_level == RiskLevel.L5_HIGH:
+            gate = self._policy.approval_gate
+            if not gate.is_approved(tool_call_id):
+                # 检查是否有待审批或已通过的记录
+                status = gate.get_approval_status(tool_call_id)
+                if status is None:
+                    return ToolResult(
+                        success=False,
+                        error=f"L5高风险工具 [{tool_name}] 需要双人审批通过后方可执行，请先提交审批申请",
+                        tool_name=tool_name
+                    )
+                else:
+                    return ToolResult(
+                        success=False,
+                        error=f"L5高风险工具 [{tool_name}] 审批状态: {status.value}，需双人审批通过",
+                        tool_name=tool_name
+                    )
+        
         # 前置检查
         pre_ok, pre_err = await tool.pre_execute(params, context)
         if not pre_ok:
@@ -144,6 +164,14 @@ class BaseAgent(ABC):
             result = await tool.execute(params, context)
             result.execution_time_ms = int((time.time() - start_time) * 1000)
             result.tool_name = tool_name
+            
+            # L5高风险工具：标记已执行
+            if risk_level == RiskLevel.L5_HIGH:
+                self._policy.approval_gate.enforce_execution(
+                    tool_call_id=tool_call_id,
+                    executor=user_id,
+                    result=f"{'success' if result.success else 'failure'}: {result.error or 'ok'}"
+                )
             
             # 后置检查
             post_ok, post_err = await tool.post_execute(result)

@@ -312,9 +312,53 @@ class ApprovalGate:
             return False, f"审批状态: {record.status.value}，需要双人审批通过"
         return True, None
 
+    def request_approval(
+        self,
+        tool_call_id: str,
+        tool_name: str,
+        tool_params: dict,
+        risk_level: int,
+        requester: str,
+        reason: str,
+        session_id: str = "",
+        approver1: Optional[str] = None,
+        approver2: Optional[str] = None,
+        ttl_seconds: int = 3600,
+    ) -> ApprovalRecord:
+        """提交审批申请（L5工具触发时调用）"""
+        return self._store.submit(
+            tool_call_id=tool_call_id,
+            tool_name=tool_name,
+            tool_params=tool_params,
+            risk_level=risk_level,
+            requester=requester,
+            reason=reason,
+            session_id=session_id,
+            approver1=approver1,
+            approver2=approver2,
+            ttl_seconds=ttl_seconds,
+        )
+
+    def is_approved(self, tool_call_id: str) -> bool:
+        """检查工具调用是否已通过双人审批"""
+        record = self._store.get_by_tool_call(tool_call_id)
+        if not record:
+            return False
+        return record.is_executable
+
+    def get_approval_status(self, tool_call_id: str) -> Optional[ApprovalStatus]:
+        """获取审批状态"""
+        record = self._store.get_by_tool_call(tool_call_id)
+        if not record:
+            return None
+        return record.status
+
     def enforce_execution(self, tool_call_id: str, executor: str, result: str) -> ApprovalRecord:
         """强制执行后标记"""
-        return self._store.mark_executed(tool_call_id, executor, result)
+        record = self._store.get_by_tool_call(tool_call_id)
+        if not record:
+            raise ValueError(f"无审批记录: {tool_call_id}")
+        return self._store.mark_executed(record.id, executor, result)
 
 
 # 全局单例

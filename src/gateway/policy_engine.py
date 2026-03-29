@@ -3,6 +3,7 @@ from typing import Optional
 from enum import IntEnum
 from dataclasses import dataclass, field
 from src.tools.base import RiskLevel
+from src.models.approval import get_approval_gate, ApprovalGate
 
 
 class UserRole(IntEnum):
@@ -48,10 +49,18 @@ class PolicyResult:
 class PolicyEngine:
     """策略引擎"""
     
-    def __init__(self):
+    def __init__(self, approval_gate: Optional[ApprovalGate] = None):
         self._custom_rules: list[callable] = []
         self._require_approval_l4 = True
         self._require_dual_approval_l5 = True
+        self._approval_gate = approval_gate
+
+    @property
+    def approval_gate(self) -> ApprovalGate:
+        """获取审批门卫"""
+        if self._approval_gate is None:
+            self._approval_gate = get_approval_gate()
+        return self._approval_gate
     
     def add_rule(self, rule: callable):
         """添加自定义规则"""
@@ -111,6 +120,33 @@ class PolicyEngine:
             RiskLevel.L5_HIGH: "高风险执行，需双人审批",
         }
         return descriptions.get(risk_level, "未知风险")
+
+    def request_approval(
+        self,
+        tool_call_id: str,
+        tool_name: str,
+        tool_params: dict,
+        risk_level: int,
+        requester: str,
+        reason: str,
+        session_id: str = "",
+        approver1: Optional[str] = None,
+        approver2: Optional[str] = None,
+        ttl_seconds: int = 3600,
+    ):
+        """提交L5工具的审批申请"""
+        return self.approval_gate.request_approval(
+            tool_call_id=tool_call_id,
+            tool_name=tool_name,
+            tool_params=tool_params,
+            risk_level=risk_level,
+            requester=requester,
+            reason=reason,
+            session_id=session_id,
+            approver1=approver1,
+            approver2=approver2,
+            ttl_seconds=ttl_seconds,
+        )
 
 
 # 全局单例
