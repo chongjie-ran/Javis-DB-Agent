@@ -16,6 +16,7 @@ from src.api.audit_routes import router as audit_router
 from src.api.chat_stream import router as chat_stream_router
 from src.api.wecom_routes import router as wecom_router
 from src.real_api.routers.knowledge import router as knowledge_router
+from src.api.dependency_routes import router as dependency_router, init_dependency_routes
 from src.api.metrics import setup_metrics_middleware, get_metrics
 from src.gateway.session import get_session_manager
 from src.gateway.tool_registry import get_tool_registry
@@ -70,6 +71,13 @@ async def lifespan(app: FastAPI):
                 tools_count=len(registry.list_tools(enabled_only=True)),
                 categories=["query", "analysis", "action"])
 
+    # 初始化依赖传播引擎 (Round 19)
+    try:
+        await init_dependency_routes()
+        logger.info("dependency_routes.initialized")
+    except Exception as e:
+        logger.warning("dependency_routes.init_failed", error=str(e))
+
     yield
 
     # 关闭
@@ -117,6 +125,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_stream_router)
     app.include_router(wecom_router)
     app.include_router(knowledge_router)
+    app.include_router(dependency_router)
 
     # 设置指标中间件
     setup_metrics_middleware(app)

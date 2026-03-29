@@ -2,5 +2,6 @@
 from src.knowledge.db.repositories.alert_rule_repo import AlertRuleRepository
 from src.knowledge.db.repositories.sop_repo import SOPRepository
 from src.knowledge.db.repositories.case_repo import CaseRepository
+from src.knowledge.db.repositories.dependency_repo import DependencyRepository
 
-__all__ = ["AlertRuleRepository", "SOPRepository", "CaseRepository"]
+__all__ = ["AlertRuleRepository", "SOPRepository", "CaseRepository", "DependencyRepository"]
