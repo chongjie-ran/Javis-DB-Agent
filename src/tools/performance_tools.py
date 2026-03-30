@@ -371,6 +371,53 @@ class ExplainSQLPlanTool(BaseTool):
         """生成模拟执行计划"""
         sql_upper = sql.upper()
 
+        # ====== SQL验证 ======
+        # 1. 检测超大SQL
+        if len(sql) > 1024 * 1024:  # > 1MB
+            return {
+                "cost": {"total_cost": 0, "estimated_rows": 0},
+                "warnings": ["SQL语句过大，可能导致内存溢出"],
+                "recommendations": ["建议将SQL语句拆分或使用分页查询"],
+                "steps": [{"type": "ERROR", "description": "SQL size exceeds limit", "cost": "N/A"}],
+            }
+
+        # 2. 检测无效SQL语法 (不包含任何SQL关键字)
+        sql_keywords = ["SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "GRANT", "REVOKE"]
+        has_keyword = any(kw in sql_upper for kw in sql_keywords)
+        if not has_keyword:
+            return {
+                "cost": {"total_cost": 0, "estimated_rows": 0},
+                "warnings": ["SQL语法无效：未检测到有效SQL关键字"],
+                "recommendations": ["请提供有效的SQL语句"],
+                "steps": [{"type": "ERROR", "description": "Invalid SQL syntax", "cost": "N/A"}],
+            }
+
+        # 3. 检测不完整的SELECT语句
+        if sql_upper.strip().startswith("SELECT"):
+            # 检查是否缺少表名 (FROM后面没有内容或只有空格/标点)
+            import re
+            # 匹配 SELECT ... FROM ... 后面的内容
+            from_match = re.search(r'FROM\s*([^\s;,(]+)?', sql_upper)
+            if not from_match or not from_match.group(1):
+                return {
+                    "cost": {"total_cost": 0, "estimated_rows": 0},
+                    "warnings": ["SQL语法无效：SELECT语句缺少表名"],
+                    "recommendations": ["请提供完整的SQL语句，包含表名"],
+                    "steps": [{"type": "ERROR", "description": "Incomplete SELECT statement", "cost": "N/A"}],
+                }
+
+        # 4. 检测敏感表名
+        sensitive_tables = ["secret", "password", "credential", "token", "api_key", "private"]
+        sql_lower = sql.lower()
+        for sensitive in sensitive_tables:
+            if sensitive in sql_lower and ("from " + sensitive in sql_lower or "join " + sensitive in sql_lower):
+                return {
+                    "cost": {"total_cost": 0, "estimated_rows": 0},
+                    "warnings": [f"警告：检测到可能包含敏感数据的表 ({sensitive})"],
+                    "recommendations": ["请确认您有权限访问包含敏感数据的表"],
+                    "steps": [{"type": "ERROR", "description": f"Sensitive table access: {sensitive}", "cost": "N/A"}],
+                }
+
         # 基于SQL类型生成不同计划
         if "JOIN" in sql_upper:
             plan = {
