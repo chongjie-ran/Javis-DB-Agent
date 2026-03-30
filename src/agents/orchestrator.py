@@ -427,29 +427,55 @@ class OrchestratorAgent(BaseAgent):
         Returns:
             (匹配到的Intent, 置信度分数)
         """
-        # 构建提示，包含各意图的示例
+        # 构建提示，包含各意图的示例（v1.3 Round 3 增强）
         intent_examples_text = ""
+        intent_descriptions = {
+            Intent.DIAGNOSE: "告警诊断、根因分析、故障排查",
+            Intent.SQL_ANALYZE: "SQL性能分析、慢查询优化、执行计划分析",
+            Intent.ANALYZE_SESSION: "会话状态、连接池、死锁检测",
+            Intent.DETECT_DEADLOCK: "死锁检测",
+            Intent.SUGGEST_INDEX: "索引建议",
+            Intent.INSPECT: "健康巡检、查看实例列表、数据库列表、健康检查",
+            Intent.REPORT: "报告生成",
+            Intent.RISK_ASSESS: "风险评估",
+            Intent.ANALYZE_CAPACITY: "容量分析、存储分析",
+            Intent.PREDICT_GROWTH: "增长预测、容量预测",
+            Intent.CAPACITY_REPORT: "容量报告",
+            Intent.ANALYZE_ALERT: "告警分析、告警详情",
+            Intent.DEDUPLICATE_ALERTS: "告警去重、合并告警",
+            Intent.ROOT_CAUSE: "根因分析",
+            Intent.PREDICTIVE_ALERT: "预测性告警、提前预警",
+            Intent.GENERAL: "通用问答",
+        }
+        
         for intent, examples in INTENT_EXAMPLES.items():
             examples_str = ", ".join([f'"{e}"' for e in examples[:5]])
-            intent_examples_text += f"- {intent.value}: {examples_str}\n"
+            desc = intent_descriptions.get(intent, "")
+            intent_examples_text += f"- {intent.value}: {desc}。示例：{examples_str}\n"
         
         hint_section = ""
         if hint_intent and hint_score > 0:
             hint_section = f"\n\n参考信息：语义向量匹配初步识别为「{hint_intent.value}」（分数 {hint_score:.2f}），请综合判断。"
         
-        prompt = f"""你是一个专业的数据库运维助手，负责识别用户意图。
+        # v1.3 Round 3 增强：更精确的 Prompt
+        prompt = f"""你是专业的数据库运维意图识别助手。
 
-请分析以下用户输入，判断其意图类型：
+任务：根据用户输入，从以下意图列表中选择最匹配的一个。
 
 用户输入：{goal}{hint_section}
 
-各意图类型的示例表达：
+可用意图：
 {intent_examples_text}
 
-请直接输出匹配的意图名称（如：inspect）。
-如果无法确定，输出 "general"。
+识别规则：
+1. "MySQL instances"、"show me all databases"、"列出所有数据库"、"有哪些实例" → inspect
+2. "告警诊断"、"帮我看看这个告警"、"告警根因分析" → diagnose
+3. "SQL分析"、"慢SQL查询"、"执行计划分析" → sql_analyze
+4. "会话分析"、"连接池状态"、"当前会话" → analyze_session
+5. "容量分析"、"存储空间"、"磁盘使用率" → analyze_capacity
+6. "告警分析"、"这条告警什么意思"、"告警详情" → analyze_alert
 
-只输出意图名称，不要输出其他内容："""
+请直接输出意图名称（只输出英文，不要输出其他内容）。如果都不匹配，输出 "general"："""
         
         try:
             result = await self.think(prompt)

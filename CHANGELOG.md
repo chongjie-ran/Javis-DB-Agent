@@ -4,6 +4,47 @@ All notable changes to the Javis-DB-Agent will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v1.3] - 2026-03-30
+
+### Added
+- **语义工具选择增强** (Round 3) - `_select_agents()` 基于语义的动态工具选择
+  - 不只是硬编码 intent→agent mapping，而是理解用户意图后选择最合适的工具
+  - 例如："MySQL 慢查询" → 不仅仅是 INSPECT intent，还要选择慢查询分析工具
+- **端到端泛化测试** (Round 3) - 完整的泛化能力验证测试套件
+  - 同义表达泛化：10种不同说法表达同一个意图
+  - 上下文理解：多轮对话中的指代理解
+  - 语义工具选择：不同场景下选择不同工具
+  - 测试文件：`tests/round15/test_e2e_generalization.py` (31个测试用例)
+- **LLM Fallback 完善** (Round 3) - 纯 LLM 语义匹配效果增强
+  - Prompt 优化：让 LLM 能准确理解用户意图的语义
+  - 新增明确的识别规则示例
+  - "MySQL instances" → INSPECT 在 LLM 模式下正确工作
+
+### Changed
+- **意图样本库扩展** (Round 1) - 各意图现在有更丰富的同义表达示例
+  - INTENT_EXAMPLES: 16个Intent × 6-13个同义表达
+  - "MySQL instances" 已加入 INSPECT 示例
+- **LLM 语义匹配 Prompt** (Round 1) - 增强为包含意图描述和识别规则
+- **语义路由增强** (Round 2) - `_semantic_intent_recognize()` 余弦相似度匹配
+  - 复用 EmbeddingService + Chroma 意图向量库
+  - 阈值 0.75，超过直接返回
+- **样本自演化闭环** (Round 2) - IntentExampleCollector 自动收集用户反馈
+  - `auto_learn_from_feedback()` 防重复添加，长度过滤防注入
+  - 持久化到 `data/intent_examples.json`
+- **上下文融合** (Round 2) - `_build_conversation_history()` 融入最近3轮对话
+- **语义工具选择增强** (Round 3) - `_select_agents()` 基于语义的动态工具选择
+  - 不只是硬编码 intent→agent mapping，而是理解用户意图后选择最合适的工具
+  - 例如："MySQL 慢查询" → 不仅仅是 INSPECT intent，还要选择慢查询分析工具
+- **端到端泛化测试** (Round 3) - 完整的泛化能力验证测试套件
+  - 同义表达泛化：10种不同说法表达同一个意图
+  - 上下文理解：多轮对话中的指代理解
+  - 语义工具选择：不同场景下选择不同工具
+  - 测试文件：`tests/round15/test_e2e_generalization.py` (31个测试用例)
+- **LLM Fallback 完善** (Round 3) - 纯 LLM 语义匹配效果增强
+  - Prompt 优化：让 LLM 能准确理解用户意图的语义
+  - 新增明确的识别规则示例
+  - "MySQL instances" → INSPECT 在 LLM 模式下正确工作
+
 ## [v1.2] - 2026-03-30
 
 ### Added
