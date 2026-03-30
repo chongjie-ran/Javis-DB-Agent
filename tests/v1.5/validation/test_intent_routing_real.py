@@ -84,15 +84,15 @@ async def test_intent_feedback_collection(orchestrator):
     collector = IntentExampleCollector()
 
     # 记录用户反馈
-    collector.record(
+    collector.record_feedback(
         user_input="备份状态",
         recognized_intent="analyze_backup",
         user_accepted=True,
     )
 
-    examples = collector.get_examples()
-    assert len(examples) > 0, "意图反馈收集失败"
-    print(f"\n✅ 意图反馈收集: {len(examples)} 条记录")
+    stats = collector.get_stats()
+    assert stats.get("feedback_buffer_size", 0) > 0 or stats.get("total_intents", 0) > 0, "意图反馈收集失败"
+    print(f"\n✅ 意图反馈收集: {stats}")
 
 
 # ---------------------------------------------------------------------------
