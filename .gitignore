@@ -9,3 +9,4 @@ build/
 *.sqlite
 *.db-journal
 data/sessions.db
+data/audit.jsonl
