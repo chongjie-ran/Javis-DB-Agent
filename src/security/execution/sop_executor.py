@@ -279,71 +279,65 @@ class SOPExecutor:
                 step_retries = step_def.get("retry_count", max_retries)
                 step_attempt = 0
                 step_result = None
-                step_failed = False
-                step_error_msg = None
+                step_succeeded = False
+                last_error_msg = None
+                current_failed_result = None  # Track current attempt's failure only
 
                 while step_attempt <= step_retries:
                     try:
                         step_result = await self._execute_step(
                             step_def, context, max_retries
                         )
-                    except asyncio.TimeoutError:
-                        step_failed = True
-                        step_error_msg = f"步骤执行超时（{step_def.get('timeout_seconds', 60)}s）"
-                        failed_result = SOPStepResult(
-                            step_id=str(step_def.get("step", 0)),
-                            step_name=step_def.get("description", step_def.get("action", "")),
-                            status=SOPStepStatus.FAILED,
-                            tool_name=step_def.get("action", ""),
-                            input_params={},
-                            error=step_error_msg,
-                        )
-                        result.step_results.append(failed_result)
-                    except Exception as step_error:
-                        step_failed = True
-                        step_error_msg = str(step_error)
-                        failed_result = SOPStepResult(
-                            step_id=str(step_def.get("step", 0)),
-                            step_name=step_def.get("description", step_def.get("action", "")),
-                            status=SOPStepStatus.FAILED,
-                            tool_name=step_def.get("action", ""),
-                            input_params={},
-                            error=step_error_msg,
-                        )
-                        result.step_results.append(failed_result)
-
-                    if step_failed:
-                        has_any_failure = True
-                        if step_def.get("critical") and sop.get("abort_on_critical_failure"):
-                            result.status = SOPStatus.FAILED
-                            result.error = f"关键步骤异常: {step_error_msg}"
-                            result.aborted_at_step = step_def.get("step")
+                        # Check if step itself reports failure (retryable)
+                        if step_result.status == SOPStepStatus.FAILED:
+                            last_error_msg = step_result.error
+                            current_failed_result = step_result
+                            step_attempt += 1
+                            if step_attempt <= step_retries:
+                                continue
+                            # Exhausted retries
                             break
-                        step_attempt += 1
-                        if step_attempt <= step_retries:
-                            continue  # 重试下一步
-                        break  # 超出重试次数
+                        # Step succeeded
+                        step_succeeded = True
+                        break
+                    except asyncio.TimeoutError:
+                        last_error_msg = f"步骤执行超时（{step_def.get('timeout_seconds', 60)}s）"
+                        current_failed_result = SOPStepResult(
+                            step_id=str(step_def.get("step", 0)),
+                            step_name=step_def.get("description", step_def.get("action", "")),
+                            status=SOPStepStatus.FAILED,
+                            tool_name=step_def.get("action", ""),
+                            input_params={},
+                            error=last_error_msg,
+                        )
+                    except Exception as step_error:
+                        last_error_msg = str(step_error)
+                        current_failed_result = SOPStepResult(
+                            step_id=str(step_def.get("step", 0)),
+                            step_name=step_def.get("description", step_def.get("action", "")),
+                            status=SOPStepStatus.FAILED,
+                            tool_name=step_def.get("action", ""),
+                            input_params={},
+                            error=last_error_msg,
+                        )
 
-                    # 成功：追加结果并跳出重试循环
-                    result.step_results.append(step_result)
+                    # Exception occurred - retry if possible
+                    step_attempt += 1
+                    if step_attempt <= step_retries:
+                        continue
+                    # Exhausted retries
                     break
 
-                # 如果所有重试都失败，标记失败
-                if step_failed and step_attempt > step_retries:
+                # Now add the appropriate result
+                if step_succeeded and step_result:
+                    result.step_results.append(step_result)
+                elif current_failed_result:
+                    result.step_results.append(current_failed_result)
                     has_any_failure = True
+                    result.error = f"步骤失败: {last_error_msg}"
                     if step_def.get("critical") and sop.get("abort_on_critical_failure"):
                         result.status = SOPStatus.FAILED
-                        result.error = f"关键步骤异常: {step_error_msg}"
                         result.aborted_at_step = step_def.get("step")
-                        break
-                    continue
-
-                if step_result and step_result.status == SOPStepStatus.FAILED:
-                    has_any_failure = True
-                    result.error = f"步骤失败: {step_result.error}"
-                    if step_def.get("critical") and sop.get("abort_on_critical_failure"):
-                        result.status = SOPStatus.FAILED
-                        result.aborted_at_step = step_def["step"]
                         break
 
                 if step_result and step_result.status == SOPStepStatus.WAITING_APPROVAL:
