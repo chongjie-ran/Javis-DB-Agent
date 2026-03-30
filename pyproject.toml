@@ -1,0 +1,94 @@
+[build-system]
+requires = ["hatchling", "hatch-uv"]
+build-backend = "hatchling.build"
+
+[project]
+name = "javis-db-agent"
+version = "1.3.1"
+description = "Javis-DB-Agent 数据库运维智能体系统"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "Chongjie Ran", email = "chongjie.ran@enmotech.com" }
+]
+keywords = ["db-agent", "database", "ops", "ai", "llm", "ollama"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+    "Topic :: Database",
+]
+dependencies = [
+    "fastapi==0.109.2",
+    "uvicorn[standard]==0.27.1",
+    "pydantic==2.6.1",
+    "pydantic-settings==2.1.0",
+    "httpx==0.26.0",
+    "sqlalchemy==2.0.25",
+    "aiosqlite==0.19.0",
+    "redis==5.0.1",
+    "celery==5.3.6",
+    "chromadb==0.4.22",
+    "pyyaml==6.0.1",
+    "structlog==24.1.0",
+    "python-multipart==0.0.9",
+    "psutil==5.9.8",
+    "PyJWT==2.8.0",
+    "numpy==1.26.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.2.0",
+    "mypy>=1.8.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/enmotech/Javis-DB-Agent"
+Documentation = "https://github.com/enmotech/Javis-DB-Agent#readme"
+Repository = "https://github.com/enmotech/Javis-DB-Agent"
+Issues = "https://github.com/enmotech/Javis-DB-Agent/issues"
+
+[project.scripts]
+javis-agent = "src.main:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/configs",
+    "/knowledge",
+    "/templates",
+    "/docs",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --tb=short"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.mypy]
+python_version = "3.9"
+strict = false
+warn_return_any = true
+warn_unused_configs = true

@@ -627,4 +627,4 @@ class TaxonomyService:
                     for resource in resources:
                         self._resource_cache[resource.id] = resource
 
-        asyncio.get_event_loop().run_until_complete(_warm())
+        asyncio.run(_warm())

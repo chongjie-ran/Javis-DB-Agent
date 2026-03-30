@@ -1,0 +1,62 @@
+[Unit]
+Description=Javis-DB-Agent 数据库运维智能体系统
+Documentation=https://github.com/enmotech/Javis-DB-Agent
+After=network.target redis.service
+Wants=redis.service
+PartOf=network.target
+
+[Service]
+Type=simple
+
+# 运行用户
+User=javis
+Group=javis
+
+# 工作目录
+WorkingDirectory=/opt/javis-db-agent
+
+# 虚拟环境
+Environment="PATH=/opt/javis-db-agent/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/opt/javis-db-agent"
+Environment="DATA_DIR=/opt/javis-db-agent/data"
+Environment="LOG_DIR=/opt/javis-db-agent/logs"
+
+# 配置来源 (可选，使用 .env 文件)
+EnvironmentFile=/opt/javis-db-agent/.env
+
+# 启动命令
+ExecStart=/opt/javis-db-agent/.venv/bin/uvicorn src.main:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers 2
+
+# 重启策略
+Restart=on-failure
+RestartSec=10
+StartLimitBurst=5
+StartLimitIntervalSec=300
+
+# 日志配置
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=javis-agent
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/javis-db-agent/data /opt/javis-db-agent/logs
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# 资源限制
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# 开机启动
+WantedBy=multi-user.target
+
+[Install]
+WantedBy=multi-user.target

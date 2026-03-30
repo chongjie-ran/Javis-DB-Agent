@@ -4,6 +4,29 @@ All notable changes to the Javis-DB-Agent will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v1.3.1] - 2026-03-30
+
+### Added
+- **跨平台安装脚本** (Round 1) - install.sh 支持 Ubuntu/CentOS/RHEL/macOS
+  - 动态 Python 版本检测（不再硬编码 python3.11）
+  - systemd 服务安装保护（macOS 分支不再调用 install_systemd）
+- **Docker 支持** (Round 1) - Dockerfile + docker-compose.yml
+- **systemd 服务** (Round 1) - javis-agent.service 开机自启
+- **GitHub Actions** (Round 1) - 自动构建+测试+发布
+- **Python 包构建** (Round 1) - pyproject.toml + Makefile
+- **跨平台兼容性测试** (Round 3) - tests/round15/test_platform_compat.py
+  - asyncio.run() 兼容性测试
+  - .env 配置加载测试
+  - Docker 健康检查端点测试
+
+### Changed
+- **asyncio 兼容性** (Round 2) - asyncio.run() 替换废弃的 get_event_loop()
+- **多平台支持** (Round 2) - Dockerfile 支持 amd64/arm64
+- **Makefile 测试目标** (Round 3) - `make test` 自动创建/使用 .venv
+
+### Fixed
+- **Python 3.9+ 兼容性** (Round 2) - 扫描并修复潜在兼容性问题
+
 ## [v1.3] - 2026-03-30
 
 ### Added
