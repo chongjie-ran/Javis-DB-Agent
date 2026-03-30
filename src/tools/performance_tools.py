@@ -1,10 +1,19 @@
-"""性能分析工具集 - V1.4 Round 1 新增
+"""性能分析工具集 - V1.4 Round 1 新增 V1.5 Round 2 - PG真实连接
 提供TopSQL提取、执行计划解读、参数调优建议工具
 """
 import time
 import random
 from typing import Any
 from src.tools.base import BaseTool, ToolDefinition, ToolParam, RiskLevel, ToolResult
+
+# PG连接配置（V1.5 Round 2）
+PG_CONFIG = {
+    "host": "localhost",
+    "port": 5432,
+    "user": "javis_test",
+    "password": "javis_test123",
+    "database": "javis_test_db",
+}
 
 
 # ============================================================================
@@ -33,7 +42,11 @@ class ExtractTopSQLTool(BaseTool):
         sort_by = params.get("sort_by", "exec_time")
         instance_id = params.get("instance_id", "INS-001")
 
-        sqls = self._get_mock_top_sql(db_type, limit, sort_by)
+        # PostgreSQL使用真实查询，MySQL/Oracle保持mock
+        if db_type == "postgresql":
+            sqls = self._extract_top_sql_pg(limit, sort_by)
+        else:
+            sqls = self._get_mock_top_sql(db_type, limit, sort_by)
 
         return ToolResult(
             success=True,
@@ -45,6 +58,57 @@ class ExtractTopSQLTool(BaseTool):
                 "timestamp": time.time(),
             }
         )
+
+    def _extract_top_sql_pg(self, limit: int, sort_by: str) -> list[dict]:
+        """从PG查询慢SQL（V1.5 Round 2 - 真实PG查询）"""
+        import psycopg2
+        
+        try:
+            conn = psycopg2.connect(**PG_CONFIG)
+            cursor = conn.cursor()
+            
+            # 尝试从v_top_sql视图查询
+            cursor.execute(f"""
+                SELECT 
+                    query,
+                    calls,
+                    total_exec_time_ms,
+                    avg_exec_time_ms,
+                    rows_examined,
+                    risk_level
+                FROM v_top_sql
+                ORDER BY 
+                    {"total_exec_time_ms DESC" if sort_by == "io_time" 
+                     else "calls DESC" if sort_by == "exec_count" 
+                     else "avg_exec_time_ms DESC"}
+                LIMIT %s
+            """, (limit,))
+            
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            
+            sqls = []
+            for i, row in enumerate(rows):
+                query, calls, total_time, avg_time, rows_examined, risk = row
+                
+                sqls.append({
+                    "rank": i + 1,
+                    "sql": query,
+                    "exec_count": calls,
+                    "avg_exec_time_ms": round(float(avg_time), 2),
+                    "total_exec_time_ms": round(float(total_time), 2),
+                    "rows_examined": rows_examined or 0,
+                    "risk_level": risk,
+                    "suggestion": self._get_suggestion(risk, query),
+                    "source": "real_pg",
+                })
+            
+            return sqls
+            
+        except Exception as e:
+            print(f"[WARN] PG查询TopSQL失败，降级到mock: {e}")
+            return self._get_mock_top_sql("postgresql", limit, sort_by)
 
     def _get_mock_top_sql(self, db_type: str, limit: int, sort_by: str) -> list[dict]:
         """生成模拟TopSQL数据"""
@@ -171,7 +235,12 @@ class ExplainSQLPlanTool(BaseTool):
         if not sql:
             return ToolResult(success=False, error="未提供SQL语句")
 
-        plan = self._get_mock_plan(db_type, sql)
+        # PostgreSQL使用真实EXPLAIN，MySQL/Oracle使用mock
+        if db_type == "postgresql":
+            plan = self._explain_plan_pg(sql)
+        else:
+            plan = self._get_mock_plan(db_type, sql)
+        
         return ToolResult(
             success=True,
             data={
@@ -182,6 +251,121 @@ class ExplainSQLPlanTool(BaseTool):
                 "timestamp": time.time(),
             }
         )
+
+    def _explain_plan_pg(self, sql: str) -> dict:
+        """从PG获取真实执行计划（V1.5 Round 2）"""
+        import psycopg2
+        
+        try:
+            conn = psycopg2.connect(**PG_CONFIG)
+            cursor = conn.cursor()
+            
+            # 使用EXPLAIN获取执行计划
+            cursor.execute(f"EXPLAIN (FORMAT JSON) {sql}")
+            plan_result = cursor.fetchone()
+            
+            cursor.close()
+            conn.close()
+            
+            if plan_result and plan_result[0]:
+                # plan_result is a tuple like ([{'Plan': {...}}],)
+                plan_list = plan_result[0]
+                plan_data = plan_list[0] if plan_list else {}
+                # 解析plan tree
+                plan_tree = plan_data.get("Plan", {})
+                total_cost = plan_tree.get("Total Cost", 0)
+                estimated_rows = plan_tree.get("Plan Rows", 0)
+                
+                # 提取执行步骤
+                steps = self._parse_pg_plan_steps(plan_tree)
+                
+                # 生成建议
+                recommendations = self._generate_pg_plan_recommendations(plan_tree)
+                
+                return {
+                    "cost": {
+                        "total_cost": total_cost,
+                        "estimated_rows": estimated_rows,
+                    },
+                    "warnings": [],
+                    "recommendations": recommendations,
+                    "steps": steps,
+                    "source": "real_pg",
+                    "raw_plan": plan_data,
+                }
+            else:
+                return self._get_mock_plan("postgresql", sql)
+                
+        except Exception as e:
+            print(f"[WARN] PG执行EXPLAIN失败，降级到mock: {e}")
+            mock = self._get_mock_plan("postgresql", sql)
+            mock["source"] = "mock_fallback"
+            return mock
+
+    def _parse_pg_plan_steps(self, plan_tree: dict, depth: int = 0) -> list[dict]:
+        """解析PG执行计划树为步骤列表"""
+        steps = []
+        
+        node_type = plan_tree.get("Node Type", "unknown")
+        operation = plan_tree.get("Operation", node_type)
+        cost = plan_tree.get("Total Cost", 0)
+        
+        # 构建描述
+        desc_parts = []
+        if "Relation Name" in plan_tree:
+            desc_parts.append(f"表: {plan_tree['Relation Name']}")
+        if "Index Name" in plan_tree:
+            desc_parts.append(f"索引: {plan_tree['Index Name']}")
+        if "Filter" in plan_tree:
+            desc_parts.append(f"过滤: {plan_tree['Filter'][:50]}...")
+        if "Hash Cond" in plan_tree:
+            desc_parts.append(f"Hash条件: {plan_tree['Hash Cond']}")
+        
+        steps.append({
+            "type": node_type,
+            "description": " | ".join(desc_parts) if desc_parts else operation,
+            "cost": cost,
+            "depth": depth,
+        })
+        
+        # 递归处理子节点
+        if "Plans" in plan_tree:
+            for sub_plan in plan_tree["Plans"]:
+                steps.extend(self._parse_pg_plan_steps(sub_plan, depth + 1))
+        
+        return steps
+
+    def _generate_pg_plan_recommendations(self, plan_tree: dict) -> list[str]:
+        """根据执行计划生成优化建议"""
+        recommendations = []
+        node_type = plan_tree.get("Node Type", "")
+        
+        # Seq Scan 检测
+        if node_type == "Seq Scan":
+            recommendations.append("检测到全表扫描，建议检查是否需要添加索引")
+        
+        # Hash Join检测
+        if node_type == "Hash Join":
+            recommendations.append("使用Hash Join，确保JOIN列有索引")
+        
+        # Nested Loop检测
+        if node_type == "Nested Loop":
+            recommendations.append("使用Nested Loop，确保内表有索引支撑")
+        
+        # 高Cost检测
+        total_cost = plan_tree.get("Total Cost", 0)
+        if total_cost > 10000:
+            recommendations.append(f"执行成本较高({total_cost:.0f})，建议优化SQL或添加索引")
+        
+        # 大数据量检测
+        plan_rows = plan_tree.get("Plan Rows", 0)
+        if plan_rows > 100000:
+            recommendations.append(f"预估扫描行数过多({plan_rows:,})，建议添加WHERE条件过滤")
+        
+        if not recommendations:
+            recommendations.append("执行计划无明显问题")
+        
+        return recommendations
 
     def _get_mock_plan(self, db_type: str, sql: str) -> dict:
         """生成模拟执行计划"""
