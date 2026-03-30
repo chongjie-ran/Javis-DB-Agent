@@ -1,0 +1,149 @@
+用例ID,模块,P0方向,场景,输入,预期输出,优先级,测试类型,环境标记
+SEC-01-001,SQL护栏,P0-1,SQL解析验证-安全SELECT,SELECT id,name FROM users WHERE status=1,解析成功，风险L0-L2，允许执行,P0,功能,pg
+SEC-01-002,SQL护栏,P0-1,SQL解析验证-安全JOIN,多表JOIN查询,解析成功，风险L0-L2，允许执行,P0,功能,pg
+SEC-01-003,SQL护栏,P0-1,SQL解析验证-带WHERE的DELETE,DELETE FROM logs WHERE created_at<'2026-01-01',中风险L2-L3，需审批,P0,功能,mysql
+SEC-01-004,SQL护栏,P0-1,SQL解析验证-白名单SQL,SELECT 1（探活SQL）,L0，直接通过,P0,功能,pg
+SEC-01-005,SQL护栏,P0-1,SQL模板重写-敏感字段,SELECT password,token FROM users,脱敏重写或拒绝,P0,功能,mysql
+SEC-01-006,SQL护栏,P0-1,只读事务识别,BEGIN READ ONLY; SELECT count(*) FROM orders; COMMIT,L0，允许执行,P0,功能,pg
+SEC-01-007,SQL护栏,P0-1,EXPLAIN计划查询,EXPLAIN SELECT * FROM users WHERE email='test@example.com',安全，允许执行,P0,功能,mysql
+SEC-02-001,SQL护栏,P0-1,边界-空SQL,"",拒绝，P0,边界,pg
+SEC-02-002,SQL护栏,P0-1,边界-全空格SQL,"   \n\t  ",拒绝，P1,边界,pg
+SEC-02-003,SQL护栏,P0-1,边界-超长SQL(>10MB),SELECT + 11MB数据,拒绝，P0,边界,pg
+SEC-02-004,SQL护栏,P0-1,边界-嵌套注释注入,SELECT * FROM users /* comment */ WHERE sleep(0)--,拦截或警告，P0,边界,pg
+SEC-02-005,SQL护栏,P0-1,边界-十六进制编码绕过,SELECT * FROM users WHERE name=0x7365656b61626974,识别并处理，P1,边界,pg
+SEC-02-006,SQL护栏,P0-1,边界-带子查询的UPDATE,UPDATE users SET last_login=NOW() WHERE id IN (SELECT...),有WHERE，允许但记录，P0,边界,pg
+SEC-02-007,SQL护栏,P0-1,边界-多语句SQL,SELECT 1; DROP TABLE users; SELECT 2,拒绝，DROP被拦截，P0,边界,pg
+SEC-02-008,SQL护栏,P0-1,边界-PG特有COPY语法,COPY users FROM '/tmp/data.csv' WITH (FORMAT csv),拦截，P0,边界,pg
+SEC-02-009,SQL护栏,P0-1,边界-MySQL特有LOAD DATA,LOAD DATA INFILE '/tmp/data.csv' INTO TABLE users,拦截，P0,边界,mysql
+SEC-02-010,SQL护栏,P0-1,边界-递归CTE,WITH RECURSIVE cnt(x) AS (...),有LIMIT则安全，P1,边界,pg
+SEC-03-001,SQL护栏,P0-1,危险拦截-TRUNCATE,TRUNCATE TABLE users,拦截，P0,错误,mysql
+SEC-03-002,SQL护栏,P0-1,危险拦截-DROP TABLE,DROP TABLE IF EXISTS backup_logs,拦截，P0,错误,mysql
+SEC-03-003,SQL护栏,P0-1,危险拦截-无WHERE DELETE,DELETE FROM session_history,拦截，P0,错误,pg
+SEC-03-004,SQL护栏,P0-1,危险拦截-无WHERE UPDATE,UPDATE user_permissions SET level=99,拦截，P0,错误,mysql
+SEC-03-005,SQL护栏,P0-1,危险拦截-危险函数,pg_terminate_backend/kill/SET GLOBAL,拦截或L4-L5，P0,错误,pg
+SEC-03-006,SQL护栏,P0-1,危险拦截-UNION注入,SELECT * FROM users UNION SELECT * FROM passwords,拦截，P0,错误,pg
+SEC-03-007,SQL护栏,P0-1,危险拦截-布尔型注入,SELECT * FROM users WHERE id=1 AND ASCII(SUBSTRING(...))>64,拦截，P0,错误,pg
+SEC-03-008,SQL护栏,P0-1,危险拦截-SHUTDOWN,SHUTDOWN,拦截，P0,错误,mysql
+SEC-03-009,SQL护栏,P0-1,危险拦截-ALTER SYSTEM,ALTER SYSTEM SET shared_buffers='256MB',拦截或需审批，P0,错误,pg
+SEC-03-010,SQL护栏,P0-1,危险拦截-GRANT权限,GRANT ALL PRIVILEGES ON *.* TO 'hacker'@'%',拦截或需审批，P0,错误,mysql
+SEC-04-001,SOP执行器,P0-1,SOP执行-单步骤,终止问题会话SOP（单步）,执行成功，P0,功能,
+SEC-04-002,SOP执行器,P0-1,SOP执行-多步骤顺序,终止会话并验证SOP（3步顺序）,3步全部成功，P0,功能,
+SEC-04-003,SOP执行器,P0-1,SOP执行-需审批SOP,高危操作SOP（需审批）,审批通过后执行成功，P0,功能,
+SEC-05-001,SOP执行器,P0-1,SOP边界-步骤超时,慢查询SOP（10秒超时），实际60秒,超时处理正确，P0,边界,
+SEC-05-002,SOP执行器,P0-1,SOP边界-失败自动重试,不稳定操作SOP（重试3次）,第3次重试后成功，P0,边界,
+SEC-05-003,SOP执行器,P0-1,SOP错误-关键步骤失败中止,关键步骤失败SOP（abort_on_critical_failure=True）,在步骤2中止，P0,错误,
+SEC-05-004,SOP执行器,P0-1,SOP边界-暂停与恢复,3步SOP在步骤2暂停,暂停/恢复正确，P0,边界,
+SEC-05-005,SOP执行器,P0-1,SOP边界-未知Action,nonexistent_action_xyz,返回unknown action错误，P0,边界,
+SEC-06-001,执行回流,P0-1,回流验证-简单验证,执行记录+实际结果完全匹配,验证通过，无偏差，P0,功能,
+SEC-06-002,执行回流,P0-1,回流验证-批量验证,10个执行记录+实际结果,10/10通过，P0,功能,
+SEC-07-001,执行回流,P0-1,回流边界-偏差检测,预期session_gone=True，实际False,偏差检测，重试触发，P0,边界,
+SEC-07-002,执行回流,P0-1,回流边界-最大重试,超过max_retries(2)次,重试2次后停止，P0,边界,
+SEC-07-003,执行回流,P0-1,回流错误-关键偏差告警,关键操作执行偏差,触发critical_alert，P0,错误,
+SEC-07-004,执行回流,P0-1,回流边界-验证超时,验证步骤超时30秒,超时处理，重试，P0,边界,
+SEC-08-001,权限审批,P0-1,审批流程-只读无审批,只读权限低风险操作,无需审批，P0,功能,
+SEC-08-002,权限审批,P0-1,审批流程-高风险需审批,L4风险操作,需要admin审批，P0,功能,
+SEC-08-003,权限审批,P0-1,审批流程-双人审批,关键L5操作,需要2人审批，P0,功能,
+SEC-09-001,权限审批,P0-1,审批边界-审批超时,300秒未审批,过期处理，P0,边界,
+SEC-09-002,权限审批,P0-1,审批边界-审批人不存在,nonexistent_user_xyz,返回not found，P0,边界,
+SEC-09-003,权限审批,P0-1,审批错误-未授权操作,用户只有read权限却执行admin,拒绝，P0,错误,
+KNO-01-001,知识图谱,P0-2,图谱构建-添加故障节点,FAULT-001（锁等待超时）,添加成功，P0,功能,
+KNO-01-002,知识图谱,P0-2,图谱构建-添加根因节点,ROOT-001（长事务持有锁）,添加成功，P0,功能,
+KNO-01-003,知识图谱,P0-2,图谱构建-添加处置节点,ACTION-001（Kill会话）,添加成功，P0,功能,
+KNO-01-004,知识图谱,P0-2,图谱构建-添加边,FAULT→ROOT→ACTION,2条边添加成功，P0,功能,
+KNO-01-005,知识图谱,P0-2,图谱查询-路径查询,锁超时→根因→处置,max_depth=3，找到路径，P0,功能,
+KNO-01-006,知识图谱,P0-2,图谱查询-子图查询,FAULT-001为中心depth=2,返回nodes+edges，P0,功能,
+KNO-01-007,知识图谱,P0-2,图谱统计,获取图谱统计信息,返回node_count/edge_count，P0,功能,
+KNO-02-001,知识图谱,P0-2,图谱边界-重复节点ID,DUP-001重复添加,更新而非报错，P1,边界,
+KNO-02-002,知识图谱,P0-2,图谱边界-自环边,LOOP-001 relates_to LOOP-001,检测并处理，P1,边界,
+KNO-02-003,知识图谱,P0-2,图谱边界-孤立节点,ORPHAN-001无连接,检测并报告，P1,边界,
+KNO-02-004,知识图谱,P0-2,图谱边界-环检测,C1 relates_to C2, C2 relates_to C1,检测到1个环，P1,边界,
+KNO-02-005,知识图谱,P0-2,图谱错误-引用不存在节点,NONEXISTENT-001→NONEXISTENT-002,返回False或自动创建，P1,错误,
+KNO-02-006,知识图谱,P0-2,图谱边界-批量导入100节点,BULK-000~BULK-099,100节点全部成功，P0,边界,
+KNO-02-007,知识图谱,P0-2,图谱边界-深层路径11层,CHAIN-0 causes ... causes CHAIN-10,找到路径，P0,边界,
+KNO-03-001,案例库,P0-2,案例入库-添加案例,CASE-2026-001完整案例数据,返回case_id，P0,功能,
+KNO-03-002,案例库,P0-2,案例检索-关键词搜索,"搜索: 锁等待超时",找到匹配案例，P0,功能,
+KNO-03-003,案例库,P0-2,案例检索-按症状搜索,symptom="wait_time > 30s",找到匹配案例，P0,功能,
+KNO-03-004,案例库,P0-2,案例检索-相似案例推荐,故障模式+症状,推荐top_k相似案例，P0,功能,
+KNO-03-005,案例库,P0-2,案例评分-质量评分,按completeness/accuracy/reusability维度,返回overall_score，P0,功能,
+KNO-03-006,案例库,P0-2,案例更新,更新outcome和quality_score,更新成功，P0,功能,
+KNO-04-001,案例库,P0-2,案例边界-空案例,{},返回None，拒绝，P1,边界,
+KNO-04-002,案例库,P0-2,案例边界-重复ID,DUP-CASE重复添加,返回同一ID或None，P1,边界,
+KNO-04-003,案例库,P0-2,案例错误-案例不存在,NONEXISTENT-CASE-999,返回None，P1,错误,
+KNO-04-004,案例库,P0-2,案例边界-缺少必填字段,只有title字段,验证失败，P1,边界,
+KNO-04-005,案例库,P0-2,案例边界-超大案例1MB+,full_sql_log=1MB+,添加成功，P1,边界,
+KNO-04-006,案例库,P0-2,案例边界-特殊字符搜索,PG::LockTimeout 'test',返回结果，P1,边界,
+KNO-04-007,案例库,P0-2,案例边界-无结果搜索,xyznonexistentfaultpattern999,返回空列表，P1,边界,
+KNO-05-001,RAG检索,P0-2,RAG检索-基础混合检索,"查询: PostgreSQL锁等待超时处理",返回top_k结果，P0,功能,
+KNO-05-002,RAG检索,P0-2,RAG检索-纯向量检索,"向量搜索: 锁等待根因分析",返回结果，P0,功能,
+KNO-05-003,RAG检索,P0-2,RAG检索-纯关键词检索,关键词搜索: TRUNCATE,返回结果，P0,功能,
+KNO-05-004,RAG检索,P0-2,RAG检索-加权混合,vector_weight=0.7, keyword_weight=0.3,返回hybrid_score，P0,功能,
+KNO-05-005,RAG检索,P0-2,RAG检索-结果重排序,20条结果rerank到5条,返回top_5重排序结果，P0,功能,
+KNO-06-001,RAG检索,P0-2,RAG边界-空查询,"",返回空，P1,边界,
+KNO-06-002,RAG检索,P0-2,RAG边界-超长查询1000+字符,"锁等待超时 " * 200,正常处理，P1,边界,
+KNO-06-003,RAG检索,P0-2,RAG边界-不存在Collection,nonexistent_collection_xyz,返回空，P1,边界,
+KNO-06-004,RAG检索,P0-2,RAG边界-top_k大于总文档数,top_k=10000,返回所有匹配结果，P1,边界,
+KNO-06-005,RAG检索,P0-2,RAG错误-向量服务不可用,向量服务挂掉,降级到关键词搜索，P0,错误,
+KNO-07-001,推理链路,P0-2,推理-简单演绎推理,事实+假设,返回confidence+reasoning_chain，P0,功能,
+KNO-07-002,推理链路,P0-2,推理-多跳推理,max_hops=3,返回reasoning_path，P0,功能,
+KNO-07-003,推理链路,P0-2,推理-溯因推理,observation+candidate_causes,返回most_likely_cause，P0,功能,
+KNO-07-004,推理链路,P0-2,推理-置信度计算,[链权重0.9,0.8],confidence=0.72，P0,功能,
+KNO-07-005,推理链路,P0-2,推理-路径可视化,推理查询,返回reasoning_chain+visualization_data，P0,功能,
+KNO-08-001,推理链路,P0-2,推理边界-矛盾事实,矛盾的两个事实,confidence<0.5，检测冲突，P1,边界,
+KNO-08-002,推理链路,P0-2,推理边界-无限循环预防,max_hops=5循环图,检测到loops_detected，P0,边界,
+KNO-08-003,推理链路,P0-2,推理边界-无匹配路径,完全未知问题,confidence<0.3，P1,边界,
+KNO-08-004,推理链路,P0-2,推理错误-低置信度阈值过滤,min_confidence=0.8,过滤后全部>=0.8，P1,错误,
+KNO-09-001,知识层集成,P0-2,全链路集成测试,图谱+案例库+RAG协同,全部成功，P0,回归,
+KNO-09-002,知识层集成,P0-2,回归-并发操作,20个并发add_node,成功>=18，P0,回归,
+KNO-09-003,知识层集成,P0-2,回归-持久化验证,重启KnowledgeGraph实例,节点数一致，P0,回归,
+PER-01-001,拓扑感知,P0-3,拓扑发现-PG集群,pg_stat_replication查询,返回复制连接数，P0,功能,pg
+PER-01-002,拓扑感知,P0-3,拓扑发现-MySQL主从,SHOW SLAVE STATUS,返回从库数，P0,功能,mysql
+PER-01-003,拓扑感知,P0-3,节点状态监控,pg_is_in_recovery()+连接数,返回is_replica+连接数，P0,功能,pg
+PER-01-004,拓扑感知,P0-3,拓扑工具Mock测试,get_cluster_topology(cluster_id,depth=2),返回nodes，P0,功能,
+PER-01-005,拓扑感知,P0-3,复制延迟追踪,track_replication_lag(instance_id),返回lag_bytes，P0,功能,
+PER-02-001,拓扑感知,P0-3,拓扑边界-未配置复制,pg_stat_replication count=0,返回0连接，P0,边界,pg
+PER-02-002,拓扑感知,P0-3,拓扑边界-复制中断,state NOT IN ('streaming','catchup'),返回异常连接，P0,边界,pg
+PER-02-003,拓扑感知,P0-3,拓扑边界-从库落后,SHOW SLAVE STATUS Seconds_Behind_Master,延迟检测，P0,边界,mysql
+PER-02-004,拓扑感知,P0-3,拓扑边界-大规模集群50+节点,50节点集群,不应超时，P0,边界,
+PER-02-005,拓扑感知,P0-3,拓扑边界-环形依赖检测,检测circular_dependencies,返回has_cycles，P0,边界,
+PER-03-001,配置感知,P0-3,配置采集-PG参数,pg_settings关键参数,返回参数列表，P0,功能,pg
+PER-03-002,配置感知,P0-3,配置采集-MySQL参数,SHOW GLOBAL VARIABLES LIKE '%buffer%',返回buffer参数，P0,功能,mysql
+PER-03-003,配置感知,P0-3,配置工具Mock测试,get_instance_config(INS-TEST-001),返回配置字典，P0,功能,
+PER-03-004,配置感知,P0-3,配置基线对比,current vs baseline,max_connections差异，P0,功能,
+PER-03-005,配置感知,P0-3,配置变更检测,old_config vs new_config,返回changed_keys，P0,功能,
+PER-04-001,配置感知,P0-3,配置边界-参数不存在,current_setting('nonexistent_param',true),返回NULL或错误，P1,边界,pg
+PER-04-002,配置感知,P0-3,配置边界-Session vs Global,@@session vs @@global max_connections,区分两种级别，P0,边界,mysql
+PER-04-003,配置感知,P0-3,配置边界-不需重启变更,check_restart_required,返回requires_restart，P0,边界,
+PER-04-004,配置感知,P0-3,配置边界-不安全参数组合,work_mem过大+shared_buffers过小,返回warnings，P1,边界,
+PER-04-005,配置感知,P0-3,配置边界-版本兼容性,PG15.2+max_connections=1000,返回compatible/warnings，P0,边界,
+PER-05-001,API对接,P0-3,API健康检查,zCloud API /api/health,200 OK，P0,功能,real_api
+PER-05-002,API对接,P0-3,API告警获取,/api/alerts?status=triggered,返回告警列表，P0,功能,real_api
+PER-05-003,API对接,P0-3,API拓扑获取,/api/topology?cluster_id=CLS-001,返回拓扑数据，P0,功能,real_api
+PER-05-004,API对接,P0-3,API Mock降级,Connection refused,降级到Mock数据，P0,功能,
+PER-05-005,API对接,P0-3,API限流处理,429 Too Many Requests,Retry-After=60s处理，P0,功能,
+PER-06-001,API对接,P0-3,API边界-超时处理,30秒超时,正确处理，P0,边界,
+PER-06-002,API对接,P0-3,API边界-无效JSON,Invalid JSON response,正确处理解析错误，P0,边界,
+PER-06-003,API对接,P0-3,API错误-401未授权,401 Unauthorized,正确处理，P0,错误,
+PER-06-004,API对接,P0-3,API错误-500服务器错误,500 Internal Server Error,正确处理，P0,错误,
+PER-06-005,API对接,P0-3,API边界-自动重试机制,3次重试后成功,第3次成功，P0,边界,
+PER-06-006,API对接,P0-3,API边界-分页处理,3页×10条=30条,全部30条数据，P0,边界,
+PER-07-001,感知层集成,P0-3,拓扑+配置集成,拓扑节点+每个节点配置,配置字典，P0,回归,
+PER-07-002,感知层集成,P0-3,回归-持续监控,5次pg_stat_activity采集,5个数据点，P0,回归,pg
+PER-07-003,感知层集成,P0-3,回归-感知上下文注入,topology+config注入orchestrator,上下文正确，P0,回归,
+INT-01-001,集成测试,P0-1,安全+编排-安全SQL,安全SELECT通过护栏→编排Agent,两者都成功，P0,集成,
+INT-01-002,集成测试,P0-1,安全+编排-危险SQL,DROP TABLE通过护栏→编排Agent,护栏拦截，Agent拒绝，P0,集成,
+INT-01-003,集成测试,P0-1,安全+编排-需审批SQL,DELETE批量删除→触发审批,approval_required=True，P0,集成,
+INT-02-001,集成测试,P0-2,知识+诊断-图谱推理,诊断时查询图谱路径,reasoning_chain>0，P0,集成,
+INT-02-002,集成测试,P0-2,知识+诊断-案例推荐,诊断时检索相似案例,找到similar_cases，P0,集成,
+INT-03-001,集成测试,P0-3,感知+诊断-拓扑上下文,结合pg_is_in_recovery诊断,诊断使用拓扑信息，P0,集成,pg
+INT-03-002,集成测试,P0-3,感知+诊断-配置上下文,结合instance_config诊断,诊断使用配置信息，P0,集成,
+INT-04-001,集成测试,P0-1,执行闭环-完整流程,SOP→审批→执行→验证,全部通过，P0,集成,
+INT-04-002,集成测试,P0-1,执行闭环-回流触发重试,验证失败触发重试,retry_count>0，P0,集成,
+INT-05-001,集成测试,回归,V1.5-BackupAgent,BackupAgent.check_status(mysql),V1.5功能正常，P0,回归,mysql
+INT-05-002,集成测试,回归,V1.5-意图路由,3个不同意图查询,全部正确路由，P0,回归,
+INT-05-003,集成测试,回归,V1.5-PolicyEngine,PolicyEngine.check(read),权限检查正常，P0,回归,pg
+INT-05-004,集成测试,回归,V1.5-审计链,添加2个entry+verify,哈希链验证通过，P0,回归,
+INT-05-005,集成测试,回归,V1.5-向量存储,VectorStore.search,搜索正常，P0,回归,
+INT-06-001,集成测试,全链路,锁等待完整场景,P0-1护栏+P0-2图谱+P0-3拓扑+诊断,全链路成功，P0,集成,
+INT-06-002,集成测试,全链路,权限升级完整流程,诊断→审批→SOP→验证,全部阶段完成，P0,集成,
+INT-07-001,集成测试,性能,20并发诊断压力,20个并发diagnose调用,<30秒，成功>=18，P0,压力,
+INT-07-002,集成测试,性能,100次策略检查,<5秒，>20次/秒，P0,压力,
