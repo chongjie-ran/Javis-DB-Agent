@@ -633,4 +633,240 @@
 
 ---
 
-*报告由 真显（测试者）生成 | 2026-03-28*
+## [Round15] - 2026-03-30
+
+> 测试时间: 2026-03-30 11:09 GMT+8  
+> 测试命令: `python3 -m pytest tests/round15/ -v --tb=short`  
+> 测试环境: macOS Darwin 25.3.0 (arm64), Python 3.14.3, pytest-9.0.2  
+> 测试说明: 共执行 2 轮，第 1 轮 2 个平台兼容测试因跨文件状态污染偶发失败；第 2 轮（干净重跑）全部通过
+
+### 测试汇总
+
+| 测试文件 | 通过 | 失败 | 跳过 | 总计 |
+|----------|------|------|------|------|
+| `tests/round15/test_alert_agent.py` | 28 | 0 | 0 | 28 |
+| `tests/round15/test_context_fusion.py` | 14 | 0 | 0 | 14 |
+| `tests/round15/test_e2e_generalization.py` | 31 | 0 | 0 | 31 |
+| `tests/round15/test_e2e_semantic_routing.py` | 21 | 0 | 0 | 21 |
+| `tests/round15/test_platform_compat.py` | 21 | 0 | 0 | 21 |
+| `tests/round15/test_semantic_intent.py` | 6 | 0 | 9 | 15 |
+| **总计** | **121** | **0** | **9** | **130** |
+
+**通过率**: 93.08%（基于 130 总测试数）  
+**备注**: 第 1 轮运行中 `test_platform_compat.py` 的 `TestDockerHealthCheck` 有 2 个测试偶发失败（跨文件状态污染），干净重跑后全部通过；取最终稳定结果。
+
+---
+
+### 各测试文件详情
+
+#### tests/round15/test_alert_agent.py
+| 测试用例 | 状态 |
+|----------|------|
+| `TestAlertAgentBasics::test_import` | ✅ PASSED |
+| `TestAlertAgentBasics::test_agent_initialization` | ✅ PASSED |
+| `TestAlertAgentBasics::test_system_prompt_contains_safety_rules` | ✅ PASSED |
+| `TestAlertAgentBasics::test_system_prompt_structure` | ✅ PASSED |
+| `TestAlertAgentCoreLogic::test_build_diagnostic_chain` | ✅ PASSED |
+| `TestAlertAgentCoreLogic::test_analyze_alert_correlation` | ✅ PASSED |
+| `TestAlertAgentCoreLogic::test_calculate_confidence` | ✅ PASSED |
+| `TestAlertAgentCoreLogic::test_determine_risk_level` | ✅ PASSED |
+| `TestAlertAgentOutput::test_response_format` | ✅ PASSED |
+| `TestAlertAgentOutput::test_diagnostic_output_structure` | ✅ PASSED |
+| `TestAlertAgentOutput::test_risk_level_values` | ✅ PASSED |
+| `TestAlertAgentIntegration::test_full_diagnosis_flow` | ✅ PASSED |
+| `TestAlertAgentIntegration::test_multi_alert_prioritization` | ✅ PASSED |
+| `TestAlertAgentIntegration::test_root_cause_identification` | ✅ PASSED |
+| `TestAlertAgentEdgeCases::test_empty_alerts_handling` | ✅ PASSED |
+| `TestAlertAgentEdgeCases::test_single_alert_handling` | ✅ PASSED |
+| `TestAlertAgentEdgeCases::test_invalid_alert_format` | ✅ PASSED |
+| `TestAlertAgentPerformance::test_response_time_sla` | ✅ PASSED |
+| `TestAlertAgentPerformance::test_concurrent_diagnosis` | ✅ PASSED |
+| `TestAlertAgentE2E::test_cpu_high_diagnosis_scenario` | ✅ PASSED |
+| `TestAlertAgentE2E::test_lock_wait_diagnosis_scenario` | ✅ PASSED |
+| `TestAlertAgentE2E::test_replication_lag_diagnosis_scenario` | ✅ PASSED |
+| `TestAlertAgentE2E::test_slow_sql_diagnosis_scenario` | ✅ PASSED |
+| `TestAlertAgentE2E::test_disk_full_diagnosis_scenario` | ✅ PASSED |
+| `TestAlertAgentE2E::test_multi_chain_diagnosis_scenario` | ✅ PASSED |
+| `TestAlertAgentKnowledgeIntegration::test_sop_retrieval` | ✅ PASSED |
+| `TestAlertAgentKnowledgeIntegration::test_case_matching` | ✅ PASSED |
+| `TestAlertAgentKnowledgeIntegration::test_alert_rules_coverage` | ✅ PASSED |
+
+**汇总**: 28/28 通过, 0 失败, 0 跳过
+
+---
+
+#### tests/round15/test_context_fusion.py
+| 测试用例 | 状态 |
+|----------|------|
+| `TestContextFusionBasics::test_fusion_module_import` | ✅ PASSED |
+| `TestContextFusionBasics::test_fusion_initialization` | ✅ PASSED |
+| `TestContextFusionBasics::test_fusion_config_defaults` | ✅ PASSED |
+| `TestContextFusionDataStructures::test_session_context_structure` | ✅ PASSED |
+| `TestContextFusionDataStructures::test_historical_context_structure` | ✅ PASSED |
+| `TestContextFusionDataStructures::test_knowledge_context_structure` | ✅ PASSED |
+| `TestContextFusionMergeLogic::test_merge_single_context` | ✅ PASSED |
+| `TestContextFusionMergeLogic::test_merge_multiple_contexts` | ✅ PASSED |
+| `TestContextFusionMergeLogic::test_conflict_resolution` | ✅ PASSED |
+| `TestContextFusionMergeLogic::test_recency_weighting` | ✅ PASSED |
+| `TestContextFusionIntegration::test_full_fusion_workflow` | ✅ PASSED |
+| `TestContextFusionIntegration::test_context_in_diagnosis` | ✅ PASSED |
+| `TestContextFusionEdgeCases::test_empty_context_handling` | ✅ PASSED |
+| `TestContextFusionEdgeCases::test_large_context_truncation` | ✅ PASSED |
+
+**汇总**: 14/14 通过, 0 失败, 0 跳过
+
+---
+
+#### tests/round15/test_e2e_generalization.py
+| 测试用例 | 状态 |
+|----------|------|
+| `TestSynonymExpressionGeneralization::test_lock_wait_synonyms` | ✅ PASSED |
+| `TestSynonymExpressionGeneralization::test_cpu_high_synonyms` | ✅ PASSED |
+| `TestSynonymExpressionGeneralization::test_slow_query_synonyms` | ✅ PASSED |
+| `TestSynonymExpressionGeneralization::test_replication_lag_synonyms` | ✅ PASSED |
+| `TestSynonymExpressionGeneralization::test_connection_exhaustion_synonyms` | ✅ PASSED |
+| `TestSynonymExpressionGeneralization::test_synonym_mapping_coverage` | ✅ PASSED |
+| `TestSynonymExpressionGeneralization::test_case_insensitive_matching` | ✅ PASSED |
+| `TestSynonymExpressionGeneralization::test_mixed_language_synonyms` | ✅ PASSED |
+| `TestSynonymExpressionGeneralization::test_intent_10_variants` | ✅ PASSED |
+| `TestIntentGeneralizationCoverage::test_all_intents_have_synonyms` | ✅ PASSED |
+| `TestIntentGeneralizationCoverage::test_chinese_synonym_support` | ✅ PASSED |
+| `TestIntentGeneralizationCoverage::test_english_synonym_support` | ✅ PASSED |
+| `TestIntentGeneralizationCoverage::test_mixed_language_intent` | ✅ PASSED |
+| `TestE2EGeneralizationFlow::test_generalization_in_orchestrator` | ✅ PASSED |
+| `TestE2EGeneralizationFlow::test_generalization_in_diagnosis` | ✅ PASSED |
+| `TestE2EGeneralizationFlow::test_generalization_in_query` | ✅ PASSED |
+| `TestE2EGeneralizationFlow::test_generalization_in_analyze` | ✅ PASSED |
+| `TestE2EGeneralizationFlow::test_generalization_in_inspect` | ✅ PASSED |
+| `TestGeneralizationQualityMetrics::test_synonym_recall` | ✅ PASSED |
+| `TestGeneralizationQualityMetrics::test_generalization_precision` | ✅ PASSED |
+| `TestGeneralizationQualityMetrics::test_coverage_report` | ✅ PASSED |
+| `TestGeneralizationEdgeCases::test_empty_synonym_handling` | ✅ PASSED |
+| `TestGeneralizationEdgeCases::test_ambiguous_intent_resolution` | ✅ PASSED |
+| `TestGeneralizationEdgeCases::test_out_of_scope_intent` | ✅ PASSED |
+| `TestGeneralizationEdgeCases::test_very_long_input` | ✅ PASSED |
+| `TestGeneralizationEdgeCases::test_special_characters` | ✅ PASSED |
+| `TestGeneralizationPerformance::test_synonym_lookup_time` | ✅ PASSED |
+| `TestGeneralizationPerformance::test_batch_generalization` | ✅ PASSED |
+| `TestGeneralizationPerformance::test_concurrent_generalization` | ✅ PASSED |
+| `TestGeneralizationPerformance::test_memory_usage` | ✅ PASSED |
+| `TestGeneralizationIntegration::test_full_pipeline_with_generalization` | ✅ PASSED |
+
+**汇总**: 31/31 通过, 0 失败, 0 跳过
+
+---
+
+#### tests/round15/test_e2e_semantic_routing.py
+| 测试用例 | 状态 |
+|----------|------|
+| `TestSemanticRoutingBasics::test_routing_module_import` | ✅ PASSED |
+| `TestSemanticRoutingBasics::test_routing_initialization` | ✅ PASSED |
+| `TestSemanticRoutingBasics::test_default_threshold` | ✅ PASSED |
+| `TestSemanticRoutingAccuracy::test_mysql_instances_intent` | ✅ PASSED |
+| `TestSemanticRoutingAccuracy::test_diagnose_intent_routing` | ✅ PASSED |
+| `TestSemanticRoutingAccuracy::test_sql_analyze_intent_routing` | ✅ PASSED |
+| `TestSemanticRoutingAccuracy::test_inspect_intent_routing` | ✅ PASSED |
+| `TestSemanticRoutingAccuracy::test_report_intent_routing` | ✅ PASSED |
+| `TestSemanticRoutingAccuracy::test_session_query_intent_routing` | ✅ PASSED |
+| `TestSemanticRoutingAccuracy::test_lock_wait_routing` | ✅ PASSED |
+| `TestSemanticRoutingAccuracy::test_cpu_high_routing` | ✅ PASSED |
+| `TestSemanticRoutingAccuracy::test_slow_sql_routing` | ✅ PASSED |
+| `TestSemanticRoutingAccuracy::test_threshold_boundary_cases` | ✅ PASSED |
+| `TestSemanticRoutingFallback::test_below_threshold_fallback` | ✅ PASSED |
+| `TestSemanticRoutingFallback::test_ambiguous_intent_fallback` | ✅ PASSED |
+| `TestSemanticRoutingE2E::test_full_routing_pipeline` | ✅ PASSED |
+| `TestSemanticRoutingE2E::test_routing_with_context` | ✅ PASSED |
+| `TestSemanticRoutingE2E::test_routing_confidence_reporting` | ✅ PASSED |
+| `TestSemanticRoutingEdgeCases::test_empty_input_handling` | ✅ PASSED |
+| `TestSemanticRoutingEdgeCases::test_very_long_input` | ✅ PASSED |
+| `TestSemanticRoutingEdgeCases::test_special_characters` | ✅ PASSED |
+
+**汇总**: 21/21 通过, 0 失败, 0 跳过
+
+---
+
+#### tests/round15/test_platform_compat.py
+| 测试用例 | 状态 |
+|----------|------|
+| `TestCrossPlatformPaths::test_path_separator_handling` | ✅ PASSED |
+| `TestCrossPlatformPaths::test_home_directory_expansion` | ✅ PASSED |
+| `TestCrossPlatformPaths::test_pathlib_works` | ✅ PASSED |
+| `TestCrossPlatformPaths::test_expanduser` | ✅ PASSED |
+| `TestCrossPlatformPaths::test_which_command` | ✅ PASSED |
+| `TestDockerHealthCheck::test_health_endpoint_exists` | ✅ PASSED |
+| `TestDockerHealthCheck::test_docker_container_health` | ✅ PASSED |
+| `TestCrossPlatformImports::test_config_import` | ✅ PASSED |
+| `TestCrossPlatformImports::test_api_clients_import` | ✅ PASSED |
+| `TestCrossPlatformCompatibility::test_macos_compat` | ✅ PASSED |
+| `TestCrossPlatformCompatibility::test_linux_compat` | ✅ PASSED |
+| `TestCrossPlatformCompatibility::test_windows_compat` | ✅ PASSED |
+| `TestEnvironmentVars::test_env_var_case_sensitivity` | ✅ PASSED |
+| `TestEnvironmentVars::test_default_config_loading` | ✅ PASSED |
+| `TestEnvironmentVars::test_override_behavior` | ✅ PASSED |
+| `TestProcessManagement::test_process_creation` | ✅ PASSED |
+| `TestProcessManagement::test_signal_handling` | ✅ PASSED |
+| `TestProcessManagement::test_subprocess_compat` | ✅ PASSED |
+| `TestFileSystemPermissions::test_file_creation` | ✅ PASSED |
+| `TestFileSystemPermissions::test_directory_permissions` | ✅ PASSED |
+| `TestFileSystemPermissions::test_symlink_handling` | ✅ PASSED |
+
+**汇总**: 21/21 通过, 0 失败, 0 跳过  
+**备注**: 第 1 轮运行中 `TestDockerHealthCheck` 的 2 个测试因跨文件导入状态污染偶发失败（`AttributeError: module 'src.api.dashboard' has no attribute 'app'/'requests'`），干净重跑后全部通过。
+
+---
+
+#### tests/round15/test_semantic_intent.py
+| 测试用例 | 状态 |
+|----------|------|
+| `TestIntentExamplesCompleteness::test_all_intents_have_examples` | ✅ PASSED |
+| `TestIntentExamplesCompleteness::test_each_intent_has_minimum_examples` | ✅ PASSED |
+| `TestIntentExamplesCompleteness::test_inspect_intent_includes_mysql_instances` | ✅ PASSED |
+| `TestSemanticIntentRecognize::test_semantic_match_mysql_instances` | ⏭️ SKIPPED |
+| `TestSemanticIntentRecognize::test_semantic_match_diagnose_intent` | ⏭️ SKIPPED |
+| `TestSemanticIntentRecognize::test_semantic_match_sql_analyze_intent` | ⏭️ SKIPPED |
+| `TestSemanticIntentRecognize::test_threshold_fallback_to_general` | ⏭️ SKIPPED |
+| `TestSemanticIntentRecognize::test_embedding_service_import_error` | ✅ PASSED |
+| `TestSemanticIntentRecognize::test_cross_intent_distinction` | ⏭️ SKIPPED |
+| `TestOrchestratorSemanticRecognition::test_recognize_intent_with_context_param` | ✅ PASSED |
+| `TestOrchestratorSemanticRecognition::test_semantic_threshold_constant` | ✅ PASSED |
+| `TestSemanticSimilarityComputation::test_identical_text_similarity` | ⏭️ SKIPPED |
+| `TestSemanticSimilarityComputation::test_similar_text_high_similarity` | ⏭️ SKIPPED |
+| `TestSemanticSimilarityComputation::test_different_text_lower_similarity` | ⏭️ SKIPPED |
+| `TestSemanticSimilarityComputation::test_chinese_text_embedding` | ⏭️ SKIPPED |
+
+**汇总**: 6/15 通过, 0 失败, 9 跳过
+
+---
+
+### 修复建议
+
+#### 🟡 偶发失败（TestDockerHealthCheck）
+
+**`test_health_endpoint_exists`** 和 **`test_docker_container_health`**（`tests/round15/test_platform_compat.py`）
+
+- **现象**：第 1 轮运行偶发失败；单独运行或干净重跑全部通过
+- **根因**：跨文件导入状态污染。`src.api.dashboard` 模块在部分测试序列中未正确导出 `app` 属性和 `requests` 依赖
+- **修复建议**：
+  1. 检查 `src/api/dashboard.py` 是否在所有代码路径下都正确导出 `app` 对象
+  2. 如测试需要 mock `requests`，应在测试内部 patch 而非依赖模块级属性
+  3. 添加 `test_platform_compat.py` 独立的 fixture/teardown 确保 dashboard 模块状态隔离
+
+#### 🟡 跳过用例（nomic-embed-text 模型未安装）
+
+| 测试用例 | 状态 |
+|----------|------|
+| `test_semantic_match_mysql_instances` | ⏭️ SKIPPED |
+| `test_semantic_match_diagnose_intent` | ⏭️ SKIPPED |
+| `test_semantic_match_sql_analyze_intent` | ⏭️ SKIPPED |
+| `test_threshold_fallback_to_general` | ⏭️ SKIPPED |
+| `test_cross_intent_distinction` | ⏭️ SKIPPED |
+| `test_identical_text_similarity` | ⏭️ SKIPPED |
+| `test_similar_text_high_similarity` | ⏭️ SKIPPED |
+| `test_different_text_lower_similarity` | ⏭️ SKIPPED |
+| `test_chinese_text_embedding` | ⏭️ SKIPPED |
+
+**激活方法**：运行 `ollama pull nomic-embed-text` 拉取嵌入模型后重新执行
+
+---
+
+*报告由 真显（测试者）生成 | 2026-03-30*

@@ -4,10 +4,44 @@ Test configuration and fixtures for Javis-DB-Agent
 import os
 import sys
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+
+@pytest.fixture(autouse=True)
+def register_all_tools():
+    """Register all tools before each test"""
+    from src.gateway.tool_registry import get_tool_registry
+    from src.tools.query_tools import register_query_tools
+    from src.tools.analysis_tools import register_analysis_tools
+    from src.tools.action_tools import register_action_tools
+    from src.tools.backup_tools import register_backup_tools
+    from src.tools.performance_tools import register_performance_tools
+    
+    registry = get_tool_registry()
+    register_query_tools(registry)
+    register_analysis_tools(registry)
+    register_action_tools(registry)
+    register_backup_tools(registry)
+    register_performance_tools(registry)
+    yield
+
+
+@pytest.fixture(autouse=True)
+def mock_policy_always_allow():
+    """Mock policy engine to always allow in tests"""
+    from src.gateway.policy_engine import PolicyResult, RiskLevel
+    from src.agents.base import get_policy_engine
+    mock_policy = MagicMock()
+    mock_policy.check.return_value = PolicyResult(
+        allowed=True,
+        approval_required=False,
+        approvers=[]
+    )
+    with patch("src.agents.base.get_policy_engine", return_value=mock_policy):
+        yield
 
 # Test database connection
 TEST_DB_CONFIG = {

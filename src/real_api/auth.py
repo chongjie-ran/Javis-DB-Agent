@@ -114,7 +114,9 @@ class OAuth2Provider(AuthProvider):
         """同步刷新Token（内部用）"""
         if not self._refresh_token:
             return False
-        
+
+        # RFC6749 §6: refresh_token grant 不带scope参数
+        # scope仅在需要缩小范围时携带，此处保持原scope
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.post(

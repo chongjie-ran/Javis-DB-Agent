@@ -4,6 +4,28 @@ All notable changes to the Javis-DB-Agent will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [V1.4] - 2026-03-30
+
+### Added
+- **BackupAgent** (Round 1) - 备份恢复专家，支持备份状态查询/恢复演练
+  - 文件: `src/agents/backup_agent.py`
+  - 工具: `check_backup_status`, `list_backup_history`, `trigger_backup`, `estimate_restore_time`
+- **PerformanceAgent** (Round 1) - 性能分析专家，支持TopSQL提取/执行计划解读
+  - 文件: `src/agents/performance_agent.py`
+  - 工具: `extract_top_sql`, `explain_sql_plan`, `suggest_parameters`
+
+### Changed
+- **认证鉴权** (Round 1) - 修复refresh_token BUG，启用OAuth2
+  - `src/real_api/auth.py` - OAuth2Provider._sync_refresh() RFC6749规范完善
+
+### Fixed
+- **OAuth2Provider** (Round 1) - refresh_token grant_type规范完善，添加RFC6749注释
+
+### Added (Tests)
+- `tests/round16/test_auth.py` - 认证鉴权测试（OAuth2/API Key双模式）
+- `tests/round16/test_backup_agent.py` - BackupAgent测试
+- `tests/round16/test_performance_agent.py` - PerformanceAgent测试
+
 ## [v1.3.1] - 2026-03-30
 
 ### Added

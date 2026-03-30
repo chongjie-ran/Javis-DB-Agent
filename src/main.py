@@ -26,6 +26,8 @@ from src.gateway.audit import get_audit_logger
 from src.tools.query_tools import register_query_tools
 from src.tools.analysis_tools import register_analysis_tools
 from src.tools.action_tools import register_action_tools
+from src.tools.backup_tools import register_backup_tools
+from src.tools.performance_tools import register_performance_tools
 
 # 配置日志
 structlog.configure(
@@ -54,6 +56,8 @@ async def lifespan(app: FastAPI):
     register_query_tools(registry)
     register_analysis_tools(registry)
     register_action_tools(registry)
+    register_backup_tools(registry)
+    register_performance_tools(registry)
 
     # 更新指标初始状态
     metrics = get_metrics()

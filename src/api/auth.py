@@ -175,6 +175,12 @@ class AuthManager:
         import jwt
         now = time.time()
         
+        # 确保用户已注册（如果不存在则添加）
+        users = _load_users(self._users_file)
+        if user.user_id not in users:
+            users[user.user_id] = user.to_dict()
+            _save_users(users, self._users_file)
+        
         # Access Token
         access_payload = {
             "sub": user.user_id,
