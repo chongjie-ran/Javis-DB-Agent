@@ -713,7 +713,7 @@ class TestApprovalFlowHappyPath:
             approvers=["admin", "dba_lead"],
         )
 
-        result = mock_policy_deny_high_risk.check("execute", {**mock_context, "risk_level": "L4"})
+        result = await mock_policy_deny_high_risk.check("execute", {**mock_context, "risk_level": "L4"})
         assert result.approval_required is True
         assert len(result.approvers) >= 1
         print(f"\n✅ 高风险审批: 需要{result.approvers[0]}审批")

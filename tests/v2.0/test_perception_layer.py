@@ -426,7 +426,7 @@ class TestAPI对接EdgeError:
     async def test_per_06_002_api_invalid_json_response(self):
         """PER-06-002: 无效JSON响应"""
         with patch("requests.get") as mock_get:
-            mock_response.json.side_effect = ValueError("Invalid JSON")
+            mock_get.return_value.json.side_effect = ValueError("Invalid JSON")
             print(f"\n✅ 无效JSON: 正确处理解析错误")
 
     @pytest.mark.p0_per
