@@ -319,6 +319,8 @@ class TestIntentRouting:
             Intent.DEDUPLICATE_ALERTS: ["alert"],
             Intent.ROOT_CAUSE: ["alert", "diagnostic"],
             Intent.PREDICTIVE_ALERT: ["alert"],
+            Intent.ANALYZE_BACKUP: ["backup"],
+            Intent.ANALYZE_PERFORMANCE: ["performance"],
             Intent.GENERAL: [],
         }
 
