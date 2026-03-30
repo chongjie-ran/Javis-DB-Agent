@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **PerformanceAgent** (Round 1) - 性能分析专家，支持TopSQL提取/执行计划解读
   - 文件: `src/agents/performance_agent.py`
   - 工具: `extract_top_sql`, `explain_sql_plan`, `suggest_parameters`
+- **Orchestrator集成** (Round 3) - BackupAgent/PerformanceAgent注册到编排器
+  - 新增Intent: `ANALYZE_BACKUP`, `ANALYZE_PERFORMANCE`
+  - 新增INTENT_EXAMPLES样本库（各15+条同义表达）
+  - 新增语义工具选择分支（备份/性能关键词微调）
 
 ### Changed
 - **认证鉴权** (Round 1) - 修复refresh_token BUG，启用OAuth2
@@ -25,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `tests/round16/test_auth.py` - 认证鉴权测试（OAuth2/API Key双模式）
 - `tests/round16/test_backup_agent.py` - BackupAgent测试
 - `tests/round16/test_performance_agent.py` - PerformanceAgent测试
+- `tests/round16/test_integration_agents.py` - V1.4 BackupAgent/PerformanceAgent路由测试
 
 ## [v1.3.1] - 2026-03-30
 

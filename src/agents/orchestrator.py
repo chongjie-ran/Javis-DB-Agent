@@ -16,6 +16,8 @@ from src.agents.reporter import ReporterAgent
 from src.agents.session_analyzer_agent import SessionAnalyzerAgent
 from src.agents.capacity_agent import CapacityAgent
 from src.agents.alert_agent import AlertAgent
+from src.agents.backup_agent import BackupAgent
+from src.agents.performance_agent import PerformanceAgent
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,8 @@ class Intent(Enum):
     DEDUPLICATE_ALERTS = "deduplicate_alerts"  # 告警去重 (Round 15)
     ROOT_CAUSE = "root_cause"            # 根因分析 (Round 15)
     PREDICTIVE_ALERT = "predictive_alert"  # 预测性告警 (Round 15)
+    ANALYZE_BACKUP = "analyze_backup"      # 备份分析 (V1.4)
+    ANALYZE_PERFORMANCE = "analyze_performance"  # 性能分析 (V1.4)
     GENERAL = "general"            # 通用问答
 
 
@@ -106,6 +110,18 @@ INTENT_EXAMPLES: dict[Intent, list[str]] = {
     Intent.PREDICTIVE_ALERT: [
         "预测性告警", "提前预警", "趋势告警", "预测告警",
         "未来可能出现的告警", "预警",
+    ],
+    Intent.ANALYZE_BACKUP: [
+        "备份状态怎么样", "检查一下今天的备份", "上次备份成功了吗",
+        "最近有没有备份失败的", "备份策略需要调整吗", "恢复演练一下",
+        "备份列表", "备份历史", "查看备份", "备份详情", "备份恢复",
+        "备份告警", "备份异常", "备份失败", "RTO多少", "RPO多少",
+    ],
+    Intent.ANALYZE_PERFORMANCE: [
+        "帮我分析一下性能", "哪些SQL最慢", "执行计划看看", "参数需要调优吗",
+        "TopSQL是哪些", "慢SQL分析", "性能报告", "性能瓶颈", "CPU使用率高",
+        "内存占用分析", "连接数爆了", "QPS多少", "TPS多少", "吞吐量怎么样",
+        "性能趋势", "负载情况",
     ],
     Intent.GENERAL: [
         "你好", "帮我", "问一下", "请问", "怎么样", "是什么",
@@ -335,6 +351,8 @@ class OrchestratorAgent(BaseAgent):
             "session_analyzer": SessionAnalyzerAgent(),
             "capacity": CapacityAgent(),
             "alert": AlertAgent(),
+            "backup": BackupAgent(),
+            "performance": PerformanceAgent(),
         }
     
     def get_agent(self, name: str) -> Optional[BaseAgent]:
@@ -445,6 +463,8 @@ class OrchestratorAgent(BaseAgent):
             Intent.DEDUPLICATE_ALERTS: "告警去重、合并告警",
             Intent.ROOT_CAUSE: "根因分析",
             Intent.PREDICTIVE_ALERT: "预测性告警、提前预警",
+            Intent.ANALYZE_BACKUP: "备份分析、备份状态、恢复演练",
+            Intent.ANALYZE_PERFORMANCE: "性能分析、TopSQL、执行计划",
             Intent.GENERAL: "通用问答",
         }
         
@@ -474,6 +494,8 @@ class OrchestratorAgent(BaseAgent):
 4. "会话分析"、"连接池状态"、"当前会话" → analyze_session
 5. "容量分析"、"存储空间"、"磁盘使用率" → analyze_capacity
 6. "告警分析"、"这条告警什么意思"、"告警详情" → analyze_alert
+7. "备份状态怎么样"、"检查备份"、"恢复演练" → analyze_backup
+8. "哪些SQL最慢"、"TopSQL"、"执行计划看看"、"性能分析" → analyze_performance
 
 请直接输出意图名称（只输出英文，不要输出其他内容）。如果都不匹配，输出 "general"："""
         
@@ -595,6 +617,8 @@ class OrchestratorAgent(BaseAgent):
 - deduplicate_alerts: 告警去重、告警压缩 (Round 15)
 - root_cause: 根因分析、定位根本原因 (Round 15)
 - predictive_alert: 预测性告警、趋势预测预警 (Round 15)
+- analyze_backup: 备份分析、备份状态查询、恢复演练 (V1.4)
+- analyze_performance: 性能分析、TopSQL、执行计划 (V1.4)
 - general: 通用问答
 
 请只输出意图名称（如：diagnose）。
@@ -666,6 +690,8 @@ class OrchestratorAgent(BaseAgent):
             Intent.DEDUPLICATE_ALERTS: ["alert"],
             Intent.ROOT_CAUSE: ["alert", "diagnostic"],
             Intent.PREDICTIVE_ALERT: ["alert"],
+            Intent.ANALYZE_BACKUP: ["backup"],
+            Intent.ANALYZE_PERFORMANCE: ["performance"],
             Intent.GENERAL: [],
         }
         
@@ -722,6 +748,17 @@ class OrchestratorAgent(BaseAgent):
             "告警详情": {"add": ["alert"]},
             "告警解释": {"add": ["alert"]},
             "根因": {"add": ["diagnostic"]},
+            # V1.4 备份分析
+            "备份": {"add": ["backup"]},
+            "恢复": {"add": ["backup"]},
+            "RTO": {"add": ["backup"]},
+            "RPO": {"add": ["backup"]},
+            # V1.4 性能分析
+            "性能": {"add": ["performance"]},
+            "TopSQL": {"add": ["performance"]},
+            "慢SQL": {"add": ["performance"]},
+            "执行计划": {"add": ["performance"]},
+            "调优": {"add": ["performance"]},
         }
         
         for keyword, action in semantic_additions.items():
@@ -836,6 +873,8 @@ class OrchestratorAgent(BaseAgent):
                 "deduplicate_alerts": "告警去重",
                 "root_cause": "根因分析",
                 "predictive_alert": "预测性告警",
+                "analyze_backup": "备份分析",
+                "analyze_performance": "性能分析",
                 "general": "通用问答",
             }.get(intent.value, "通用问答")
             yield {"type": "thinking", "content": f"📋 识别为「{intent_label}」任务，准备调用专业Agent..."}

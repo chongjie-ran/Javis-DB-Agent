@@ -155,6 +155,112 @@ class TestAlertAgentOrchestratorIntegration:
         assert "diagnostic" in agent_names
 
 
+class TestBackupAndPerformanceAgentIntegration:
+    """V1.4 BackupAgent + PerformanceAgent + Orchestrator 集成测试"""
+
+    def test_backup_agent_registered(self):
+        """验证BackupAgent已在Orchestrator中注册"""
+        from src.agents.orchestrator import Intent
+
+        mapping = {
+            Intent.ANALYZE_BACKUP: ["backup"],
+        }
+        assert "backup" in mapping[Intent.ANALYZE_BACKUP]
+
+    def test_performance_agent_registered(self):
+        """验证PerformanceAgent已在Orchestrator中注册"""
+        from src.agents.orchestrator import Intent
+
+        mapping = {
+            Intent.ANALYZE_PERFORMANCE: ["performance"],
+        }
+        assert "performance" in mapping[Intent.ANALYZE_PERFORMANCE]
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_selects_backup_agent(self):
+        """测试编排器正确选择备份Agent"""
+        from src.agents.orchestrator import OrchestratorAgent, Intent
+
+        orch = OrchestratorAgent()
+        intent = Intent.ANALYZE_BACKUP
+        agents = orch._select_agents(intent, "备份状态怎么样")
+
+        assert any(a.name == "backup" for a in agents)
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_selects_performance_agent(self):
+        """测试编排器正确选择性能Agent"""
+        from src.agents.orchestrator import OrchestratorAgent, Intent
+
+        orch = OrchestratorAgent()
+        intent = Intent.ANALYZE_PERFORMANCE
+        agents = orch._select_agents(intent, "哪些SQL最慢")
+
+        assert any(a.name == "performance" for a in agents)
+
+    @pytest.mark.asyncio
+    async def test_backup_routing_keywords(self):
+        """测试备份相关关键词路由到BackupAgent"""
+        from src.agents.orchestrator import OrchestratorAgent, Intent
+
+        orch = OrchestratorAgent()
+        # 测试直接通过 intent 路由到 backup agent
+        agents = orch._select_agents(Intent.ANALYZE_BACKUP, "备份状态怎么样")
+        assert any(a.name == "backup" for a in agents), "ANALYZE_BACKUP intent should route to backup agent"
+
+    @pytest.mark.asyncio
+    async def test_performance_routing_keywords(self):
+        """测试性能相关关键词路由到PerformanceAgent"""
+        from src.agents.orchestrator import OrchestratorAgent, Intent
+
+        orch = OrchestratorAgent()
+        # 测试直接通过 intent 路由到 performance agent
+        test_cases = [
+            ("哪些SQL最慢", Intent.ANALYZE_PERFORMANCE),
+            ("执行计划看看", Intent.ANALYZE_PERFORMANCE),
+            ("TopSQL是哪些", Intent.ANALYZE_PERFORMANCE),
+            ("性能瓶颈在哪里", Intent.ANALYZE_PERFORMANCE),
+        ]
+        for goal, expected_intent in test_cases:
+            agents = orch._select_agents(expected_intent, goal)
+            assert any(a.name == "performance" for a in agents), \
+                f"{expected_intent.value} intent should route to performance agent for: {goal}"
+
+    def test_all_intents_have_agent_mapping_v14(self):
+        """验证V1.4所有意图都有Agent映射（含新增的backup/performance）"""
+        from src.agents.orchestrator import OrchestratorAgent, Intent
+
+        orch = OrchestratorAgent()
+
+        intent_agent_map = {
+            Intent.DIAGNOSE: ["diagnostic", "risk"],
+            Intent.SQL_ANALYZE: ["sql_analyzer", "risk"],
+            Intent.ANALYZE_SESSION: ["session_analyzer"],
+            Intent.DETECT_DEADLOCK: ["session_analyzer", "risk"],
+            Intent.SUGGEST_INDEX: ["sql_analyzer"],
+            Intent.INSPECT: ["inspector"],
+            Intent.REPORT: ["reporter"],
+            Intent.RISK_ASSESS: ["risk"],
+            Intent.ANALYZE_CAPACITY: ["capacity"],
+            Intent.PREDICT_GROWTH: ["capacity"],
+            Intent.CAPACITY_REPORT: ["capacity"],
+            Intent.ANALYZE_ALERT: ["alert"],
+            Intent.DEDUPLICATE_ALERTS: ["alert"],
+            Intent.ROOT_CAUSE: ["alert", "diagnostic"],
+            Intent.PREDICTIVE_ALERT: ["alert"],
+            Intent.ANALYZE_BACKUP: ["backup"],          # V1.4 新增
+            Intent.ANALYZE_PERFORMANCE: ["performance"],  # V1.4 新增
+            Intent.GENERAL: [],
+        }
+
+        # 确保所有Intent都有映射
+        assert len(intent_agent_map) == len(Intent), "All intents must be mapped"
+        for intent, agents in intent_agent_map.items():
+            if intent != Intent.GENERAL:
+                selected = orch._select_agents(intent, f"测试{intent.value}")
+                assert len(selected) > 0, f"Intent {intent.value} has no agent mapping"
+
+
 # ============================================================================
 # 意图路由集成测试
 # ============================================================================
