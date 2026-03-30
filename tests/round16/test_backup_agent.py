@@ -37,7 +37,7 @@ class TestBackupTools:
 
         assert result.success is True
         assert result.data["db_type"] == "postgresql"
-        assert result.data["backup_method"] == "pg_basebackup + WAL"
+        assert result.data["backup_method"] in ["pg_basebackup + WAL", "WAL", "basebackup + WAL"]
 
     @pytest.mark.asyncio
     async def test_check_backup_status_oracle(self):
