@@ -99,6 +99,8 @@ class ASTParser:
             ops.append("REVOKE")
         elif isinstance(ast_node, exp.Set):
             ops.append("SET")
+        elif isinstance(ast_node, exp.Copy):
+            ops.append("COPY")
 
         # Command fallback: 检测关键字命令（sqlglot无法完全解析时）
         if isinstance(ast_node, exp.Command) or not ops:

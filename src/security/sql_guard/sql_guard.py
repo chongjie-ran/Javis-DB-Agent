@@ -61,7 +61,7 @@ class SQLGuard:
     DANGEROUS_OPERATIONS = {
         "DROP", "TRUNCATE", "SHUTDOWN",
         "CREATE_USER", "GRANT", "REVOKE",
-        "ALTER SYSTEM", "CREATE DATABASE",
+        "ALTER SYSTEM", "CREATE DATABASE", "COPY",
     }
 
     # 警告关键字（记录但不直接拒绝）
@@ -143,6 +143,18 @@ class SQLGuard:
                 allowed=False,
                 risk_level="L5",
                 blocked_reason=f"危险操作: {', '.join(dangerous)}",
+                tables_accessed=tables,
+                operations=operations,
+                ast_tree=ast_tree,
+            )
+
+        # 3b2. 多语句检测（分号分隔的多个SQL）
+        if self._check_multiple_statements(sql_stripped):
+            return SQLGuardResult(
+                status=SQLGuardStatus.DENIED,
+                allowed=False,
+                risk_level="L4",
+                blocked_reason="多语句SQL（分号分隔）需逐条审核",
                 tables_accessed=tables,
                 operations=operations,
                 ast_tree=ast_tree,
@@ -261,6 +273,31 @@ class SQLGuard:
     def _check_dangerous_operations(self, operations: List[str]) -> List[str]:
         """检查危险操作"""
         return [op for op in operations if op in self.DANGEROUS_OPERATIONS]
+
+    def _check_multiple_statements(self, sql: str) -> bool:
+        """检测多语句SQL（分号分隔）"""
+        # 移除注释后检查是否有分号分隔的多个语句
+        # 但分号在字符串常量内不算
+        stripped = sql.strip()
+        # 简单检测：是否有未在引号内的分号后跟非空白字符
+        in_string = False
+        string_char = None
+        prev_char = None
+        for i, char in enumerate(stripped):
+            if char in ("'", '"') and prev_char != '\\':
+                if not in_string:
+                    in_string = True
+                    string_char = char
+                elif char == string_char:
+                    in_string = False
+                    string_char = None
+            elif char == ';' and not in_string:
+                # 检查分号后是否有非空白SQL（非注释）
+                rest = stripped[i+1:].lstrip()
+                if rest and not rest.startswith('--') and not rest.startswith('/*'):
+                    return True
+            prev_char = char
+        return False
 
     def _check_dangerous_functions(self, sql: str) -> List[str]:
         """检查危险函数（包括SELECT上下文中也危险）"""
