@@ -39,6 +39,7 @@ class SQLGuardResult:
     ast_tree: Optional[object] = None
     tables_accessed: List[str] = field(default_factory=list)
     operations: List[str] = field(default_factory=list)
+    approval_required: bool = False
 
 
 class SQLGuard:
@@ -78,7 +79,7 @@ class SQLGuard:
 
     # 高风险操作（需要审批）
     HIGH_RISK_OPERATIONS = {
-        "ALTER", "CREATE", "DELETE", "UPDATE",
+        "ALTER", "CREATE", "DELETE", "UPDATE", "SET",
     }
 
     # 无WHERE的高风险操作列表
@@ -195,6 +196,7 @@ class SQLGuard:
                 status=SQLGuardStatus.TEMPLATE_MATCHED,
                 allowed=True,
                 risk_level=matched_template.risk_level,
+                warnings=warnings,
                 matched_template=matched_template.name,
             )
 

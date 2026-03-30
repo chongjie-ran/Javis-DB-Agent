@@ -97,6 +97,8 @@ class ASTParser:
             ops.append("GRANT")
         elif isinstance(ast_node, exp.Revoke):
             ops.append("REVOKE")
+        elif isinstance(ast_node, exp.Set):
+            ops.append("SET")
 
         # Command fallback: 检测关键字命令（sqlglot无法完全解析时）
         if isinstance(ast_node, exp.Command) or not ops:
