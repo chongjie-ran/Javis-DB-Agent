@@ -59,17 +59,17 @@ class LLMEnricher:
 - diagnose: 诊断问题
 
 输出格式（JSON）：
-{
+{{
   "intent": "意图类型",
-  "entities": {
+  "entities": {{
     "instance_id": "实例ID（如果提到）",
     "time_range": "时间范围（如果提到）",
     "filters": "其他过滤条件"
-  },
+  }},
   "generated_sql": "生成的SQL查询（如果适用）",
   "summary": "一句话总结",
   "confidence": 0.0-1.0置信度
-}
+}}
 
 用户查询：{query}
 """

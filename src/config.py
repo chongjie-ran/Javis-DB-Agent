@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     
     # LLM - Ollama
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "glm4:latest"
+    ollama_model: str = "qwen3.5:35b"
     ollama_timeout: int = 60
     
     # 数据库

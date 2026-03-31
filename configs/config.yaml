@@ -11,10 +11,10 @@ api:
 # LLM - Ollama
 ollama:
   base_url: http://localhost:11434
-  # 可用模型: glm4:latest (5.4GB, 当前配置), qwen3:30b-a3b (18.6GB)
-  # 推荐: glm4:latest 用于快速开发验证，qwen3:30b-a3b 用于生产推理质量要求高时
-  model: glm4:latest
-  timeout: 60
+  # 可用模型: glm4:latest (5.4GB, 快速验证), qwen3.5:35b (35B, 高质量推理)
+  # R4: 使用 qwen3.5:35b 作为主要推理模型
+  model: qwen3.5:35b
+  timeout: 120
 
 # Javis-DB-Agent API 模式配置
 # use_mock: true  使用Mock（本地开发测试）
