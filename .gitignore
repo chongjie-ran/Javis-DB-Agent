@@ -10,3 +10,4 @@ build/
 *.db-journal
 data/sessions.db
 data/audit.jsonl
+data/audit_export.jsonl
