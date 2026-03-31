@@ -54,14 +54,23 @@ class DatabaseIdentifier:
     SCAN_TIMEOUT = 3.0
     MARIADB_INDICATORS = ["MariaDB", "maria", "mariadb"]
 
-    def __init__(self, scan_timeout: float = SCAN_TIMEOUT):
+    def __init__(
+        self,
+        scan_timeout: float = SCAN_TIMEOUT,
+        mysql_user: str = "root",
+        mysql_password: str = "root",
+    ):
         """
         初始化识别器
 
         Args:
             scan_timeout: 连接和命令超时时间（秒）
+            mysql_user: MySQL用户名
+            mysql_password: MySQL密码
         """
         self.scan_timeout = scan_timeout
+        self.mysql_user = mysql_user
+        self.mysql_password = mysql_password
 
     async def identify(self, instance: DiscoveredInstance) -> Optional[IdentifiedInstance]:
         """识别单个实例，返回完整信息，失败返回None"""
@@ -140,7 +149,9 @@ class DatabaseIdentifier:
             conn = await aiomysql.connect(
                 host=instance.host,
                 port=instance.port,
-                timeout=self.SCAN_TIMEOUT,
+                user=self.mysql_user,
+                password=self.mysql_password,
+                connect_timeout=int(self.scan_timeout),
             )
             try:
                 async with conn.cursor(aiomysql.DictCursor) as cursor:
@@ -169,16 +180,24 @@ class DatabaseIdentifier:
                     instance.version = version_str
                     instance.status = "identified"
 
+                    # 获取数据库列表
+                    try:
+                        await cursor.execute("SHOW DATABASES")
+                        db_rows = await cursor.fetchall()
+                        databases = [r["Database"] for r in db_rows]
+                    except Exception:
+                        databases = []
+
                     return IdentifiedInstance(
                         instance=instance,
                         version=version_str,
                         version_major=major,
                         version_minor=minor,
                         edition=edition,
-                        max_connections=int(row["max_connections"]) if row["max_connections"] else 100,
+                        max_connections=int(row["max_conn"]) if row["max_conn"] else 100,
                     )
             finally:
-                await conn.close()
+                await conn.ensure_closed()
         except Exception:
             return None
 
