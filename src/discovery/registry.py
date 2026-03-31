@@ -8,7 +8,7 @@ import sqlite3
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -52,7 +52,7 @@ class ManagedInstance:
             ManagedInstance
         """
         inst = identified.instance
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         return cls(
             id=str(uuid.uuid4()),
             db_type=inst.db_type.value,
@@ -188,33 +188,62 @@ class LocalRegistry:
             instance_id
         """
         with self._conn() as conn:
-            conn.execute("""
-                INSERT INTO managed_instances (
-                    id, db_type, host, port, version, version_major, version_minor,
-                    edition, status, discovered_at, onboarded_at, last_check_at,
-                    max_connections, current_connections, process_path, pid, metadata_
-                ) VALUES (
-                    :id, :db_type, :host, :port, :version, :version_major, :version_minor,
-                    :edition, :status, :discovered_at, :onboarded_at, :last_check_at,
-                    :max_connections, :current_connections, :process_path, :pid, :metadata_
-                )
-                ON CONFLICT(db_type, host, port) DO UPDATE SET
-                    version = excluded.version,
-                    version_major = excluded.version_major,
-                    version_minor = excluded.version_minor,
-                    edition = excluded.edition,
-                    status = excluded.status,
-                    last_check_at = excluded.last_check_at,
-                    max_connections = excluded.max_connections,
-                    current_connections = excluded.current_connections,
-                    pid = excluded.pid
-            """, asdict(instance))
-
-            row = conn.execute(
+            existing = conn.execute(
                 "SELECT id FROM managed_instances WHERE db_type=? AND host=? AND port=?",
                 (instance.db_type, instance.host, instance.port)
             ).fetchone()
-            return row["id"]
+
+            if existing:
+                # Update existing instance (preserve original id)
+                data = asdict(instance)
+                data["_original_id"] = existing["id"]
+                rowcount = conn.execute("""
+                    UPDATE managed_instances SET
+                        version = :version,
+                        version_major = :version_major,
+                        version_minor = :version_minor,
+                        edition = :edition,
+                        status = :status,
+                        last_check_at = :last_check_at,
+                        max_connections = :max_connections,
+                        current_connections = :current_connections,
+                        process_path = :process_path,
+                        pid = :pid
+                    WHERE db_type = :db_type AND host = :host AND port = :port
+                """, data).rowcount
+
+                if rowcount == 0:
+                    # Edge case: row was deleted between SELECT and UPDATE
+                    conn.execute("""
+                        INSERT INTO managed_instances (
+                            id, db_type, host, port, version, version_major, version_minor,
+                            edition, status, discovered_at, onboarded_at, last_check_at,
+                            max_connections, current_connections, process_path, pid, metadata_
+                        ) VALUES (
+                            :id, :db_type, :host, :port, :version, :version_major, :version_minor,
+                            :edition, :status, :discovered_at, :onboarded_at, :last_check_at,
+                            :max_connections, :current_connections, :process_path, :pid, :metadata_
+                        )
+                    """, data)
+                return existing["id"]
+            else:
+                # Insert new instance
+                conn.execute("""
+                    INSERT INTO managed_instances (
+                        id, db_type, host, port, version, version_major, version_minor,
+                        edition, status, discovered_at, onboarded_at, last_check_at,
+                        max_connections, current_connections, process_path, pid, metadata_
+                    ) VALUES (
+                        :id, :db_type, :host, :port, :version, :version_major, :version_minor,
+                        :edition, :status, :discovered_at, :onboarded_at, :last_check_at,
+                        :max_connections, :current_connections, :process_path, :pid, :metadata_
+                    )
+                """, asdict(instance))
+                return instance.id
+
+    def upsert(self, instance: ManagedInstance) -> str:
+        """upsert的别名，与register功能相同"""
+        return self.register(instance)
 
     def get_all(self, status_filter: Optional[str] = None) -> List[ManagedInstance]:
         """
@@ -297,7 +326,7 @@ class LocalRegistry:
                 return False
 
             old_status = row["status"]
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(timezone.utc).isoformat()
 
             conn.execute(
                 "UPDATE managed_instances SET status=?, last_check_at=? WHERE id=?",
@@ -323,7 +352,7 @@ class LocalRegistry:
         with self._conn() as conn:
             result = conn.execute(
                 "UPDATE managed_instances SET current_connections=?, last_check_at=? WHERE id=?",
-                (current, datetime.utcnow().isoformat(), instance_id)
+                (current, datetime.now(timezone.utc).isoformat(), instance_id)
             )
             return result.rowcount > 0
 
@@ -409,7 +438,7 @@ class LocalRegistry:
                 INSERT INTO scan_sessions (id, started_at)
                 VALUES (?, ?)
                 """,
-                (session_id, datetime.utcnow().isoformat())
+                (session_id, datetime.now(timezone.utc).isoformat())
             )
 
     def finish_scan_session(
@@ -442,7 +471,7 @@ class LocalRegistry:
                 WHERE id = ?
                 """,
                 (
-                    datetime.utcnow().isoformat(),
+                    datetime.now(timezone.utc).isoformat(),
                     instances_found,
                     instances_new,
                     instances_changed,

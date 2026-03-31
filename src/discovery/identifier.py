@@ -91,6 +91,7 @@ class DatabaseIdentifier:
             conn = await asyncpg.connect(
                 host=instance.host,
                 port=instance.port,
+                database="postgres",
                 timeout=self.SCAN_TIMEOUT,
                 command_timeout=self.SCAN_TIMEOUT,
             )
@@ -177,7 +178,7 @@ class DatabaseIdentifier:
                         max_connections=int(row["max_connections"]) if row["max_connections"] else 100,
                     )
             finally:
-                conn.close()
+                await conn.close()
         except Exception:
             return None
 
