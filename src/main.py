@@ -19,6 +19,7 @@ from src.real_api.routers.knowledge import router as knowledge_router
 from src.api.dependency_routes import router as dependency_router, init_dependency_routes
 from src.api.knowledge_routes.evolution_routes import router as evolution_router
 from src.api.approval_routes import router as approval_router
+from src.api.discovery_api import router as discovery_router
 from src.api.metrics import setup_metrics_middleware, get_metrics
 from src.gateway.session import get_session_manager
 from src.gateway.tool_registry import get_tool_registry
@@ -136,6 +137,7 @@ def create_app() -> FastAPI:
     app.include_router(dependency_router)
     app.include_router(evolution_router)
     app.include_router(approval_router)
+    app.include_router(discovery_router)
     app.state.approval_gate = approval_gate
 
     # 设置指标中间件
