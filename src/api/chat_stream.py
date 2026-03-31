@@ -75,6 +75,36 @@ async def _stream_chat(request: ChatRequest, user_info: dict):
             "extra_info": str(request.context or {}),
         }
 
+        # ── 创建数据库连接器并加入 context ──────────────────────────────
+        # InspectorAgent 等需要直连数据库查询真实数据
+        try:
+            from src.db.direct_postgres_connector import DirectPostgresConnector
+            context["pg_connector"] = DirectPostgresConnector(
+                host="localhost",
+                port=5432,
+                user="chongjieran",
+                password="",
+                database="postgres",
+            )
+        except Exception as e:
+            print(f"[chat_stream] 创建 PG 连接器失败: {e}")
+            context["pg_connector"] = None
+
+        try:
+            from src.db.mysql_adapter import MySQLAdapter
+            context["mysql_connector"] = MySQLAdapter(
+                host="127.0.0.1",
+                port=3306,
+                user="root",
+                password="root",
+            )
+        except Exception as e:
+            print(f"[chat_stream] 创建 MySQL 连接器失败: {e}")
+            context["mysql_connector"] = None
+
+        # 兼容旧字段名（postgres_tools.py 用 db_connector）
+        context["db_connector"] = context.get("pg_connector")
+
         # 根据选择的Agent路由到对应的Agent
         agent_map = {
             "diagnostic": DiagnosticAgent(),
@@ -117,7 +147,24 @@ async def _stream_chat(request: ChatRequest, user_info: dict):
         # 发送完成信号
         yield f"event: done\ndata: {json.dumps({'content': full_content, 'agent': response.metadata.get('agent', active_agent_name)}, ensure_ascii=False)}\n\n"
 
+        # ── 清理数据库连接 ────────────────────────────────────────────────
+        try:
+            if context.get("pg_connector"):
+                await context["pg_connector"].close()
+            if context.get("mysql_connector"):
+                await context["mysql_connector"].close()
+        except Exception:
+            pass
+
     except Exception as e:
+        # 清理连接（即使出错也要清理）
+        try:
+            if context.get("pg_connector"):
+                await context["pg_connector"].close()
+            if context.get("mysql_connector"):
+                await context["mysql_connector"].close()
+        except Exception:
+            pass
         yield f"event: error\ndata: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
 
 
