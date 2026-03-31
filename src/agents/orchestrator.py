@@ -561,6 +561,22 @@ class OrchestratorAgent(BaseAgent):
         # 5. 汇总结果
         aggregated = self._aggregate_results(results, intent)
         
+        # 6. Fallback: 当没有Agent被选中时，直接用LLM回答（不再返回"未找到相关信息"）
+        if not selected_agents or (not results and intent == Intent.GENERAL):
+            llm_prompt = f"""你是一个专业的数据库运维智能助手。请回答用户的问题。
+
+用户问题：{goal}
+
+请用专业的数据库运维知识回答，如果涉及具体实例请说明需要连接数据库才能获取实时数据。
+"""
+            try:
+                llm_response = await self.think(llm_prompt)
+                if llm_response and llm_response.strip():
+                    aggregated = {"content": llm_response}
+            except Exception:
+                # LLM fallback 也失败，保持原有 aggregated
+                pass
+        
         return AgentResponse(
             success=True,
             content=aggregated["content"],
