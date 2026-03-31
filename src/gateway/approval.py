@@ -430,3 +430,18 @@ class ApprovalGate:
                 cleaned += 1
                 logger.info(f"[ApprovalGate] cleanup timeout: {request_id}")
         return cleaned
+
+
+# ---------------------------------------------------------------------------
+# Singleton accessor
+# ---------------------------------------------------------------------------
+
+_approval_gate: Optional["ApprovalGate"] = None
+
+
+def get_approval_gate() -> "ApprovalGate":
+    """Get the singleton ApprovalGate instance (async version)."""
+    global _approval_gate
+    if _approval_gate is None:
+        _approval_gate = ApprovalGate()
+    return _approval_gate
