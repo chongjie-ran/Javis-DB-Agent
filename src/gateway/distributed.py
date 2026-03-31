@@ -308,12 +308,12 @@ class DistributedApprovalManager:
         try:
             data = record.to_dict()
             self._redis.setex(
-                self._redis_key(record.id),
+                self._redis_key(record.approval_id),
                 7200,  # 2小时TTL
                 json.dumps(data, ensure_ascii=False),
             )
             if record.status.value in ("pending", "approved1"):
-                self._redis.sadd(self._redis_pending_key(), record.id)
+                self._redis.sadd(self._redis_pending_key(), record.approval_id)
             return True
         except Exception:
             return False
@@ -346,14 +346,14 @@ class DistributedApprovalManager:
         self._submit_to_redis(record)
         # 从pending集合移除
         if self._redis_ok:
-            self._redis.srem(self._redis_pending_key(), record.id)
+            self._redis.srem(self._redis_pending_key(), record.approval_id)
         return record
 
     def reject(self, *args, **kwargs):
         record = self.local.reject(*args, **kwargs)
         self._submit_to_redis(record)
         if self._redis_ok:
-            self._redis.srem(self._redis_pending_key(), record.id)
+            self._redis.srem(self._redis_pending_key(), record.approval_id)
         return record
 
     def get_approval(self, approval_id: str):

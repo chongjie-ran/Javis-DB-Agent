@@ -4,7 +4,8 @@ from typing import Optional
 from enum import IntEnum
 from dataclasses import dataclass, field
 from src.tools.base import RiskLevel
-from src.models.approval import get_approval_gate, ApprovalGate
+from src.gateway.approval_adapter import get_sync_approval_adapter
+from src.gateway.approval import ApprovalGate
 
 
 class UserRole(IntEnum):
@@ -59,10 +60,10 @@ class PolicyEngine:
         self._version_history: list[dict] = [{"version": 1, "timestamp": time.time(), "change": "initial"}]
 
     @property
-    def approval_gate(self) -> ApprovalGate:
+    def approval_gate(self):
         """获取审批门卫"""
         if self._approval_gate is None:
-            self._approval_gate = get_approval_gate()
+            self._approval_gate = get_sync_approval_adapter()
         return self._approval_gate
     
     def set_approval_config(self, l4: bool = True, l5: bool = True):
