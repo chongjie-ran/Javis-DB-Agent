@@ -133,7 +133,9 @@ class DatabaseScanner:
                             if instance:
                                 results.append(instance)
                         break
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
+            except Exception:
+                # 捕获 psutil.NoSuchProcess, psutil.AccessDenied 等
+                # 也包括 psutil 未安装时这些类为 None 的情况
                 continue
         return results
 
@@ -142,7 +144,7 @@ class DatabaseScanner:
     ) -> Optional[DiscoveredInstance]:
         """从进程信息构造DiscoveredInstance"""
         try:
-            connections = proc.connections(kind="inet")
+            connections = proc.net_connections(kind="inet")
             ports = set()
             for conn in connections:
                 if conn.status == "LISTEN":

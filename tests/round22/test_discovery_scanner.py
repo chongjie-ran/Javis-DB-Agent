@@ -197,7 +197,7 @@ class TestProcessScanning:
         mock_conn = MagicMock()
         mock_conn.status = "LISTEN"
         mock_conn.laddr.port = 5432
-        mock_proc.connections.return_value = [mock_conn]
+        mock_proc.net_connections.return_value = [mock_conn]
 
         mock_psutil = MagicMock()
         mock_psutil.process_iter = MagicMock(return_value=[mock_proc])
@@ -227,7 +227,7 @@ class TestProcessScanning:
         mock_conn = MagicMock()
         mock_conn.status = "LISTEN"
         mock_conn.laddr.port = 3306
-        mock_proc.connections.return_value = [mock_conn]
+        mock_proc.net_connections.return_value = [mock_conn]
 
         mock_psutil = MagicMock()
         mock_psutil.process_iter = MagicMock(return_value=[mock_proc])
@@ -255,14 +255,14 @@ class TestProcessScanning:
         mock_conn = MagicMock()
         mock_conn.status = "LISTEN"
         mock_conn.laddr.port = 5432
-        mock_proc1.connections.return_value = [mock_conn]
+        mock_proc1.net_connections.return_value = [mock_conn]
 
         mock_proc2 = MagicMock()
         mock_proc2.pid = 222
         mock_proc2.name.return_value = "postgres"
         mock_proc2.exe.return_value = "/usr/lib/postgresql/16/bin/postgres"
         mock_proc2.info = {"name": "postgres", "exe": "/usr/lib/postgresql/16/bin/postgres"}
-        mock_proc2.connections.return_value = [mock_conn]
+        mock_proc2.net_connections.return_value = [mock_conn]
 
         mock_psutil = MagicMock()
         mock_psutil.process_iter = MagicMock(return_value=[mock_proc1, mock_proc2])
