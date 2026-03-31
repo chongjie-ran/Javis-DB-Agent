@@ -12,8 +12,8 @@ api:
 ollama:
   base_url: http://localhost:11434
   # 可用模型: glm4:latest (5.4GB, 快速验证), qwen3.5:35b (35B, 高质量推理)
-  # R4: 使用 qwen3.5:35b 作为主要推理模型
-  model: qwen3.5:35b
+  # R4: 使用 glm4:latest 作为主要推理模型（快速响应）
+  model: glm4:latest
   timeout: 120
 
 # Javis-DB-Agent API 模式配置

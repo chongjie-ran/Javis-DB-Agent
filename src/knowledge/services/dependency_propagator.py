@@ -79,7 +79,7 @@ class DependencyPropagator:
         self._dependency_repo = repo
         self._dependencies_cache = None  # Invalidate cache
 
-    def load_dependencies(self) -> List[Dict]:
+    async def load_dependencies(self) -> List[Dict]:
         """
         加载资源依赖关系
         
@@ -100,14 +100,10 @@ class DependencyPropagator:
             if hasattr(self._dependency_repo, 'list_all'):
                 result = self._dependency_repo.list_all()
                 if inspect.iscoroutine(result):
-                    # It's a coroutine - can't await from sync method
-                    # This happens when using AsyncMock in tests
-                    # For real usage, use reload_dependencies() instead
-                    self._dependencies_cache = []
-                    return self._dependencies_cache
+                    self._dependencies_cache = await result
                 else:
                     self._dependencies_cache = result
-                    return self._dependencies_cache
+                return self._dependencies_cache
             else:
                 self._dependencies_cache = []
                 return self._dependencies_cache
@@ -115,12 +111,12 @@ class DependencyPropagator:
             self._dependencies_cache = []
             return self._dependencies_cache
 
-    def reload_dependencies(self) -> List[Dict]:
+    async def reload_dependencies(self) -> List[Dict]:
         """强制重新加载依赖关系"""
         self._dependencies_cache = None
-        return self.load_dependencies()
+        return await self.load_dependencies()
 
-    def propagate_alert(self, alert: Any, depth: int = 3) -> List[PropagatedAlert]:
+    async def propagate_alert(self, alert: Any, depth: int = 3) -> List[PropagatedAlert]:
         """
         传播告警到依赖资源
         
@@ -140,7 +136,7 @@ class DependencyPropagator:
         if depth <= 0:
             return []
         
-        dependencies = self.load_dependencies()
+        dependencies = await self.load_dependencies()
         if not dependencies:
             return []
         
@@ -209,7 +205,7 @@ class DependencyPropagator:
         
         return propagated
 
-    def propagate_alerts(self, alerts: List[Any], depth: int = 3) -> List[PropagatedAlert]:
+    async def propagate_alerts(self, alerts: List[Any], depth: int = 3) -> List[PropagatedAlert]:
         """
         批量传播告警
         
@@ -222,7 +218,7 @@ class DependencyPropagator:
         """
         all_propagated = []
         for alert in alerts:
-            propagated = self.propagate_alert(alert, depth)
+            propagated = await self.propagate_alert(alert, depth)
             all_propagated.extend(propagated)
         
         # 去重：相同alert_type只保留最高概率的
@@ -236,7 +232,7 @@ class DependencyPropagator:
         result.sort(key=lambda x: -x.root_cause_probability)
         return result
 
-    def find_root_cause(self, alerts: List[Any]) -> Optional[Any]:
+    async def find_root_cause(self, alerts: List[Any]) -> Optional[Any]:
         """
         基于根因概率找到根因告警
         
@@ -253,7 +249,7 @@ class DependencyPropagator:
         if not alerts:
             return None
         
-        dependencies = self.load_dependencies()
+        dependencies = await self.load_dependencies()
         
         # 构建反向依赖图: target -> [(source, weight), ...]
         reverse_graph: Dict[str, List[tuple]] = {}
@@ -295,7 +291,7 @@ class DependencyPropagator:
         
         return max(alerts, key=root_cause_score)
 
-    def find_root_cause_with_propagation(self, alerts: List[Any], depth: int = 3) -> Dict[str, Any]:
+    async def find_root_cause_with_propagation(self, alerts: List[Any], depth: int = 3) -> Dict[str, Any]:
         """
         结合传播分析找到根因
         
@@ -315,7 +311,7 @@ class DependencyPropagator:
             return {"root_cause": None, "analysis": [], "summary": "无告警"}
         
         # 为每个告警计算传播
-        all_propagated = self.propagate_alerts(alerts, depth)
+        all_propagated = await self.propagate_alerts(alerts, depth)
         
         # 标记每个原始告警的角色
         alert_map: Dict[str, Any] = {a.alert_id: a for a in alerts}
@@ -358,7 +354,7 @@ class DependencyPropagator:
             })
         
         # 找到根因
-        root = self.find_root_cause(alerts)
+        root = await self.find_root_cause(alerts)
         
         summary = f"分析 {len(alerts)} 个告警，发现 {len(all_propagated)} 个传播告警"
         if root:
@@ -371,14 +367,14 @@ class DependencyPropagator:
             "summary": summary
         }
 
-    def get_dependency_graph(self) -> Dict[str, Any]:
+    async def get_dependency_graph(self) -> Dict[str, Any]:
         """
         获取资源依赖图谱
         
         Returns:
             包含nodes和edges的图谱字典
         """
-        dependencies = self.load_dependencies()
+        dependencies = await self.load_dependencies()
         
         nodes = set()
         edges = []
@@ -408,7 +404,7 @@ class DependencyPropagator:
             }
         }
 
-    def get_upstream_dependencies(self, resource_type: str) -> List[Dict]:
+    async def get_upstream_dependencies(self, resource_type: str) -> List[Dict]:
         """
         获取资源的上游依赖
         
@@ -418,13 +414,13 @@ class DependencyPropagator:
         Returns:
             上游依赖列表
         """
-        dependencies = self.load_dependencies()
+        dependencies = await self.load_dependencies()
         return [
             dep for dep in dependencies
             if dep["target_resource_type"] == resource_type
         ]
 
-    def get_downstream_dependencies(self, resource_type: str) -> List[Dict]:
+    async def get_downstream_dependencies(self, resource_type: str) -> List[Dict]:
         """
         获取资源的下游依赖
         
@@ -434,7 +430,7 @@ class DependencyPropagator:
         Returns:
             下游依赖列表
         """
-        dependencies = self.load_dependencies()
+        dependencies = await self.load_dependencies()
         return [
             dep for dep in dependencies
             if dep["source_resource_type"] == resource_type

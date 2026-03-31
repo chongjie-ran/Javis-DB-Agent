@@ -46,7 +46,7 @@ async def init_dependency_routes() -> None:
     conn.row_factory = None  # Use dict-like access
     _dependency_repo = DependencyRepository(conn)
     _dependency_propagator = DependencyPropagator(_dependency_repo)
-    _dependency_propagator.load_dependencies()  # Pre-load
+    await _dependency_propagator.load_dependencies()  # Pre-load
 
 
 # ============================================================
@@ -238,7 +238,7 @@ async def get_dependency_graph():
         Dependency graph with nodes and edges
     """
     propagator = get_propagator()
-    graph = propagator.get_dependency_graph()
+    graph = await propagator.get_dependency_graph()
     return graph
 
 
@@ -317,7 +317,7 @@ async def propagate_alert(
             self.message = message
     
     alert = MockAlert()
-    propagated = propagator.propagate_alert(alert, depth=depth)
+    propagated = await propagator.propagate_alert(alert, depth=depth)
     
     # Convert to response format
     propagated_data = [
@@ -411,7 +411,7 @@ async def analyze_root_cause(
     ]
     
     propagator = get_propagator()
-    result = propagator.find_root_cause_with_propagation(alerts, depth=depth)
+    result = await propagator.find_root_cause_with_propagation(alerts, depth=depth)
     
     # Format response
     root_cause_data = None
@@ -457,7 +457,7 @@ async def get_upstream_dependencies(resource_type: str):
     上游依赖是指影响该资源的资源类型。
     """
     propagator = get_propagator()
-    upstream = propagator.get_upstream_dependencies(resource_type)
+    upstream = await propagator.get_upstream_dependencies(resource_type)
     
     return {
         "resource_type": resource_type,
@@ -476,7 +476,7 @@ async def get_downstream_dependencies(resource_type: str):
     下游依赖是指受该资源影响的资源类型。
     """
     propagator = get_propagator()
-    downstream = propagator.get_downstream_dependencies(resource_type)
+    downstream = await propagator.get_downstream_dependencies(resource_type)
     
     return {
         "resource_type": resource_type,

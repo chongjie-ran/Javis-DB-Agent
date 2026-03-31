@@ -239,29 +239,100 @@ class DiscoveryService:
     async def _capture_pg_knowledge(self, managed: ManagedInstance):
         """捕获PostgreSQL schema和配置"""
         try:
-            from src.db.direct_postgres_connector import DirectPostgresConnector
+            import asyncpg
+            from .knowledge_base import SchemaKnowledge, ConfigKnowledge
 
-            conn = DirectPostgresConnector(
-                host=managed.host,
-                port=managed.port,
-            )
+            # 尝试连接多个数据库查找用户表
+            databases_to_try = ["postgres", "javis_test_db", "template1"]
+            all_tables = []
+            connected_db = None
+            conn = None
+
+            for db_name in databases_to_try:
+                try:
+                    conn = await asyncpg.connect(
+                        host=managed.host,
+                        port=managed.port,
+                        database=db_name,
+                        timeout=10.0,
+                    )
+                    connected_db = db_name
+                    break
+                except Exception:
+                    continue
+
+            if not conn:
+                logger.warning(f"Could not connect to any database for {managed.id}")
+                return
+
             try:
-                # 获取schema信息
-                tables = await conn.execute_sql("""
+                # 获取schema信息 - 使用pg_tables和pg_stat_user_tables联合
+                # 注意：pg_tables是实例级别的，可以跨数据库查询
+                rows = await conn.fetch("""
                     SELECT
-                        schemaname,
-                        tablename,
-                        tableowner,
-                        n_live_tup::bigint as row_count,
-                        pg_total_relation_size(schemaname||'.'||tablename)::bigint as size_bytes
-                    FROM pg_stat_user_tables
-                    WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-                    ORDER BY pg_total_relation_size DESC
+                        t.schemaname,
+                        t.tablename,
+                        t.tableowner,
+                        COALESCE(s.n_live_tup, 0)::bigint as row_count,
+                        pg_total_relation_size(t.schemaname||'.'||t.tablename)::bigint as size_bytes
+                    FROM pg_tables t
+                    LEFT JOIN pg_stat_user_tables s
+                        ON t.schemaname = s.schemaname AND t.tablename = s.relname
+                    WHERE t.schemaname NOT IN ('pg_catalog', 'information_schema')
+                    ORDER BY size_bytes DESC
                     LIMIT 100
                 """)
 
+                for t in rows:
+                    all_tables.append({
+                        "table_name": f"{t['schemaname']}.{t['tablename']}",
+                        "owner": t["tableowner"],
+                        "row_count": t["row_count"],
+                        "size_bytes": t["size_bytes"],
+                        "columns": [],
+                    })
+                
+                # 如果没有找到表，尝试连接其他数据库
+                if not all_tables and connected_db == "postgres":
+                    await conn.close()
+                    for db_name in ["javis_test_db", "zcloud_agent_test"]:
+                        try:
+                            conn = await asyncpg.connect(
+                                host=managed.host,
+                                port=managed.port,
+                                database=db_name,
+                                timeout=10.0,
+                            )
+                            rows = await conn.fetch("""
+                                SELECT
+                                    t.schemaname,
+                                    t.tablename,
+                                    t.tableowner,
+                                    COALESCE(s.n_live_tup, 0)::bigint as row_count,
+                                    pg_total_relation_size(t.schemaname||'.'||t.tablename)::bigint as size_bytes
+                                FROM pg_tables t
+                                LEFT JOIN pg_stat_user_tables s
+                                    ON t.schemaname = s.schemaname AND t.tablename = s.relname
+                                WHERE t.schemaname NOT IN ('pg_catalog', 'information_schema')
+                                ORDER BY size_bytes DESC
+                                LIMIT 100
+                            """)
+                            for t in rows:
+                                all_tables.append({
+                                    "table_name": f"{t['schemaname']}.{t['tablename']}",
+                                    "owner": t["tableowner"],
+                                    "row_count": t["row_count"],
+                                    "size_bytes": t["size_bytes"],
+                                    "columns": [],
+                                })
+                            if all_tables:
+                                connected_db = db_name
+                                break
+                        except Exception:
+                            continue
+
                 # 获取配置参数
-                params = await conn.execute_sql("""
+                params = await conn.fetch("""
                     SELECT name, setting, unit
                     FROM pg_settings
                     WHERE context IN ('postmaster', 'sighup')
@@ -274,14 +345,8 @@ class DiscoveryService:
                 # 写入知识库
                 self.kb.add_schema(SchemaKnowledge(
                     instance_id=managed.id,
-                    db_name="postgres",
-                    tables=[{
-                        "table_name": f"{t['schemaname']}.{t['tablename']}",
-                        "owner": t["tableowner"],
-                        "row_count": t["row_count"],
-                        "size_bytes": t["size_bytes"],
-                        "columns": [],
-                    } for t in tables],
+                    db_name=connected_db or "postgres",
+                    tables=all_tables,
                     indexes=[],
                     version=managed.version,
                     captured_at=datetime.utcnow().isoformat(),
@@ -300,9 +365,112 @@ class DiscoveryService:
             logger.warning(f"Failed to capture PG knowledge for {managed.id}: {e}")
 
     async def _capture_mysql_knowledge(self, managed: ManagedInstance):
-        """捕获MySQL schema和配置（预留实现）"""
-        # TODO: 实现MySQL schema捕获
-        pass
+        """捕获MySQL schema和配置"""
+        try:
+            import aiomysql
+
+            conn = await aiomysql.connect(
+                host=managed.host,
+                port=managed.port,
+                connect_timeout=10.0,
+            )
+            try:
+                async with conn.cursor(aiomysql.DictCursor) as cursor:
+                    # 获取数据库列表
+                    await cursor.execute("SHOW DATABASES")
+                    databases = await cursor.fetchall()
+                    
+                    all_tables = []
+                    
+                    for db_row in databases:
+                        db_name = db_row.get("Database", db_row.get("database"))
+                        if db_name in ("information_schema", "performance_schema", "mysql", "sys"):
+                            continue
+                        
+                        # 获取表信息
+                        await cursor.execute(
+                            """
+                            SELECT 
+                                TABLE_SCHEMA as db_name,
+                                TABLE_NAME as table_name,
+                                TABLE_ROWS as row_count,
+                                ROUND(DATA_LENGTH + INDEX_LENGTH) as size_bytes,
+                                TABLE_TYPE,
+                                ENGINE
+                            FROM information_schema.TABLES
+                            WHERE TABLE_SCHEMA = %s
+                            AND TABLE_TYPE = 'BASE TABLE'
+                            ORDER BY (DATA_LENGTH + INDEX_LENGTH) DESC
+                            LIMIT 100
+                            """,
+                            (db_name,)
+                        )
+                        tables = await cursor.fetchall()
+                        
+                        for t in tables:
+                            all_tables.append({
+                                "table_name": f"{t['db_name']}.{t['table_name']}",
+                                "engine": t.get("ENGINE", ""),
+                                "row_count": t.get("row_count", 0) or 0,
+                                "size_bytes": t.get("size_bytes", 0) or 0,
+                                "columns": [],
+                            })
+                        
+                        # 获取列信息（前10个表）
+                        if len(all_tables) <= 10:
+                            for t in tables[:10]:
+                                await cursor.execute(
+                                    """
+                                    SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_KEY
+                                    FROM information_schema.COLUMNS
+                                    WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+                                    ORDER BY ORDINAL_POSITION
+                                    """,
+                                    (db_name, t['table_name'])
+                                )
+                                columns = await cursor.fetchall()
+                                for entry in all_tables:
+                                    if entry["table_name"] == f"{db_name}.{t['table_name']}":
+                                        entry["columns"] = [
+                                            {
+                                                "name": c["COLUMN_NAME"],
+                                                "type": c["DATA_TYPE"],
+                                                "nullable": c["IS_NULLABLE"] == "YES",
+                                                "key": c["COLUMN_KEY"],
+                                            }
+                                            for c in columns
+                                        ]
+                                        break
+                    
+                    # 获取配置参数
+                    await cursor.execute("SHOW GLOBAL VARIABLES")
+                    params = await cursor.fetchall()
+                    
+                    from .knowledge_base import SchemaKnowledge, ConfigKnowledge
+                    
+                    # 写入schema知识库
+                    if all_tables:
+                        self.kb.add_schema(SchemaKnowledge(
+                            instance_id=managed.id,
+                            db_name="mysql",
+                            tables=all_tables,
+                            indexes=[],
+                            version=managed.version,
+                            captured_at=datetime.utcnow().isoformat(),
+                        ))
+                    
+                    # 写入配置知识库
+                    self.kb.add_config(ConfigKnowledge(
+                        instance_id=managed.id,
+                        db_type=managed.db_type,
+                        version=managed.version,
+                        parameters={p["Variable_name"]: str(p["Value"]) for p in params},
+                        captured_at=datetime.utcnow().isoformat(),
+                    ))
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.warning(f"Failed to capture MySQL knowledge for {managed.id}: {e}")
 
     async def health_check_all(self) -> Dict[str, Dict]:
         """
@@ -335,9 +503,15 @@ class DiscoveryService:
         """PostgreSQL健康检查"""
         try:
             import asyncpg
+            import os
+            # 优先使用环境变量作为认证信息
+            user = os.environ.get("PGUSER", "postgres")
+            password = os.environ.get("PGPASSWORD", os.environ.get("POSTGRES_PASSWORD", ""))
             conn = await asyncpg.connect(
                 host=managed.host,
                 port=managed.port,
+                user=user,
+                password=password,
                 timeout=3.0,
             )
             await conn.close()
@@ -349,9 +523,15 @@ class DiscoveryService:
         """MySQL健康检查"""
         try:
             import aiomysql
+            import os
+            # 优先使用环境变量作为认证信息
+            user = os.environ.get("MYSQL_USER", "root")
+            password = os.environ.get("MYSQL_PASSWORD", os.environ.get("MYSQL_ROOT_PASSWORD", ""))
             conn = await aiomysql.connect(
                 host=managed.host,
                 port=managed.port,
+                user=user,
+                password=password,
                 connect_timeout=3.0,
             )
             conn.close()
