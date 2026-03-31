@@ -74,7 +74,10 @@ class OllamaClient:
                         try:
                             data = json.loads(line)
                             if "message" in data:
-                                yield data["message"]["content"]
+                                # 优先使用 content，如果没有则使用 thinking（qwen3.5:35b等模型输出在thinking字段）
+                                content = data["message"].get("content", "")
+                                thinking = data["message"].get("thinking", "")
+                                yield content or thinking or ""
                         except json.JSONDecodeError:
                             continue
     
