@@ -49,14 +49,14 @@ class TemplateRegistry:
             # 基础SELECT
             SQLTemplate(
                 name="select_all_from",
-                pattern=r"SELECT\s+\*\s+FROM\s+\w+",
+                pattern=r"SELECT\s+\*\s+FROM\s+[\w\"\`\.]+",
                 risk_level="L1",
                 description="SELECT * FROM单表",
             ),
             # 带WHERE的SELECT
             SQLTemplate(
                 name="select_with_where",
-                pattern=r"SELECT\s+.+\s+FROM\s+\w+\s+WHERE\s+.+",
+                pattern=r"SELECT\s+.+?\s+FROM\s+\w+\s+WHERE\s+.+",
                 risk_level="L1",
                 description="带WHERE条件的SELECT",
             ),
@@ -121,25 +121,25 @@ class TemplateRegistry:
             ),
             SQLTemplate(
                 name="select_all_from",
-                pattern=r"SELECT\s+\*\s+FROM\s+\w+",
+                pattern=r"SELECT\s+\*\s+FROM\s+[\w\"\`\.]+",
                 risk_level="L1",
                 description="SELECT * FROM单表",
             ),
             SQLTemplate(
                 name="select_with_where",
-                pattern=r"SELECT\s+.+\s+FROM\s+\w+\s+WHERE\s+.+",
+                pattern=r"SELECT\s+.+?\s+FROM\s+\w+\s+WHERE\s+.+",
                 risk_level="L1",
                 description="带WHERE条件的SELECT",
             ),
             SQLTemplate(
                 name="select_limit_offset",
-                pattern=r"SELECT\s+.+\s+FROM\s+\w+\s+(WHERE\s+.+\s+)?LIMIT\s+\d+(\s+OFFSET\s+\d+)?",
+                pattern=r"SELECT\s+.+?\s+FROM\s+\w+\s+(WHERE\s+.+?\s+)?LIMIT\s+\d+(\s+OFFSET\s+\d+)?",
                 risk_level="L1",
                 description="带LIMIT/OFFSET的SELECT",
             ),
             SQLTemplate(
                 name="pg_explain",
-                pattern=r"(EXPLAIN|EXPLAIN\s+\(ANALYZE\s+(TRUE|FALSE|ON|OFF)\s*,?\s*)?(FORMAT\s+(TEXT|JSON|XML|yaml))\s*.+",
+                pattern=r"EXPLAIN(\s+\([^)]*\))?\s+.+",
                 risk_level="L1",
                 description="PostgreSQL执行计划",
             ),

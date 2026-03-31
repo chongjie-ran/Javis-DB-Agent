@@ -744,3 +744,43 @@ def reset_test_env():
     os.environ["ZLOUD_ENV"] = "test"
     yield
     os.environ["ZLOUD_ENV"] = original_env
+
+
+# ============================================================================
+# ChromaDB Test Fix: Route chromadb.Client to PersistentClient
+# ============================================================================
+
+@pytest.fixture(autouse=True)
+def patch_chroma_client():
+    """Patch chromadb.Client to use PersistentClient for persistent storage.
+
+    VectorIndex uses chromadb.Client(Settings(persist_directory=...)) but this
+    creates an ephemeral client in ChromaDB 1.x (is_persistent=False by default).
+    This patch routes to chromadb.PersistentClient which properly supports
+    per-directory persistence and avoids ephemeral client singleton conflicts.
+    """
+    import chromadb
+    import chromadb.api.client as client_module
+    _original_client = chromadb.Client
+
+    def patched_client(settings=None, **kwargs):
+        if settings is None:
+            settings = chromadb.Settings()
+        # If persist_directory is set, use PersistentClient for proper persistence
+        if settings.persist_directory and not settings.is_persistent:
+            # Route to PersistentClient with the persist_directory
+            return chromadb.PersistentClient(
+                path=settings.persist_directory,
+                settings=settings,
+            )
+        return _original_client(settings=settings, **kwargs)
+
+    # Only patch if not already patched this session
+    if not hasattr(chromadb, '_patched_for_tests'):
+        chromadb.Client = patched_client
+        chromadb._patched_for_tests = True
+
+    yield
+
+    # Restore (at end of session, not between tests)
+    # Note: we keep the patch for the entire session to avoid re-patching issues

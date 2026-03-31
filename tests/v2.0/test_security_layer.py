@@ -753,11 +753,12 @@ class TestApprovalFlowEdgeError:
         from src.gateway.approval import ApprovalGate
 
         gate = ApprovalGate()
-        approval_id = await gate.request_approval(
+        result = await gate.request_approval(
             action="kill_session",
             context=mock_context,
             timeout_seconds=300,  # 5分钟
         )
+        approval_id = result.request_id if hasattr(result, "request_id") else result
 
         # 模拟超时场景
         start = time.time()

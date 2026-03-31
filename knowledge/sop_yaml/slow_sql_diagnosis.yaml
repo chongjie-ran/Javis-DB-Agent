@@ -1,0 +1,53 @@
+# 慢SQL诊断 SOP
+# 版本: 1.0
+# 来源: knowledge/sop/慢SQL分析.md
+# 用途: 诊断和优化慢SQL的标准操作流程
+
+sop_id: slow_sql_diagnosis
+name: 慢SQL诊断
+description: 诊断PostgreSQL慢SQL并给出优化建议
+version: "1.0"
+risk_level: 2
+timeout_seconds: 300
+
+steps:
+  - step_id: step_1
+    name: 收集SQL信息
+    description: 获取慢SQL文本和上下文信息
+    action: find_slow_queries
+    params:
+      instance_id: "{instance_id}"
+      limit: 10
+    timeout_seconds: 30
+    risk_level: 1
+    pre_check: check_instance_health
+
+  - step_id: step_2
+    name: 分析执行计划
+    description: 查看EXPLAIN输出，分析执行计划
+    action: explain_query
+    params:
+      sql_id: "{sql_id}"
+      instance_id: "{instance_id}"
+    timeout_seconds: 60
+    risk_level: 1
+
+  - step_id: step_3
+    name: 建议优化方案
+    description: 根据执行计划给出索引/SQL改写建议
+    action: suggest_index
+    params:
+      sql_id: "{sql_id}"
+      instance_id: "{instance_id}"
+    timeout_seconds: 30
+    risk_level: 1
+
+  - step_id: step_4
+    name: 评估影响
+    description: 评估优化方案的风险和影响范围
+    action: find_slow_queries
+    params:
+      instance_id: "{instance_id}"
+      limit: 5
+    timeout_seconds: 30
+    risk_level: 1

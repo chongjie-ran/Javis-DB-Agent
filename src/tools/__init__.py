@@ -59,6 +59,15 @@ from src.tools.alert_tools import (
     RootCauseAnalysisTool,
     PredictiveAlertTool,
 )
+from src.tools.postgres_tools import (
+    register_postgres_tools,
+    PGSessionAnalysisTool,
+    PGLockAnalysisTool,
+    PGReplicationStatusTool,
+    PGBloatAnalysisTool,
+    PGIndexAnalysisTool,
+    PGKillSessionTool,
+)
 
 
 def register_all_tools(registry):
@@ -71,6 +80,7 @@ def register_all_tools(registry):
     register_session_tools(registry)
     register_capacity_tools(registry)
     register_alert_tools(registry)
+    register_postgres_tools(registry)
     return registry
 
 
@@ -90,6 +100,7 @@ __all__ = [
     "QueryReplicationTool",
     "QueryAlertDetailTool",
     "QuerySQLPlanTool",
+    "QueryRelatedAlertsTool",
     # 执行工具
     "register_action_tools",
     "TriggerInspectionTool",
@@ -129,6 +140,14 @@ __all__ = [
     "AlertDeduplicationTool",
     "RootCauseAnalysisTool",
     "PredictiveAlertTool",
+    # PostgreSQL专用工具
+    "register_postgres_tools",
+    "PGSessionAnalysisTool",
+    "PGLockAnalysisTool",
+    "PGReplicationStatusTool",
+    "PGBloatAnalysisTool",
+    "PGIndexAnalysisTool",
+    "PGKillSessionTool",
     # 全量注册
     "register_all_tools",
 ]

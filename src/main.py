@@ -18,11 +18,13 @@ from src.api.wecom_routes import router as wecom_router
 from src.real_api.routers.knowledge import router as knowledge_router
 from src.api.dependency_routes import router as dependency_router, init_dependency_routes
 from src.api.knowledge_routes.evolution_routes import router as evolution_router
+from src.api.approval_routes import router as approval_router
 from src.api.metrics import setup_metrics_middleware, get_metrics
 from src.gateway.session import get_session_manager
 from src.gateway.tool_registry import get_tool_registry
 from src.gateway.policy_engine import get_policy_engine
 from src.gateway.audit import get_audit_logger
+from src.gateway.approval import ApprovalGate
 from src.tools.query_tools import register_query_tools
 from src.tools.analysis_tools import register_analysis_tools
 from src.tools.action_tools import register_action_tools
@@ -132,6 +134,8 @@ def create_app() -> FastAPI:
     app.include_router(knowledge_router)
     app.include_router(dependency_router)
     app.include_router(evolution_router)
+    app.include_router(approval_router, prefix="/api/v1")
+    app.state.approval_gate = ApprovalGate(timeout_seconds=300)
 
     # 设置指标中间件
     setup_metrics_middleware(app)

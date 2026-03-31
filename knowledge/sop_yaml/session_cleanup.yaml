@@ -1,0 +1,56 @@
+# 会话清理 SOP（连接数处理）
+# 版本: 1.0
+# 来源: knowledge/sop/连接数打满处理.md
+# 用途: 处理连接数耗尽场景，清理空闲会话
+
+sop_id: session_cleanup
+name: 会话清理
+description: 查找并清理PostgreSQL空闲会话，解决连接数打满问题
+version: "1.0"
+risk_level: 2
+timeout_seconds: 120
+
+steps:
+  - step_id: step_1
+    name: 查找空闲会话
+    description: 查找长时间空闲的会话（可安全清理）
+    action: find_idle_sessions
+    params:
+      instance_id: "{instance_id}"
+      state_filter: idle
+      limit: 20
+    timeout_seconds: 30
+    risk_level: 1
+    pre_check: check_instance_health
+
+  - step_id: step_2
+    name: 确认会话来源
+    description: 确认空闲会话的来源（用户名/机器/程序）
+    action: find_idle_sessions
+    params:
+      instance_id: "{instance_id}"
+      state_filter: idle
+      limit: 10
+    timeout_seconds: 30
+    risk_level: 1
+
+  - step_id: step_3
+    name: 终止空闲会话
+    description: 终止选定的空闲会话，释放连接
+    action: kill_session
+    params:
+      instance_id: "{instance_id}"
+      session_id: "{session_id}"
+    timeout_seconds: 30
+    risk_level: 2
+    require_approval: true
+
+  - step_id: step_4
+    name: 验证会话已清理
+    description: 验证目标会话已终止，连接数已下降
+    action: verify_session_gone
+    params:
+      instance_id: "{instance_id}"
+      session_id: "{session_id}"
+    timeout_seconds: 30
+    risk_level: 1

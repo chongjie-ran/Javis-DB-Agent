@@ -50,11 +50,11 @@ class SQLGuard:
     1. 空SQL检查
     2. 长度检查（防DoS）
     3. AST解析 + 危险检测（操作/函数/布尔注入/关键字）
-    4. 白名单模板匹配（危险检测通过后才检查）
-    5. DML边界检查（WHERE/LIMIT）
-    6. 高风险操作 → 需要审批
-    7. 敏感字段脱敏检查
-    8. 只读操作 → L1
+    4. 白名单模板匹配（危险检测通过后才检查白名单）
+    5. 只读操作检查（非白名单的只读命令如ANALYZE应使用L1）
+    6. DML边界检查（WHERE/LIMIT）
+    7. 高风险操作 → 需要审批
+    8. 敏感字段脱敏检查
     """
 
     # 危险操作（直接拒绝）
@@ -187,9 +187,11 @@ class SQLGuard:
 
         # 3e. 危险关键字检测（UNION等）
         warnings = self._check_dangerous_keywords(sql_stripped)
-        has_union_keyword = any("UNION" in w for w in warnings)
-        has_union_all = "UNION ALL" in sql_stripped.upper()
-        if has_union_keyword and not has_union_all:
+        sql_upper = sql_stripped.upper()
+        # 直接用count检测UNION（has_union_keyword永远是False的bug）
+        union_count = sql_upper.count("UNION")
+        union_all_count = sql_upper.count("UNION ALL")
+        if union_count > union_all_count:
             return SQLGuardResult(
                 status=SQLGuardStatus.DENIED,
                 allowed=False,
@@ -202,17 +204,35 @@ class SQLGuard:
             )
 
         # 4. 白名单模板匹配（危险检测通过后才检查白名单）
-        is_whitelisted, matched_template = self.template_registry.is_whitelisted(sql_stripped, db_type)
-        if is_whitelisted and matched_template:
+        # 非只读命令（如EXPLAIN ANALYZE）应跳过白名单，使用L2
+        # 先检测非只读命令模式，避免不必要的is_read_only调用
+        cmd_upper = sql_stripped.upper()
+        non_readonly_patterns = ("EXPLAIN ANALYZE", "SET ", "RESET ")
+        if not any(cmd_upper.startswith(p) for p in non_readonly_patterns):
+            is_whitelisted, matched_template = self.template_registry.is_whitelisted(sql_stripped, db_type)
+            if is_whitelisted and matched_template:
+                return SQLGuardResult(
+                    status=SQLGuardStatus.TEMPLATE_MATCHED,
+                    allowed=True,
+                    risk_level=matched_template.risk_level,
+                    warnings=warnings,
+                    matched_template=matched_template.name,
+                )
+
+        # 5. 只读操作检查（非白名单的只读命令如ANALYZE应使用L1）
+        if self.parser.is_read_only(sql_stripped, db_type):
             return SQLGuardResult(
-                status=SQLGuardStatus.TEMPLATE_MATCHED,
+                status=SQLGuardStatus.ALLOWED,
                 allowed=True,
-                risk_level=matched_template.risk_level,
+                risk_level="L1",
                 warnings=warnings,
-                matched_template=matched_template.name,
+                rewritten_sql=None,
+                tables_accessed=tables,
+                operations=operations,
+                ast_tree=ast_tree,
             )
 
-        # 5. DML边界检查（WHERE/LIMIT）
+        # 6. DML边界检查（WHERE/LIMIT）
         dml_violations = self._check_dml_bounds(sql_stripped, operations, db_type)
         if dml_violations:
             return SQLGuardResult(
@@ -226,7 +246,7 @@ class SQLGuard:
                 ast_tree=ast_tree,
             )
 
-        # 6. 高风险操作 → 需要审批
+        # 7. 高风险操作 → 需要审批
         high_risk = self._check_high_risk_operations(operations)
         if high_risk:
             return SQLGuardResult(
@@ -240,23 +260,10 @@ class SQLGuard:
                 ast_tree=ast_tree,
             )
 
-        # 7. 敏感字段脱敏检查
+        # 8. 敏感字段脱敏检查
         rewritten_sql = self._check_sensitive_fields(sql_stripped, db_type)
         if rewritten_sql != sql_stripped:
             warnings.append("SQL已重写（字段脱敏）")
-
-        # 8. 只读操作 → L1
-        if self.parser.is_read_only(sql_stripped, db_type):
-            return SQLGuardResult(
-                status=SQLGuardStatus.ALLOWED,
-                allowed=True,
-                risk_level="L1",
-                warnings=warnings,
-                rewritten_sql=rewritten_sql if rewritten_sql != sql_stripped else None,
-                tables_accessed=tables,
-                operations=operations,
-                ast_tree=ast_tree,
-            )
 
         # 默认：L2（诊断类操作）
         return SQLGuardResult(

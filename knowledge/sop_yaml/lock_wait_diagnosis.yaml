@@ -1,0 +1,51 @@
+# 锁等待诊断 SOP
+# 版本: 1.0
+# 来源: knowledge/sop/lock_wait排查.md
+# 用途: 诊断和解决PostgreSQL锁等待问题
+
+sop_id: lock_wait_diagnosis
+name: 锁等待诊断
+description: 诊断PostgreSQL锁等待和死锁情况，给出处理建议
+version: "1.0"
+risk_level: 3
+timeout_seconds: 180
+
+steps:
+  - step_id: step_1
+    name: 确认告警
+    description: 确认告警信息，记录时间和实例ID
+    action: find_blocking_sessions
+    params:
+      instance_id: "{instance_id}"
+    timeout_seconds: 30
+    risk_level: 1
+    pre_check: check_instance_health
+
+  - step_id: step_2
+    name: 收集锁等待信息
+    description: 查询锁等待链，查看阻塞者和被阻塞者
+    action: analyze_lock_chain
+    params:
+      instance_id: "{instance_id}"
+      include_graph: true
+    timeout_seconds: 60
+    risk_level: 1
+
+  - step_id: step_3
+    name: 评估影响
+    description: 评估阻塞会话数和对业务的影响，判断是否可自动处理
+    action: find_blocking_sessions
+    params:
+      instance_id: "{instance_id}"
+    timeout_seconds: 30
+    risk_level: 1
+
+  - step_id: step_4
+    name: 处理决策
+    description: L3及以下可自动处理，L4及以上需人工审批后执行kill
+    action: suggest_kill_blocker
+    params:
+      instance_id: "{instance_id}"
+    timeout_seconds: 30
+    risk_level: 3
+    require_approval: true

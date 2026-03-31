@@ -168,18 +168,27 @@ class ASTParser:
         if not ast_node:
             return False
 
-        # 只读操作类型（sqlglot 30.x：Explain → Command）
+        # 只读操作类型
         readonly_types = (
             exp.Select,
             exp.Show,
             exp.Subquery,
             exp.Table,
+            exp.Analyze,  # ANALYZE orders (PostgreSQL statistics collection)
         )
-        # Command类型中包含EXPLAIN/describe等
+
+        # Command类型需要按名称判断
         if isinstance(ast_node, exp.Command):
-            cmd_upper = ast_node.sql(dialect=self.DIALECT_MAP.get(dialect, "mysql")).upper()
-            if cmd_upper.startswith("EXPLAIN") or cmd_upper.startswith("DESCRIBE"):
+            cmd_upper = sql.strip().upper()
+            # 非只读命令（优先级最高，即使以只读命令开头也要排除）
+            non_readonly = {"EXPLAIN ANALYZE", "SET", "RESET"}
+            if any(cmd_upper.startswith(n) for n in non_readonly):
+                return False
+            # 只读命令
+            readonly_commands = {"EXPLAIN", "VACUUM", "ANALYZE"}
+            if any(cmd_upper.startswith(c) for c in readonly_commands):
                 return True
+
         return isinstance(ast_node, readonly_types)
 
     def get_subqueries(self, sql: str, dialect: str = "mysql") -> List[str]:

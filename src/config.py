@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     
     # 应用
     app_name: str = "Javis-DB-Agent"
-    app_version: str = "v1.0"
+    app_version: str = "2.1.0"
     debug: bool = False
     
     # LLM - Ollama

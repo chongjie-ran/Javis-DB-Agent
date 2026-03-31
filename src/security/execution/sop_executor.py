@@ -1,11 +1,38 @@
 """SOP执行器 - 标准操作流程自动执行"""
 import asyncio
+import logging
 import time
 import uuid
+import os
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
+# YAML SOP 加载器和 Action→Tool 映射器
+try:
+    from .yaml_sop_loader import YAMLSOPLoader
+    _HAS_YAML_LOADER = True
+except ImportError:
+    YAMLSOPLoader = None
+    _HAS_YAML_LOADER = False
+
+try:
+    from .action_tool_mapper import ActionToolMapper
+    _HAS_ACTION_MAPPER = True
+except ImportError:
+    ActionToolMapper = None
+    _HAS_ACTION_MAPPER = False
+
+# ApprovalGate
+try:
+    from ...gateway.approval import ApprovalGate
+    _HAS_APPROVAL_GATE = True
+except ImportError:
+    ApprovalGate = None
+    _HAS_APPROVAL_GATE = False
 
 
 class SOPStatus(Enum):
@@ -88,13 +115,56 @@ class SOPExecutor:
     - 回滚支持
     """
 
-    def __init__(self, tool_registry: Optional[object] = None):
+    def __init__(self, tool_registry: Optional[object] = None, action_mapper: Optional["ActionToolMapper"] = None, yaml_sop_dir: Optional[str] = None):
+        """
+        初始化 SOP 执行器。
+
+        Args:
+            tool_registry: 工具注册表，用于调用真实工具。
+                          若为 None，则使用 mock 行为（向后兼容）。
+            action_mapper: Action → Tool 名称映射器。
+                           若为 None，则自动创建默认实例。
+            yaml_sop_dir:  YAML SOP 文件目录。
+                          若为 None，则使用环境变量 JAVIS_SOP_YAML_DIR
+                          或默认路径 knowledge/sop_yaml/。
+        """
         self.tool_registry = tool_registry
+        self.action_mapper = ActionToolMapper() if (_HAS_ACTION_MAPPER and action_mapper is None) else action_mapper
+        self.yaml_sop_dir = yaml_sop_dir or os.environ.get("JAVIS_SOP_YAML_DIR", "")
         self._executions: Dict[str, SOPExecutionResult] = {}
         self._sops: Dict[str, dict] = self._load_default_sops()
 
     def _load_default_sops(self) -> Dict[str, dict]:
-        """加载默认SOP定义"""
+        """
+        加载默认 SOP 定义。
+
+        加载顺序（优先级从高到低）：
+        1. YAML SOP 文件（knowledge/sop_yaml/）
+        2. 硬编码 SOP（向后兼容 fallback）
+        """
+        sops = {}
+
+        # 1. 尝试从 YAML 目录加载
+        if _HAS_YAML_LOADER and self.yaml_sop_dir:
+            try:
+                loader = YAMLSOPLoader(sop_dir=self.yaml_sop_dir)
+                yaml_sops = loader.load_all()
+                if yaml_sops:
+                    sops.update(yaml_sops)
+            except Exception:
+                # YAML 加载失败不影响硬编码 SOP
+                pass
+
+        # 2. 硬编码 SOP（YAML 未覆盖时作为 fallback）
+        hardcoded = self._hardcoded_sops()
+        for key, sop in hardcoded.items():
+            if key not in sops:
+                sops[key] = sop
+
+        return sops
+
+    def _hardcoded_sops(self) -> Dict[str, dict]:
+        """硬编码 SOP 定义（YAML 加载失败时的 fallback）"""
         return {
             "refresh_stats": {
                 "id": "refresh_stats",
@@ -395,7 +465,7 @@ class SOPExecutor:
 
         # 审批检查
         if require_approval:
-            approved = await self._check_approval(action, resolved_params, context)
+            approved = await self._check_approval(step_def, resolved_params, context)
             if not approved:
                 result.status = SOPStepStatus.WAITING_APPROVAL
                 result.error = "等待审批"
@@ -443,14 +513,88 @@ class SOPExecutor:
 
     async def _check_approval(
         self,
-        action: str,
+        step_def: dict,
         params: dict,
         context: dict,
     ) -> bool:
-        """检查操作是否已审批（默认通过）"""
-        # 实际实现应该调用ApprovalGate
-        # 这里简化为总是返回True（测试用）
-        return True
+        """
+        检查操作是否已审批。
+
+        流程：
+        1. 若 risk_level 无需审批 → 直接放行
+        2. 若无 ApprovalGate 实例 → 降级放行（记录警告）
+        3. 有 ApprovalGate → 发起请求 → 同步等待结果（支持超时）
+
+        Args:
+            step_def: SOP步骤定义，包含 risk_level / action / step_id 等
+            params: 已解析的步骤参数
+            context: 执行上下文
+
+        Returns:
+            True: 审批通过
+            False: 审批拒绝 / 超时 / 未知错误
+        """
+        action = step_def.get("action", "")
+        risk_level = step_def.get("risk_level", 1)
+        if isinstance(risk_level, int):
+            risk_level = {1: "L3", 2: "L4", 3: "L5"}.get(risk_level, "L4")
+
+        # L3 及以下无需审批
+        if risk_level in ("L1", "L2", "L3", 1, 2):
+            return True
+
+        # 获取 ApprovalGate 实例
+        approval_gate = context.get("approval_gate")
+        if not approval_gate:
+            logger.warning(
+                f"[SECURITY] Approval required (risk={risk_level}) for action "
+                f"'{action}' but no ApprovalGate in context. Allowing with warning."
+            )
+            return True  # 降级放行
+
+        # 发起审批请求
+        try:
+            result = await approval_gate.request_approval(
+                step_def=step_def, params=params, context=context
+            )
+            if not result.success:
+                logger.warning(
+                    f"[SECURITY] Approval request failed: {result.error}"
+                )
+                return False
+            request_id = result.request_id
+        except Exception as e:
+            logger.error(
+                f"[SECURITY] Failed to request approval for '{action}': {e}"
+            )
+            return False
+
+        # 同步等待审批结果
+        logger.info(
+            f"[SECURITY] Waiting for approval: request_id={request_id} "
+            f"action={action} risk_level={risk_level}"
+        )
+        start_time = time.time()
+        while time.time() - start_time < approval_gate._timeout:
+            approved, reason = await approval_gate.check_approval_status(request_id)
+            if approved:
+                logger.info(
+                    f"[SECURITY] Approval granted: request_id={request_id} reason={reason}"
+                )
+                return True
+            if reason in ("rejected", "timeout"):
+                logger.info(
+                    f"[SECURITY] Approval denied: request_id={request_id} reason={reason}"
+                )
+                return False
+            await asyncio.sleep(1)
+
+        # 循环结束 = 超时
+        logger.warning(
+            f"[SECURITY] Approval timeout: request_id={request_id} "
+            f"elapsed={approval_gate._timeout}s"
+        )
+        return False
 
     async def _call_tool(
         self,
@@ -458,16 +602,35 @@ class SOPExecutor:
         params: dict,
         context: dict,
     ) -> Any:
-        """调用工具"""
-        # 如果有tool_registry，从注册表获取工具
+        """
+        调用工具
+
+        路由逻辑：
+        1. 若有 tool_registry：
+           a. 使用 action_mapper 将 SOP action 映射到工具名
+           b. 从 registry 获取工具并执行
+           c. 若工具未注册，抛出错误
+        2. 若无 tool_registry：
+           a. 检查是否为已知 mock action
+           b. 是 → 返回模拟结果（向后兼容）
+           c. 否 → 抛出 NotImplementedError
+        """
+        # 如果有tool_registry，从注册表获取工具（通过 action_mapper 路由）
         if self.tool_registry:
-            tool = self.tool_registry.get_tool(tool_name)
+            # 1. 解析 action → tool_name
+            if self.action_mapper:
+                resolved_tool_name = self.action_mapper.resolve(tool_name)
+            else:
+                resolved_tool_name = tool_name
+
+            # 2. 尝试从 registry 获取工具
+            tool = self.tool_registry.get_tool(resolved_tool_name or tool_name)
             if tool:
                 return await tool.execute(params, context)
             # 工具未注册 → 抛出错误
-            raise NotImplementedError(f"Unknown action: {tool_name}")
+            raise NotImplementedError(f"Tool not registered: {resolved_tool_name or tool_name}")
 
-        # 无registry时，检查是否为已知操作
+        # 无registry时，检查是否为已知操作（mock fallback）
         known_actions = {
             "execute_sql", "verify_stats_updated",
             "find_idle_sessions", "find_blocking_session", "kill_session",

@@ -4,6 +4,32 @@ All notable changes to the Javis-DB-Agent will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v2.1] - 2026-03-31
+
+### Added
+- **YAML SOP Loader** (src/security/execution/yaml_sop_loader.py) - 从YAML加载SOP定义
+- **Action→Tool Mapper** (src/security/execution/action_tool_mapper.py) - 22个action映射
+- **DirectPostgresConnector** (src/db/direct_postgres_connector.py) - asyncpg直连PG
+- **ApprovalGate** (src/gateway/approval.py) - 完整审批流（L4单签/L5双人）
+- **Approval Routes** (src/api/approval_routes.py) - REST审批API
+- **PGKillSessionTool** - L4高风险会话终止工具
+- **3个SOP迁移** - slow_sql_diagnosis, lock_wait_diagnosis, session_cleanup
+
+### Fixed
+- **UNION注入Bug** - 删除死代码，改用count检测
+- **is_read_only()** - 支持EXPLAIN/VACUUM/ANALYZE
+- **白名单正则** - 支持schema.table和带引号标识符
+- **pg_explain正则** - FORMAT子句可选
+- **BUG-001** - sop_id/step_id字段映射
+- **API注册** - approval_router未注册到main.py
+
+### Changed
+- **SOPExecutor** - 优先使用YAML SOP，硬编码fallback
+- **postgres_tools** - 支持直连和API适配器两种模式
+
+### Security
+- **ApprovalGate** - 高风险操作(L4/L5)必须审批
+
 ## [V1.4] - 2026-03-30
 
 ### Added
