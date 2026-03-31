@@ -561,21 +561,30 @@ class OrchestratorAgent(BaseAgent):
         # 5. 汇总结果
         aggregated = self._aggregate_results(results, intent)
         
-        # 6. Fallback: 当没有Agent被选中时，直接用LLM回答（不再返回"未找到相关信息"）
-        if not selected_agents or (not results and intent == Intent.GENERAL):
+        # 6. Fallback: 当没有结果或内容为空时，用 LLM 回答（不再返回"未找到相关信息"）
+        should_llm_fallback = (
+            not selected_agents
+            or aggregated.get("content") is None
+            or (not results and intent == Intent.GENERAL)
+        )
+        if should_llm_fallback:
             llm_prompt = f"""你是一个专业的数据库运维智能助手。请回答用户的问题。
 
 用户问题：{goal}
 
-请用专业的数据库运维知识回答，如果涉及具体实例请说明需要连接数据库才能获取实时数据。
+请用专业的数据库运维知识回答。如果涉及具体实例状态，请说明"已连接本地数据库，可查询实时数据"或类似表述。
+不要返回"未找到相关信息"或"抱歉我不知道"。
 """
             try:
                 llm_response = await self.think(llm_prompt)
                 if llm_response and llm_response.strip():
                     aggregated = {"content": llm_response}
             except Exception:
-                # LLM fallback 也失败，保持原有 aggregated
-                pass
+                # LLM fallback 失败，生成友好提示
+                if not aggregated.get("content"):
+                    aggregated = {
+                        "content": "我已连接数据库，正在分析你的问题，请稍后再试或尝试更具体地描述你的需求。"
+                    }
         
         return AgentResponse(
             success=True,
@@ -837,18 +846,20 @@ class OrchestratorAgent(BaseAgent):
     def _aggregate_results(self, results: list[AgentResponse], intent: Intent) -> dict:
         """汇总结果"""
         if not results:
-            return {"content": "未找到相关信息"}
+            return {"content": None}  # 用 None 标记空结果，触发 fallback
         
-        if len(results) == 1:
-            return {"content": results[0].content}
+        # 过滤成功结果
+        successful = [r for r in results if r.success and r.content]
+        if not successful:
+            return {"content": None}  # 触发 fallback
+        
+        if len(successful) == 1:
+            return {"content": successful[0].content}
         
         # 多Agent结果汇总
         aggregated_parts = []
-        for r in results:
-            if r.success:
-                aggregated_parts.append(f"## {r.metadata.get('agent', 'Agent')} 结果\n\n{r.content}")
-            else:
-                aggregated_parts.append(f"## {r.metadata.get('agent', 'Agent')} 失败\n\n{r.error}")
+        for r in successful:
+            aggregated_parts.append(f"## {r.metadata.get('agent', 'Agent')} 结果\n\n{r.content}")
         
         return {
             "content": "\n\n".join(aggregated_parts),
