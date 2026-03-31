@@ -1,6 +1,6 @@
 # Javis-DB-Agent - 数据库运维智能体系统
 
-> 版本：v1.0 | 日期：2026-03-28 | 状态：✅ Round 9 完成（90个新测试 + 329个回归测试通过）
+> 版本：v2.2 | 日期：2026-03-31 | 状态：✅ V2.2 Release（API prefix修复、ApprovalGate整理、文档完善）
 
 ---
 
@@ -19,6 +19,18 @@
 - 🔄 **Mock/Real切换** - 无缝切换模拟或真实API ⭐ Round 9
 - 🌐 **管理界面** - Web Dashboard，7个API路由 ⭐ Round 9
 - 🔐 **OAuth2认证** - API Key + OAuth2 认证支持 ⭐ Round 9
+
+---
+
+### V2.x 核心能力
+
+V2.0-V2.2迭代新增功能：
+- 🔒 **SQL AST护栏** - sqlglot解析，危险SQL检测，UNION注入防护
+- 📋 **YAML SOP Loader** - YAML格式SOP定义，支持结构化执行
+- 🔗 **Action→Tool映射** - 22个action映射到真实工具
+- 🗄️ **DirectPostgresConnector** - asyncpg直连PG，不依赖18081 API
+- ✅ **ApprovalGate** - L4单签/L5双人审批流
+- 📊 **真实DB验证** - 所有功能在真实PostgreSQL验证通过
 
 ---
 

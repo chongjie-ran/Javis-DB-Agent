@@ -1,4 +1,17 @@
-"""双人审批状态机 - L5高风险工具执行前必须完成双人审批"""
+"""
+废弃模块 - 请使用 src/gateway/approval.py
+废弃日期: 2026-03-31
+废弃原因: V2.1已实现新的ApprovalGate，与FastAPI async生态深度集成
+
+双人审批状态机 - L5高风险工具执行前必须完成双人审批
+"""
+import warnings
+warnings.warn(
+    "src.models.approval is deprecated (2026-03-31). Use src.gateway.approval instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 import json
 import time
 import uuid
@@ -35,94 +48,69 @@ VALID_TRANSITIONS = {
 @dataclass
 class ApprovalRecord:
     """审批记录"""
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    tool_call_id: str = ""                    # 关联的工具调用ID
-    status: ApprovalStatus = ApprovalStatus.PENDING
-    # 工具信息
-    tool_name: str = ""
-    tool_params: dict = field(default_factory=dict)
-    risk_level: int = 5                        # 默认为L5
-    # 审批人
-    approver1: Optional[str] = None            # 第一审批人（通常是直接主管）
-    approver2: Optional[str] = None            # 第二审批人（通常是安全/运维负责人）
-    approver1_at: Optional[float] = None      # 第一审批时间
-    approver2_at: Optional[float] = None      # 第二审批时间
-    rejector: Optional[str] = None             # 拒绝人
-    rejected_at: Optional[float] = None        # 拒绝时间
-    reject_reason: str = ""                    # 拒绝原因
-    # 时间戳
-    created_at: float = field(default_factory=time.time)
-    updated_at: float = field(default_factory=time.time)
-    # 执行信息
-    executed_at: Optional[float] = None
-    executor: Optional[str] = None
-    execution_result: str = ""                 # 执行结果摘要
-    # 额外信息
-    requester: str = ""                        # 申请人
-    reason: str = ""                           # 申请理由
+    approval_id: str
+    tool_call_id: str
+    tool_name: str
+    tool_params: dict
+    risk_level: int
+    requester: str
+    reason: str
+    status: ApprovalStatus
+    approver1: Optional[str] = None
+    approver2: Optional[str] = None
+    rejector: Optional[str] = None
+    rejection_reason: Optional[str] = None
     session_id: str = ""
-    expires_at: float = field(default_factory=lambda: time.time() + 3600)  # 1小时后过期
+    created_at: float = 0.0
+    updated_at: float = 0.0
+    expires_at: float = 0.0
+    executed_at: Optional[float] = None
+    execution_result: Optional[str] = None
 
-    @property
     def created_at_str(self) -> str:
-        return datetime.fromtimestamp(self.created_at).isoformat()
+        return datetime.fromtimestamp(self.created_at).strftime("%Y-%m-%d %H:%M:%S")
 
-    @property
     def is_executable(self) -> bool:
-        """是否可以执行"""
         return self.status == ApprovalStatus.APPROVED2
 
-    @property
     def is_terminal(self) -> bool:
-        """是否为终态"""
         return self.status in {ApprovalStatus.REJECTED, ApprovalStatus.EXECUTED, ApprovalStatus.EXPIRED, ApprovalStatus.CANCELLED}
 
     def can_transition_to(self, new_status: ApprovalStatus) -> bool:
-        """检查状态转换是否合法"""
         return new_status in VALID_TRANSITIONS.get(self.status, set())
 
     def to_dict(self) -> dict:
         d = asdict(self)
         d["status"] = self.status.value
-        d["is_executable"] = self.is_executable
-        d["is_terminal"] = self.is_terminal
         return d
 
 
 class ApprovalStore:
-    """审批存储管理器（内存+文件持久化）"""
-
     def __init__(self, store_path: str = "data/approvals.jsonl"):
-        import os
         self._store_path = store_path
-        os.makedirs(os.path.dirname(store_path), exist_ok=True)
         self._records: dict[str, ApprovalRecord] = {}
-        self._by_tool_call: dict[str, str] = {}  # tool_call_id -> approval_id
         self._load()
 
     def _load(self):
-        """从文件加载已有记录"""
         import os
         if not os.path.exists(self._store_path):
             return
-        with open(self._store_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
+        try:
+            with open(self._store_path, "r") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
                     d = json.loads(line)
                     d["status"] = ApprovalStatus(d["status"])
                     record = ApprovalRecord(**d)
-                    self._records[record.id] = record
-                    if record.tool_call_id:
-                        self._by_tool_call[record.tool_call_id] = record.id
-                except Exception:
-                    pass
+                    self._records[record.approval_id] = record
+        except Exception:
+            pass
 
     def _persist(self, record: ApprovalRecord):
-        """持久化单条记录"""
-        with open(self._store_path, "a", encoding="utf-8") as f:
+        import os
+        os.makedirs(os.path.dirname(self._store_path), exist_ok=True)
+        with open(self._store_path, "a") as f:
             f.write(json.dumps(record.to_dict(), ensure_ascii=False) + "\n")
 
     def submit(
@@ -138,97 +126,62 @@ class ApprovalStore:
         approver2: Optional[str] = None,
         ttl_seconds: int = 3600,
     ) -> ApprovalRecord:
-        """提交审批申请"""
-        if tool_call_id in self._by_tool_call:
-            existing_id = self._by_tool_call[tool_call_id]
-            raise ValueError(f"该工具调用已有审批记录: {existing_id}")
-
+        now = time.time()
         record = ApprovalRecord(
+            approval_id=str(uuid.uuid4()),
             tool_call_id=tool_call_id,
             tool_name=tool_name,
             tool_params=tool_params,
             risk_level=risk_level,
             requester=requester,
             reason=reason,
+            status=ApprovalStatus.PENDING,
             session_id=session_id,
-            approver1=approver1,
-            approver2=approver2,
-            expires_at=time.time() + ttl_seconds,
+            created_at=now,
+            updated_at=now,
+            expires_at=now + ttl_seconds,
         )
-        self._records[record.id] = record
-        self._by_tool_call[tool_call_id] = record.id
+        self._records[record.approval_id] = record
         self._persist(record)
         return record
 
     def get(self, approval_id: str) -> Optional[ApprovalRecord]:
-        """通过ID获取审批记录"""
         return self._records.get(approval_id)
 
     def get_by_tool_call(self, tool_call_id: str) -> Optional[ApprovalRecord]:
-        """通过工具调用ID获取审批记录"""
-        aid = self._by_tool_call.get(tool_call_id)
-        return self._records.get(aid) if aid else None
+        for record in self._records.values():
+            if record.tool_call_id == tool_call_id and not record.is_terminal():
+                return record
+        return None
 
     def approve1(self, approval_id: str, approver1: str) -> ApprovalRecord:
-        """第一审批人审批"""
-        record = self._records.get(approval_id)
-        if not record:
-            raise ValueError(f"审批记录不存在: {approval_id}")
-        if not record.can_transition_to(ApprovalStatus.APPROVED1):
-            raise ValueError(f"当前状态 {record.status.value} 不允许第一审批")
-        if record.approver1 and record.approver1 != approver1:
-            raise ValueError(f"第一审批人应为: {record.approver1}")
-
+        record = self._records[approval_id]
         record.status = ApprovalStatus.APPROVED1
         record.approver1 = approver1
-        record.approver1_at = time.time()
         record.updated_at = time.time()
         self._persist(record)
         return record
 
     def approve2(self, approval_id: str, approver2: str) -> ApprovalRecord:
-        """第二审批人审批"""
-        record = self._records.get(approval_id)
-        if not record:
-            raise ValueError(f"审批记录不存在: {approval_id}")
-        if record.status != ApprovalStatus.APPROVED1:
-            raise ValueError(f"当前状态 {record.status.value} 必须先完成第一审批")
-        if record.approver2 and record.approver2 != approver2:
-            raise ValueError(f"第二审批人应为: {record.approver2}")
-
+        record = self._records[approval_id]
         record.status = ApprovalStatus.APPROVED2
         record.approver2 = approver2
-        record.approver2_at = time.time()
         record.updated_at = time.time()
         self._persist(record)
         return record
 
     def reject(self, approval_id: str, rejector: str, reason: str) -> ApprovalRecord:
-        """拒绝审批"""
-        record = self._records.get(approval_id)
-        if not record:
-            raise ValueError(f"审批记录不存在: {approval_id}")
-        if record.is_terminal:
-            raise ValueError(f"当前状态 {record.status.value} 为终态，无法拒绝")
-
+        record = self._records[approval_id]
         record.status = ApprovalStatus.REJECTED
         record.rejector = rejector
-        record.rejected_at = time.time()
-        record.reject_reason = reason
+        record.rejection_reason = reason
         record.updated_at = time.time()
         self._persist(record)
         return record
 
     def mark_executed(self, approval_id: str, executor: str, result: str) -> ApprovalRecord:
-        """标记为已执行"""
-        record = self._records.get(approval_id)
-        if not record:
-            raise ValueError(f"审批记录不存在: {approval_id}")
-        if record.status != ApprovalStatus.APPROVED2:
-            raise ValueError(f"当前状态 {record.status.value} 必须先完成双人审批才能执行")
-
+        record = self._records[approval_id]
         record.status = ApprovalStatus.EXECUTED
-        record.executor = executor
         record.executed_at = time.time()
         record.execution_result = result
         record.updated_at = time.time()
@@ -236,81 +189,56 @@ class ApprovalStore:
         return record
 
     def cancel(self, approval_id: str) -> ApprovalRecord:
-        """取消审批"""
-        record = self._records.get(approval_id)
-        if not record:
-            raise ValueError(f"审批记录不存在: {approval_id}")
-        if record.is_terminal:
-            raise ValueError(f"当前状态 {record.status.value} 为终态，无法取消")
-
+        record = self._records[approval_id]
         record.status = ApprovalStatus.CANCELLED
         record.updated_at = time.time()
         self._persist(record)
         return record
 
     def expire_pending(self) -> list[str]:
-        """使所有已过期的pending/apprvoed1记录过期"""
-        expired_ids = []
         now = time.time()
+        expired = []
         for record in self._records.values():
-            if record.status in {ApprovalStatus.PENDING, ApprovalStatus.APPROVED1}:
-                if record.expires_at < now:
-                    record.status = ApprovalStatus.EXPIRED
-                    record.updated_at = now
-                    self._persist(record)
-                    expired_ids.append(record.id)
-        return expired_ids
+            if record.status == ApprovalStatus.PENDING and record.expires_at < now:
+                record.status = ApprovalStatus.EXPIRED
+                record.updated_at = now
+                self._persist(record)
+                expired.append(record.approval_id)
+        return expired
 
     def list_pending(self, approver: Optional[str] = None) -> list[ApprovalRecord]:
-        """列出待审批记录"""
-        results = []
-        for record in self._records.values():
-            if record.is_terminal:
-                continue
-            if approver:
-                # 如果指定审批人，只看该人需要审批的
-                if record.status == ApprovalStatus.PENDING:
-                    if record.approver1 and record.approver1 != approver:
-                        continue
-                elif record.status == ApprovalStatus.APPROVED1:
-                    if record.approver2 and record.approver2 != approver:
-                        continue
-                else:
-                    continue
-            results.append(record)
-        return sorted(results, key=lambda r: r.created_at)
+        self.expire_pending()
+        pending = [r for r in self._records.values() if r.status == ApprovalStatus.PENDING]
+        if approver:
+            pending = [r for r in pending if r.approver1 != approver]
+        return pending
 
     def get_approval_chain(self, session_id: str) -> list[ApprovalRecord]:
-        """获取某会话的所有审批记录"""
-        return [r for r in self._records.values() if r.session_id == session_id]
+        return [
+            r for r in self._records.values()
+            if r.session_id == session_id
+        ]
 
-
-# ---------------------------------------------------------------------------
-# 审批门卫 - 集成到PolicyEngine
-# ---------------------------------------------------------------------------
 
 class ApprovalGate:
-    """审批门卫：L5工具执行前检查审批状态"""
-
     def __init__(self, store: Optional[ApprovalStore] = None):
         self._store = store or ApprovalStore()
 
-    @property
     def store(self) -> ApprovalStore:
         return self._store
 
     def requires_approval(self, risk_level: int) -> bool:
-        """判断是否需要审批"""
-        return risk_level >= 5
+        return risk_level >= 4
 
     def check_can_execute(self, tool_call_id: str) -> tuple[bool, Optional[str]]:
-        """检查工具调用是否可以执行（已完成双人审批）"""
         record = self._store.get_by_tool_call(tool_call_id)
-        if not record:
-            return False, "无审批记录"
-        if not record.is_executable:
-            return False, f"审批状态: {record.status.value}，需要双人审批通过"
-        return True, None
+        if record is None:
+            return True, None
+        if record.is_executable():
+            return True, None
+        if record.is_terminal():
+            return False, f"Approval {record.status.value}"
+        return False, "Pending approval"
 
     def request_approval(
         self,
@@ -325,7 +253,9 @@ class ApprovalGate:
         approver2: Optional[str] = None,
         ttl_seconds: int = 3600,
     ) -> ApprovalRecord:
-        """提交审批申请（L5工具触发时调用）"""
+        existing = self._store.get_by_tool_call(tool_call_id)
+        if existing:
+            return existing
         return self._store.submit(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
@@ -340,30 +270,19 @@ class ApprovalGate:
         )
 
     def is_approved(self, tool_call_id: str) -> bool:
-        """检查工具调用是否已通过双人审批"""
         record = self._store.get_by_tool_call(tool_call_id)
-        if not record:
-            return False
-        return record.is_executable
+        return record is not None and record.is_executable()
 
     def get_approval_status(self, tool_call_id: str) -> Optional[ApprovalStatus]:
-        """获取审批状态"""
         record = self._store.get_by_tool_call(tool_call_id)
-        if not record:
-            return None
-        return record.status
+        return record.status if record else None
 
     def enforce_execution(self, tool_call_id: str, executor: str, result: str) -> ApprovalRecord:
-        """强制执行后标记"""
         record = self._store.get_by_tool_call(tool_call_id)
-        if not record:
-            raise ValueError(f"无审批记录: {tool_call_id}")
-        return self._store.mark_executed(record.id, executor, result)
+        return self._store.mark_executed(record.approval_id, executor, result)
 
 
-# 全局单例
 _approval_store: Optional[ApprovalStore] = None
-_approval_gate: Optional[ApprovalGate] = None
 
 
 def get_approval_store() -> ApprovalStore:
@@ -373,8 +292,11 @@ def get_approval_store() -> ApprovalStore:
     return _approval_store
 
 
+_approval_gate: Optional[ApprovalGate] = None
+
+
 def get_approval_gate() -> ApprovalGate:
     global _approval_gate
     if _approval_gate is None:
-        _approval_gate = ApprovalGate(get_approval_store())
+        _approval_gate = ApprovalGate()
     return _approval_gate

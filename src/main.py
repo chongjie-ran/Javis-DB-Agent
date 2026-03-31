@@ -67,9 +67,7 @@ async def lifespan(app: FastAPI):
     metrics.set_session_count(stats["total_sessions"])
 
     try:
-        from src.models.approval import get_approval_store
-        approval_store = get_approval_store()
-        pending = approval_store.list_pending()
+        pending = approval_gate.list_pending()
         metrics.set_approvals_pending(len(pending))
     except Exception:
         pass
@@ -98,6 +96,9 @@ def create_app() -> FastAPI:
 
     # 配置限速规则
     configure_rate_limits({})
+
+    # 创建V2.1 ApprovalGate（lifespan中会用到，需提前创建）
+    approval_gate = ApprovalGate(timeout_seconds=300)
 
     app = FastAPI(
         title=settings.app_name,
@@ -134,8 +135,8 @@ def create_app() -> FastAPI:
     app.include_router(knowledge_router)
     app.include_router(dependency_router)
     app.include_router(evolution_router)
-    app.include_router(approval_router, prefix="/api/v1")
-    app.state.approval_gate = ApprovalGate(timeout_seconds=300)
+    app.include_router(approval_router)
+    app.state.approval_gate = approval_gate
 
     # 设置指标中间件
     setup_metrics_middleware(app)

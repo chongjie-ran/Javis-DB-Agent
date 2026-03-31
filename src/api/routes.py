@@ -1,5 +1,5 @@
 """API路由"""
-from fastapi import APIRouter, HTTPException, Response, Depends
+from fastapi import APIRouter, HTTPException, Response, Depends, Request
 from src.security.rate_limit import rate_limit
 from src.api.schemas import (
     ChatRequest, ChatResponse,
@@ -279,7 +279,7 @@ async def health():
 # ============ Prometheus指标 ============
 
 @router.get("/metrics")
-async def metrics():
+async def metrics(request: Request):
     """
     Prometheus格式指标端点
     
@@ -305,9 +305,9 @@ async def metrics():
         pass
     # 同步待审批数
     try:
-        from src.models.approval import get_approval_store
-        approval_store = get_approval_store()
-        m.set_approvals_pending(len(approval_store.list_pending()))
+        gate = request.app.state.approval_gate
+        pending = gate.list_pending()
+        m.set_approvals_pending(len(pending))
     except Exception:
         pass
     # 同步策略版本
@@ -325,7 +325,7 @@ async def metrics():
 
 
 @router.get("/metrics/summary")
-async def metrics_summary():
+async def metrics_summary(request: Request):
     """指标摘要（JSON格式）"""
     m = get_metrics()
     try:
@@ -334,9 +334,9 @@ async def metrics_summary():
     except Exception:
         pass
     try:
-        from src.models.approval import get_approval_store
-        approval_store = get_approval_store()
-        m.set_approvals_pending(len(approval_store.list_pending()))
+        gate = request.app.state.approval_gate
+        pending = gate.list_pending()
+        m.set_approvals_pending(len(pending))
     except Exception:
         pass
     try:
@@ -345,7 +345,7 @@ async def metrics_summary():
         m.set_policy_version(pe.get_version())
     except Exception:
         pass
-    
+
     return APIResponse(data=m.get_summary())
 
 

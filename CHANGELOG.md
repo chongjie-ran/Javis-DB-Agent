@@ -30,6 +30,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Security
 - **ApprovalGate** - 高风险操作(L4/L5)必须审批
 
+## [v2.2] - 2026-03-31
+
+### Added
+- **docs/sop-yaml-format.md** - YAML SOP格式规范文档
+- **docs/approval-api.md** - ApprovalGate API文档
+
+### Fixed
+- **API prefix统一** - 所有API路由使用/api/v1/前缀
+- **ApprovalGate清理** - 移除冗余代码，修复pending审批列表
+
+### Docs
+- README.md V2.x新功能章节
+
 ## [V1.4] - 2026-03-30
 
 ### Added
