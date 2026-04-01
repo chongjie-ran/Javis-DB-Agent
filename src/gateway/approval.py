@@ -405,6 +405,15 @@ class ApprovalGate:
             return False
 
         request = self._requests[request_id]
+
+        # V2.7: 防止重复reject（幂等性）
+        if approver in request.approvers:
+            logger.info(
+                f"[ApprovalGate] duplicate reject ignored: "
+                f"request_id={request_id} approver={approver}"
+            )
+            return True
+
         request.status = ApprovalStatus.REJECTED
         request.approvers.append(approver)
         request.comments.append(reason or "")
