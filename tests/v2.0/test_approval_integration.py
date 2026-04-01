@@ -311,7 +311,7 @@ class TestApprovalGateUnit:
         # 等待超时
         await asyncio.sleep(1.6)
 
-        cleaned = fast_gate.cleanup_timeout()
+        cleaned = await fast_gate.cleanup_timeout()
         assert cleaned >= 1
 
         # 状态变为 TIMEOUT
@@ -753,7 +753,7 @@ class TestApprovalRoutes:
         assert status.status == ApprovalStatus.PENDING  # get_status 不修改内部状态
 
         # cleanup_timeout 才真正将状态改为 TIMEOUT
-        cleaned = fast_gate.cleanup_timeout()
+        cleaned = await fast_gate.cleanup_timeout()
         assert cleaned >= 1
         req = fast_gate.get_request(request_id)
         assert req.status == ApprovalStatus.TIMEOUT

@@ -110,7 +110,7 @@ class TestApprovalGatePendingFix:
         assert request_id in pending_ids_before, "过期请求应该在pending中（未自动清理）"
 
         # 调用 cleanup_timeout 清理过期请求
-        cleaned = gate.cleanup_timeout()
+        cleaned = await gate.cleanup_timeout()
         assert cleaned >= 1, "cleanup_timeout 应清理至少1个过期请求"
 
         # 清理后过期请求不在pending
