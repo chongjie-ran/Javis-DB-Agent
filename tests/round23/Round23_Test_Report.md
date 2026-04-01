@@ -1,176 +1,158 @@
-# V2.5 系统集成测试报告
+# V2.5 系统集成测试报告 — Round 23
 
-> 测试时间: 2026-03-31 21:30 GMT+8  
+> 测试时间: 2026-03-31 21:45 GMT+8  
 > 测试环境: macOS Darwin 25.3.0 (arm64), Python 3.14.3, pytest-9.0.2  
-> 测试文件: `tests/round23/test_v25_integration_tests.py`  
+> 测试文件: 
+> - `tests/round23/test_v25_integration_tests.py`（Mock 架构验证，91项）  
+> - `tests/round23/test_v25_real_integration.py`（**真实数据库直连，48项**）  
 > 测试人员: 真显 (测试者 Agent)
 
 ---
 
 ## 一、测试结果概览
 
+### 1.1 Mock 架构验证测试（test_v25_integration_tests.py）
+
 | 指标 | 数值 |
 |------|------|
 | 总测试数 | **91** |
 | **通过** | **91** |
-| **失败** | **0** |
-| **跳过** | **0** |
+| 失败 | 0 |
+| 跳过 | 0 |
+| **通过率** | **100%** |
+
+### 1.2 真实数据库集成测试（test_v25_real_integration.py）
+
+| 指标 | 数值 |
+|------|------|
+| 总测试数 | **48** |
+| **通过** | **48** |
+| 失败 | 0 |
+| 跳过 | 0 |
 | **通过率** | **100%** |
 
 ---
 
-## 二、测试覆盖范围
+## 二、真实数据库连接信息
 
-### 2.1 PostgreSQL 功能测试（PG-01~20）
-
-| 测试编号 | 测试内容 | 结果 |
-|----------|----------|------|
-| PG-01 | 端口扫描发现 PostgreSQL 实例 | ✅ |
-| PG-02 | PostgreSQL 版本识别 | ✅ |
-| PG-03 | get_db_connector 工厂函数 | ✅ |
-| PG-04 | 本地注册表纳管 | ✅ |
-| PG-05 | max_connections 获取 | ✅ |
-| PG-06 | 健康检查返回布尔值 | ✅ |
-| PG-07 | 会话列表字段完整性 | ✅ |
-| PG-08 | 锁列表识别 blocker（PID 1001） | ✅ |
-| PG-09 | wait_seconds 累积计算 | ✅ |
-| PG-10 | 容量与性能指标完整性 | ✅ |
-| PG-11 | 相同结构 SQL 验证结果一致（指纹等价性） | ✅ |
-| PG-12 | SELECT 识别为安全（L0/L1） | ✅ |
-| PG-13 | 危险 SQL（DROP/TRUNCATE/无WHERE DELETE）被拦截 | ✅ |
-| PG-14 | DELETE 带 WHERE → L4+（需审批） | ✅ |
-| PG-15 | BEGIN 事务被识别为 L4（需审批） | ✅ |
-| PG-16 | DiagnosticAgent 正确初始化 | ✅ |
-| PG-17 | 锁等待告警上下文（blocker_pid=1001） | ✅ |
-| PG-18 | AlertNode 告警关联节点构建 | ✅ |
-| PG-19 | 告警关联链 ROOT_CAUSE → SYMPTOM | ✅ |
-| PG-20 | 诊断路径输出格式 | ✅ |
-
-### 2.2 MySQL 功能测试（MY-01~15）
-
-| 测试编号 | 测试内容 | 结果 |
-|----------|----------|------|
-| MY-01 | 端口扫描发现 MySQL 实例 | ✅ |
-| MY-02 | MySQL 版本识别 | ✅ |
-| MY-03 | get_db_connector 工厂函数返回 MySQLConnector | ✅ |
-| MY-04 | MySQL 实例注册到本地注册表 | ✅ |
-| MY-05 | MySQL 会话 SID/Serial/Command 字段 | ✅ |
-| MY-06 | MySQL 健康检查 | ✅ |
-| MY-07 | 主库角色识别（role=primary） | ✅ |
-| MY-08 | 从库延迟检测（lag_seconds>0） | ✅ |
-| MY-09 | IO 使用率瓶颈识别（95%） | ✅ |
-| MY-10 | MySQL 容量指标 | ✅ |
-| MY-11 | MySQL 特有语法指纹生成 | ✅ |
-| MY-12 | LIMIT DELETE 被识别为 L4+ | ✅ |
-| MY-13 | 多语句（分号分隔）被拦截 | ✅ |
-| MY-14 | 批量 INSERT 允许（L2） | ✅ |
-| MY-15 | JOIN 查询可分析 | ✅ |
-
-### 2.3 端到端测试（基于故障案例）
-
-| 测试编号 | 案例 | 测试内容 | 结果 |
-|----------|------|----------|------|
-| E2E-01 | 2026-01-15 | 锁等待检测（1 blocker + 2 waiters） | ✅ |
-| E2E-02 | 2026-01-15 | 阻塞者 SQL 提取（8分钟长事务） | ✅ |
-| E2E-03 | 2026-01-15 | 等待链构建（waiters→blocker） | ✅ |
-| E2E-04 | 2026-01-15 | Kill 风险评估（未提交→可回滚→LOW） | ✅ |
-| E2E-05 | 2026-01-15 | DiagnosticAgent 处理锁等待告警 | ✅ |
-| E2E-06 | 2026-02-20 | 慢SQL数量超过阈值（127条>基线） | ✅ |
-| E2E-07 | 2026-02-20 | 统计信息过期识别（批次后6h+未ANALYZE） | ✅ |
-| E2E-08 | 2026-02-20 | SQL 模式识别（全表扫描/缺索引） | ✅ |
-| E2E-09 | 2026-02-20 | ANALYZE 建议输出 | ✅ |
-| E2E-10 | 2026-02-20 | SQL Guard 审计记录 | ✅ |
-| E2E-11 | 2026-03-10 | 从库延迟超过阈值（90s>30s） | ✅ |
-| E2E-12 | 2026-03-10 | IO 瓶颈识别（95%） | ✅ |
-| E2E-13 | 2026-03-10 | 大事务检测（lag_bytes~2.3GB） | ✅ |
-| E2E-14 | 2026-03-10 | 从库 Running=Yes 但延迟增长 | ✅ |
-| E2E-15 | 2026-03-10 | 缓解建议（减少从库读流量+分批） | ✅ |
-
-### 2.4 回归测试（V2.0-V2.4）
-
-| 测试编号 | 测试内容 | 结果 |
-|----------|----------|------|
-| REG-01 | 白名单 SQL 直接放行 | ✅ |
-| REG-02 | TRUNCATE 被 L5 拦截 | ✅ |
-| REG-03 | DROP TABLE 被 L5 拦截 | ✅ |
-| REG-04 | 无 WHERE DELETE 被拦截 | ✅ |
-| REG-05 | DELETE 带 WHERE → L4+（需审批） | ✅ |
-| REG-06 | UPDATE 带 WHERE → L4+（需审批） | ✅ |
-| REG-07 | SQL 注入（--注释）→ L1（模板匹配已知局限） | ✅ |
-| REG-08 | SELECT * → L1（模板匹配） | ✅ |
-| REG-09 | 空 SQL 被拒绝 | ✅ |
-| REG-10 | COPY 命令被识别为 L5 | ✅ |
-| REG-11 | L4 单签审批 → 通过 | ✅ |
-| REG-12 | L4 单签审批 → 拒绝 | ✅ |
-| REG-13 | L5 双签 → 两人均通过 | ✅ |
-| REG-14 | L5 双签 → 第一人拒绝即终止 | ✅ |
-| REG-15 | 审批超时自动拒绝 | ✅ |
-| REG-16 | ApprovalStatus 枚举值 | ✅ |
-| REG-17 | 无效 request_id 返回 False | ✅ |
-| REG-18 | 多步审批流程 | ✅ |
-| REG-19 | SOP 执行器超时中断 | ✅ |
-| REG-20 | SOP 步骤失败自动重试 | ✅ |
-| REG-21 | SOP 暂停后能恢复 | ✅ |
-| REG-22 | 步骤执行后反馈验证 | ✅ |
-| REG-23 | 批量步骤验证 | ✅ |
-| REG-24 | 偏离计划时检测并报警 | ✅ |
-| REG-25 | 超过最大重试次数后终止 | ✅ |
-
-### 2.5 Schema 捕获测试（SCH-01~05）
-
-| 测试编号 | 测试内容 | 结果 |
-|----------|----------|------|
-| SCH-01 | PostgreSQL schema 表列表 | ✅ |
-| SCH-02 | PostgreSQL schema 列定义 | ✅ |
-| SCH-03 | MySQL schema 表列表 | ✅ |
-| SCH-04 | MySQL schema 索引信息 | ✅ |
-| SCH-05 | 大表 schema 捕获超时保护 | ✅ |
-
-### 2.6 并发与边界条件测试（CON-01~10）
-
-| 测试编号 | 测试内容 | 结果 |
-|----------|----------|------|
-| CON-01 | 并发查询多个会话 | ✅ |
-| CON-02 | 并发查询锁信息 | ✅ |
-| CON-03 | 空会话列表返回空数组 | ✅ |
-| CON-04 | max_connections=0 边界处理 | ✅ |
-| CON-05 | wait_seconds 负值修正为 0 | ✅ |
-| CON-06 | 相同 SQL 验证结果稳定性 | ✅ |
-| CON-07 | 空格差异不影响风险等级 | ✅ |
-| CON-08 | 审批 request_id 全局唯一 | ✅ |
-| CON-09 | 快速 approve/reject 并发（最终状态确定） | ✅ |
-| CON-10 | 超长 SQL（>10KB）正确处理 | ✅ |
+| 数据库 | 连接参数 | 验证状态 |
+|--------|----------|----------|
+| PostgreSQL | `localhost:5432`, user=`chongjieran`, db=`postgres` | ✅ 可连接 |
+| MySQL | `127.0.0.1:3306`, user=`root`, password=`root` | ✅ 可连接 |
 
 ---
 
-## 三、已知行为说明
+## 三、真实数据库测试详情（test_v25_real_integration.py）
 
-以下行为经实测确认，属于 SQL Guard 当前实现的已知特性（非 Bug）：
+### 3.1 PostgreSQL 真实连接（PG-Real-01~18）
 
-| 场景 | 实际行为 | 说明 |
-|------|----------|------|
-| DELETE 带 WHERE | L4, denied | SQL Guard 将所有 DELETE 视为高风险 |
-| UPDATE 带 WHERE | L4, need_approval | UPDATE 需要审批 |
-| BEGIN 事务 | L4, denied | 事务语句需明确类型 |
-| SQL 注入（--注释） | L1, allowed | 模板匹配优先，注入检测为已知局限 |
-| COPY 命令 | L5, denied | 已加入危险操作列表（v2.0 Round2） |
+| 测试编号 | 测试内容 | 结果 |
+|----------|----------|------|
+| PG-Real-01 | PG 健康检查（SELECT 1） | ✅ |
+| PG-Real-02 | pg_stat_activity 返回会话列表 | ✅ |
+| PG-Real-03 | 会话字段完整性（pid/usename/state） | ✅ |
+| PG-Real-04 | 获取复制状态（role=primary/standby） | ✅ |
+| PG-Real-05 | 查询 pg_locks（返回 list） | ✅ |
+| PG-Real-06 | execute_sql 执行 SELECT | ✅ |
+| PG-Real-07 | 查询数据库大小（>0 bytes） | ✅ |
+| PG-Real-08 | 当前连接数 > 0 | ✅ |
+| PG-Real-09 | max_connections 配置读取 | ✅ |
+| PG-Real-10 | PostgreSQL 版本信息 | ✅ |
+| PG-Real-11 | DatabaseScanner 扫描 localhost:5432 | ✅ |
+| PG-Real-12 | DatabaseIdentifier 识别 PG 版本 | ✅ |
+| PG-Real-13 | get_db_connector(postgresql) 工厂函数 | ✅ |
+| PG-Real-14 | 列出 public schema 表 | ✅ |
+| PG-Real-15 | 列出索引信息 | ✅ |
+| PG-Real-16 | SQL Guard 校验真实 SQL | ✅ |
+| PG-Real-17 | SQL Guard 拦截危险 SQL | ✅ |
+| PG-Real-18 | pg_stat_statements 可用性检查 | ✅ |
+
+### 3.2 MySQL 真实连接（MySQL-Real-01~14）
+
+| 测试编号 | 测试内容 | 结果 |
+|----------|----------|------|
+| MySQL-Real-01 | MySQL 健康检查（SELECT 1） | ✅ |
+| MySQL-Real-02 | SHOW PROCESSLIST 返回结果 | ✅ |
+| MySQL-Real-03 | MySQL 版本（8.0.45） | ✅ |
+| MySQL-Real-04 | 列出所有数据库 | ✅ |
+| MySQL-Real-05 | max_connections 全局变量 | ✅ |
+| MySQL-Real-06 | Threads_connected 状态变量 | ✅ |
+| MySQL-Real-07 | performance_schema.data_locks 表结构 | ✅ |
+| MySQL-Real-08 | performance_schema.data_lock_waits 表结构 | ✅ |
+| MySQL-Real-09 | SHOW ENGINE INNODB STATUS | ✅ |
+| MySQL-Real-10 | SHOW SLAVE STATUS（无复制，返回空） | ✅ |
+| MySQL-Real-11 | DatabaseScanner 扫描 localhost:3306 | ✅ |
+| MySQL-Real-12 | get_db_connector(mysql) 工厂函数 | ✅ |
+| MySQL-Real-13 | SQL Guard 校验 MySQL 真实 SQL | ✅ |
+| MySQL-Real-14 | SQL Guard 拦截 MySQL 危险 SQL | ✅ |
+
+### 3.3 端到端场景（E2E-Real-01~06）
+
+| 测试编号 | 测试内容 | 结果 |
+|----------|----------|------|
+| E2E-Real-01 | PG 会话快照（pg_stat_activity） | ✅ |
+| E2E-Real-02 | PG 锁快照（pg_locks） | ✅ |
+| E2E-Real-03 | PG 复制状态快照 | ✅ |
+| E2E-Real-04 | PG 容量查询（数据库大小） | ✅ |
+| E2E-Real-05 | DiagnosticAgent + 真实 PG 数据 | ✅ |
+| E2E-Real-06 | 完整诊断工作流（会话→锁→复制→汇总） | ✅ |
+
+### 3.4 MySQL 真实场景（E2E-MySQL-01~03）
+
+| 测试编号 | 测试内容 | 结果 |
+|----------|----------|------|
+| E2E-MySQL-01 | MySQL 进程列表快照 | ✅ |
+| E2E-MySQL-02 | InnoDB 关键指标查询 | ✅ |
+| E2E-MySQL-03 | 完整 MySQL 健康检查工作流 | ✅ |
+
+### 3.5 回归测试（REG-Real-01~06）
+
+| 测试编号 | 测试内容 | 结果 |
+|----------|----------|------|
+| REG-Real-01 | SQL Guard 保护 PG 元数据查询 | ✅ |
+| REG-Real-02 | SQL Guard 保护 MySQL 元数据查询 | ✅ |
+| REG-Real-03 | ApprovalGate 单签审批流程（真实） | ✅ |
+| REG-Real-04 | ApprovalGate 拒绝流程 | ✅ |
+| REG-Real-05 | DiagnosticAgent + 真实 PG 数据（回归） | ✅ |
+| REG-Real-06 | SQLAnalyzerAgent 分析真实 SQL | ✅ |
 
 ---
 
 ## 四、验收结论
 
-✅ **V2.5 所有测试用例通过**  
-✅ **PostgreSQL 功能验证完整**（20项）  
-✅ **MySQL 功能验证完整**（15项）  
-✅ **端到端场景验证完整**（15项，基于3个故障案例）  
-✅ **回归测试通过**（25项，SQL护栏+ApprovalGate+SOP执行器）  
-✅ **无回归问题**
+| 验收项 | 状态 |
+|--------|------|
+| 所有测试用例通过 | ✅ 139/139 |
+| PostgreSQL 真实数据库直连验证 | ✅ 18项 |
+| MySQL 真实数据库直连验证 | ✅ 14项 |
+| 端到端场景（PG + MySQL） | ✅ 9项 |
+| 回归测试（SQL护栏/ApprovalGate/DiagnosticAgent） | ✅ 6项 |
+| 无回归问题 | ✅ |
 
 ---
 
-## 五、测试用例文件
+## 五、测试文件清单
 
-- 主测试文件: `tests/round23/test_v25_integration_tests.py`
-- 报告文件: `tests/round23/Round23_Test_Report.md`
-- 总测试数: 91
-- 通过率: 100%
+| 文件 | 用途 | 测试数 |
+|------|------|--------|
+| `tests/round23/test_v25_integration_tests.py` | Mock 架构验证（接口契约测试） | 91 |
+| `tests/round23/test_v25_real_integration.py` | 真实数据库直连测试 | 48 |
+| `tests/round23/Round23_Test_Report.md` | 本报告 | — |
+
+---
+
+## 六、关键技术说明
+
+### 6.1 PostgreSQL 真实连接
+- **连接器**: `DirectPostgresConnector`（使用 `asyncpg` 异步驱动）
+- **查询表**: `pg_stat_activity`, `pg_locks`, `pg_stat_replication`
+- **用户**: `chongjieran`（无密码，peer 认证）
+
+### 6.2 MySQL 真实连接
+- **驱动**: `pymysql`（同步驱动）
+- **查询**: `SHOW PROCESSLIST`, `performance_schema.data_locks`, `SHOW ENGINE INNODB STATUS`
+- **注意**: 无复制环境，`SHOW SLAVE STATUS` 返回空元组（正常行为）
+
+### 6.3 Mock 与真实测试的关系
+- **Mock 测试**（test_v25_integration_tests.py）：验证接口契约、数据结构、逻辑正确性，不依赖外部服务
+- **真实测试**（test_v25_real_integration.py）：验证真实数据库连接、SQL 执行、权限等实际环境
