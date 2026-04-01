@@ -131,13 +131,15 @@ class TestRejectIdempotency:
         await gate.approve(request_id, "admin1", "ok")
         assert gate.get_request(request_id).status == ApprovalStatus.PENDING  # L5需要两人
 
-        # 重新建一个测试
+        # 重新建一个测试（用不同 params 确保不同 request_id）
         result2 = await gate.request_approval(
             action="delete_data",
             context={"user_id": "user1", "risk_level": 3},  # L5
-            params={"statement": "DELETE FROM table"},
+            params={"statement": "DELETE FROM users WHERE id=1"},  # 不同 params → 不同 hash
         )
         request_id2 = result2.request_id
+        # 确认 request_id2 != request_id（不同 params 产生不同 hash）
+        assert request_id2 != request_id, "params 太相似导致 hash 碰撞，请修改 params"
 
         # 先reject
         await gate.reject(request_id2, "admin", "too risky")
