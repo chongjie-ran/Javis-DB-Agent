@@ -278,6 +278,17 @@ class ApprovalGate:
                 request.status.value,
             )
 
+        # P0: 参数漂移校验 - 审批通过前验证参数未被篡改
+        current_params_hash = hashlib.sha256(str(sorted(request.params.items())).encode()).hexdigest()
+        if current_params_hash != request.params_hash:
+            logger.warning(
+                f"[ApprovalGate] params_drifted: request_id={request_id} "
+                f"stored={request.params_hash[:16]}... current={current_params_hash[:16]}..."
+            )
+            request.status = ApprovalStatus.REJECTED
+            self._events[request_id].set()
+            return False, "params_drifted"
+
         # 等待事件触发（由 approve/reject/timeout 设置）
         event = self._events[request_id]
         timeout = self._timeout
@@ -289,6 +300,14 @@ class ApprovalGate:
                 f"[ApprovalGate] TIMEOUT: request_id={request_id} elapsed={timeout}s"
             )
             return False, "timeout"
+
+        # P0: 审批完成后再次校验参数（防止审批期间参数被篡改）
+        current_params_hash = hashlib.sha256(str(sorted(request.params.items())).encode()).hexdigest()
+        if current_params_hash != request.params_hash:
+            logger.warning(
+                f"[ApprovalGate] params_drifted after approval: request_id={request_id}"
+            )
+            return False, "params_drifted"
 
         return (
             request.status == ApprovalStatus.APPROVED,
