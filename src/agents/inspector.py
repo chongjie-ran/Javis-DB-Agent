@@ -195,8 +195,11 @@ class InspectorAgent(BaseAgent):
             else:
                 # 直接是 dict (mysql_health)
                 lines.append(f"\n=== MYSQL ===")
-                for k, v in tool_results.get("mysql", {}).items():
-                    lines.append(f"  {k}: {v}")
+                if isinstance(result, dict):
+                    for k, v in result.items():
+                        lines.append(f"  {k}: {v}")
+                else:
+                    lines.append(f"  {result}")
         
         if not lines:
             return "（无可用数据，请检查数据库连接）"

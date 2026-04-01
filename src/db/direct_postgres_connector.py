@@ -32,6 +32,8 @@ class DirectPostgresConnector:
             "database": database,
             "min_size": 1,
             "max_size": 10,
+            "command_timeout": 30.0,  # SQL执行超时30s
+            "timeout": 10.0,         # 连接建立超时10s
         }
         self._pool: Optional[asyncpg.Pool] = None
 
