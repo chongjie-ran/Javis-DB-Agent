@@ -352,7 +352,7 @@ main() {
 
     echo ""
     echo "================================================"
-    echo "  Javis-DB-Agent 跨平台安装脚本 v1.3.1"
+    echo "  Javis-DB-Agent 跨平台安装脚本 v2.7"
     echo "  支持: Ubuntu 22+, CentOS 7+, RHEL 7+, macOS"
     echo "================================================"
     echo ""

@@ -4,23 +4,37 @@ All notable changes to the Javis-DB-Agent will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v2.7] - 2026-04-01
+
+### Added
+- **Webhook/Callback审批通知** - src/gateway/approval.py
+  - Event-based等待机制替代2秒轮询
+  - POST /api/v1/approvals/webhook 回调接口
+  - HMAC签名验证 + IP白名单安全防护
+
+### Fixed
+- **P0: Webhook安全漏洞** - 添加认证防止绕过审批
+
+## [v2.6.1] - 2026-04-01
+
+### Added
+- **Token TTL机制** - src/gateway/approval.py
+  - ApprovalToken增加params_hash + expires_at
+  - 双重校验：TTL过期 + 参数漂移检测
+- **Hook MODIFY动作** - src/gateway/hooks/rule_engine.py
+  - 5种修改操作：REPLACE/REDACT/ADD/REMOVE/CLAMP
+
 ## [v2.6] - 2026-04-01
 
 ### Added
-- **F1: Hook事件驱动系统** - src/gateway/hooks/ (6个文件)
-  - HookEngine, HookRegistry, RuleEngine, HookEvent (14种事件)
-  - async/sync 双模式支持
-- **F2: 并行Agent执行引擎** - src/agents/executor/ (4个文件)
-  - ParallelAgentExecutor, ResultAggregator, ConfidenceCalculator
-  - 6种Intent并行策略 + 11种串行策略
+- **F1: Hook事件驱动系统** - src/gateway/hooks/
+- **F2: 并行Agent执行引擎** - src/agents/executor/
 - **F3: SafetyGuardRail** - src/security/guard_rail.py
-  - 不可绕过审批门卫，L4/L5强制审批
-- **F4: 可观测性框架** - src/observability/ (4个文件)
-  - Tracer (OpenTelemetry), Metrics (Prometheus), Logger (JSON Lines)
+- **F4: 可观测性框架** - src/observability/
 
 ### Fixed
-- **P1: ReDoS防护** - HookCondition正则编译缓存
-- **P1: 线程安全** - 全局单例threading.Lock保护
+- **P1: ReDoS防护** - 正则编译缓存
+- **P1: 线程安全** - threading.Lock保护
 
 ## [v2.5] - 2026-04-01
 

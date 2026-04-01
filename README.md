@@ -1,6 +1,6 @@
 # Javis-DB-Agent - 数据库运维智能体系统
 
-> 版本：v2.2 | 日期：2026-03-31 | 状态：✅ V2.2 Release（API prefix修复、ApprovalGate整理、文档完善）
+> 版本：v2.7 | 日期：2026-04-01 | 状态：✅ V2.7 Release（Webhook审批通知、HMAC签名、Token TTL、Hook MODIFY）
 
 ---
 
@@ -24,13 +24,20 @@
 
 ### V2.x 核心能力
 
-V2.0-V2.2迭代新增功能：
+V2.0-V2.7 迭代新增功能：
 - 🔒 **SQL AST护栏** - sqlglot解析，危险SQL检测，UNION注入防护
 - 📋 **YAML SOP Loader** - YAML格式SOP定义，支持结构化执行
 - 🔗 **Action→Tool映射** - 22个action映射到真实工具
 - 🗄️ **DirectPostgresConnector** - asyncpg直连PG，不依赖18081 API
 - ✅ **ApprovalGate** - L4单签/L5双人审批流
 - 📊 **真实DB验证** - 所有功能在真实PostgreSQL验证通过
+- 🔗 **Hook事件驱动** - 14种HookEvent枚举，async/sync双模式
+- ⚡ **并行Agent引擎** - 6种Intent并行策略，置信度加权聚合
+- 🛡️ **SafetyGuardRail** - 不可绕过审批门卫，L4/L5强制审批
+- 📐 **可观测性框架** - Tracer/Metrics/Logger 全套
+- ⏱️ **Token TTL机制** - params_hash漂移检测 + expires_at过期控制
+- 🪝 **Hook MODIFY动作** - 5种操作：REPLACE/REDACT/ADD/REMOVE/CLAMP
+- 🌐 **Webhook审批通知** - HMAC-SHA256签名 + IP白名单 + Replay防护
 
 ---
 
@@ -178,12 +185,15 @@ python3 -m pytest tests/round9/ -v
 
 ## 迭代历史
 
-| 轮次 | 完成时间 | 核心成果 | 测试数 |
+| 版本 | 完成时间 | 核心成果 | 测试数 |
 |------|----------|----------|--------|
-| Round 2 | 2026-03-28 | 知识库扩展、6个工具实现、Mock API | 26 |
-| Round 3 | 2026-03-28 | 告警关联推理链、Session持久化、错误注入 | 98 |
-| Round 4 | 2026-03-28 | 70/70端到端测试通过、性能基线验证 | 70 |
+| V2.7 | 2026-04-01 | Webhook审批通知、HMAC签名、IP白名单、Replay防护 | 38 |
+| V2.6.1 | 2026-04-01 | Token TTL、Hook MODIFY、后台自动清理 | 56 |
+| V2.6 | 2026-04-01 | Hook事件驱动、并行引擎、SafetyGuardRail、可观测性 | - |
 | Round 9 | 2026-03-28 | RealClient、OAuth2、管理界面、API切换 | 90 |
+| Round 4 | 2026-03-28 | 70/70端到端测试通过、性能基线验证 | 70 |
+| Round 3 | 2026-03-28 | 告警关联推理链、Session持久化、错误注入 | 98 |
+| Round 2 | 2026-03-28 | 知识库扩展、6个工具实现、Mock API | 26 |
 
 ---
 
@@ -205,8 +215,9 @@ python3 -m pytest tests/round9/ -v
 
 1. ~~接入真实 Javis-DB-Agent API（替换 Mock）~~ ✅ Round 9 完成
 2. ~~前端界面开发~~ ✅ Round 9 完成
-3. 修复 OAuth2Provider.refresh_token() 实现（P0）
-4. 生产环境部署验证
+3. ~~Webhook审批通知 + HMAC签名~~ ✅ V2.7 完成
+4. ~~Token TTL + Hook MODIFY~~ ✅ V2.6.1 完成
+5. 生产环境部署验证
 
 ---
 
