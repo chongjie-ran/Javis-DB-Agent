@@ -137,7 +137,7 @@ class PersistentSessionManager:
     使用SQLite存储会话数据，支持重启后恢复
     """
     
-    _lock = threading.Lock()  # 类级别的锁
+    _lock = threading.RLock()  # 类级别的可重入锁（支持同一线程重复获取）
     
     def __init__(
         self,
@@ -164,6 +164,39 @@ class PersistentSessionManager:
         # 内存缓存（用于快速访问）
         self._cache: dict[str, Session] = {}
         self._user_sessions: dict[str, list[str]] = defaultdict(list)
+        
+        # 后台自动清理机制
+        self._cleanup_thread_running = False
+        self._cleanup_thread = None
+    
+    def _start_cleanup_thread(self, interval_seconds: int = 300):
+        """启动后台自动清理线程
+        
+        Args:
+            interval_seconds: 清理间隔（秒），默认5分钟
+        """
+        if self._cleanup_thread_running:
+            return
+        
+        def cleanup_loop():
+            while self._cleanup_thread_running:
+                time.sleep(interval_seconds)
+                if self._cleanup_thread_running:
+                    try:
+                        self._cleanup_expired()
+                    except Exception:
+                        pass  # 静默处理清理中的异常
+        
+        self._cleanup_thread_running = True
+        self._cleanup_thread = threading.Thread(target=cleanup_loop, daemon=True)
+        self._cleanup_thread.start()
+    
+    def _stop_cleanup_thread(self):
+        """停止后台自动清理线程"""
+        self._cleanup_thread_running = False
+        if self._cleanup_thread:
+            self._cleanup_thread.join(timeout=2)
+            self._cleanup_thread = None
     
     def _ensure_db(self):
         """确保数据库和表存在"""
@@ -262,6 +295,14 @@ class PersistentSessionManager:
                     conn.execute("DELETE FROM sessions WHERE session_id = ?", (old_sid,))
                     conn.commit()
             
+            # 限制总会话数（LRU淘汰）- 在添加新会话后执行
+            while len(self._cache) > self.max_sessions:
+                oldest_sid = min(
+                    self._cache.keys(),
+                    key=lambda s: self._cache[s].updated_at,
+                )
+                self.delete_session(oldest_sid)
+            
             return session
     
     def get_session(self, session_id: str) -> Optional[Session]:
@@ -277,11 +318,29 @@ class PersistentSessionManager:
         # 先检查缓存
         if session_id in self._cache:
             session = self._cache[session_id]
-            # 检查是否过期
+            # 检查是否过期（基于缓存的 updated_at）
             if time.time() - session.updated_at < self.ttl_seconds:
+                # 缓存未过期，验证 DB 中的 updated_at 是否更新（可能 DB 中已过期）
+                with self._get_conn() as conn:
+                    row = conn.execute(
+                        "SELECT updated_at FROM sessions WHERE session_id = ?",
+                        (session_id,),
+                    ).fetchone()
+                    
+                    if row:
+                        db_updated_at = row["updated_at"]
+                        # 如果 DB 中的 updated_at 比缓存的旧，说明 DB 中已过期
+                        if db_updated_at < session.updated_at:
+                            # DB 中会话已过期，从缓存和 DB 删除
+                            self._cache.pop(session_id, None)
+                            self._user_sessions[session.user_id].remove(session_id)
+                            conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+                            conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+                            conn.commit()
+                            return None
                 return session
             else:
-                # 已过期，从缓存和数据库删除
+                # 缓存已过期，从缓存和数据库删除
                 self._cache.pop(session_id, None)
                 self._user_sessions[session.user_id].remove(session_id)
                 # 直接从数据库删除，不调用 delete_session（避免不必要的缓存操作）
@@ -552,11 +611,24 @@ class PersistentSessionManager:
     
     def cleanup_all(self):
         """清理所有会话"""
+        # 先停止后台清理线程
+        self._stop_cleanup_thread()
+        
         with self._lock:
             with self._get_conn() as conn:
-                conn.execute("DELETE FROM messages")
-                conn.execute("DELETE FROM sessions")
-                conn.commit()
+                # 安全删除，只在表存在时删除
+                try:
+                    conn.execute("DELETE FROM messages")
+                except sqlite3.OperationalError:
+                    pass  # 表不存在，跳过
+                try:
+                    conn.execute("DELETE FROM sessions")
+                except sqlite3.OperationalError:
+                    pass  # 表不存在，跳过
+                try:
+                    conn.commit()
+                except sqlite3.OperationalError:
+                    pass
             
             self._cache.clear()
             self._user_sessions.clear()

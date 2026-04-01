@@ -143,3 +143,9 @@ def get_hook_registry() -> HookRegistry:
     if _registry is None:
         _registry = HookRegistry()
     return _registry
+
+
+def reset_hook_registry() -> None:
+    """Reset the global hook registry (for test isolation)."""
+    global _registry
+    _registry = None

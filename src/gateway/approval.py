@@ -373,6 +373,15 @@ class ApprovalGate:
 
         request = self._requests[request_id]
 
+        # V2.6.1 DFX Fix: 不能审批已拒绝或已超时的请求
+        if request.status == ApprovalStatus.REJECTED:
+            logger.warning(f"[ApprovalGate] approve: request already rejected, request_id={request_id}")
+            return False
+
+        if request.status == ApprovalStatus.TIMEOUT:
+            logger.warning(f"[ApprovalGate] approve: request already timed out, request_id={request_id}")
+            return False
+
         # 防止重复审批
         if approver in request.approvers:
             logger.info(
