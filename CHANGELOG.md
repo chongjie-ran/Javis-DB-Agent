@@ -10,10 +10,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Inspector真实DB连接器** - InspectorAgent识别并使用context.pg_connector直连数据库
 - **DirectPostgresConnector** - asyncpg直连PostgreSQL连接器，支持连接池管理
 - **Orchestrator LLM Fallback优化** - 主LLM失败时智能降级到备用响应
+- **Ollama qwen3.5:35b集成** - 支持本地部署LLM模型
+- **Round26测试** - 41个测试用例覆盖v2.5新功能
 
 ### Fixed
 - **连接器识别** - Inspector正确识别pg_connector/db_connector并传递上下文
 - **fallback触发逻辑** - 超时/异常/空结果时正确触发fallback机制
+- **scanner** - proc.net_connections 替代已废弃的 proc.connections
+- **qwen3.5:35b兼容** - thinking字段输出兼容处理
+
+## [v2.4] - 2026-03-31
+
+### Added
+- **数据库发现模块** - 自动发现并注册数据库实例
+- **PostgreSQL发现** - 数据库扫描器支持PostgreSQL
+- **MySQL发现** - aiomysql支持MySQL发现
+
+## [v2.3] - 2026-03-31
+
+### Added
+- **ApprovalGate迁移** - adapter + policy_engine架构
+- **分布式修复** - ApprovalGate分布式场景修复
+- **V2.3产品手册** - 完整功能使用说明书
+- **部署指南** - 详细部署文档
+
+### Fixed
+- **ApprovalGate回归** - singleton accessor和record.id修复
 
 ## [v2.1] - 2026-03-31
 
