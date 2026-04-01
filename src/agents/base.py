@@ -8,6 +8,8 @@ from src.llm.ollama_client import get_ollama_client, OllamaClient
 from src.gateway.tool_registry import get_tool_registry, ToolRegistry
 from src.gateway.policy_engine import get_policy_engine, PolicyEngine, PolicyContext, PolicyResult
 from src.gateway.audit import get_audit_logger, AuditLogger, AuditAction
+from src.gateway.hooks import HookEvent, emit_hook, get_hook_engine
+from src.security.guard_rail import get_safety_guard_rail, ApprovalRequiredError
 from src.tools.base import BaseTool, ToolResult, RiskLevel
 
 
@@ -90,11 +92,11 @@ class BaseAgent(ABC):
         params: dict,
         context: dict
     ) -> ToolResult:
-        """调用工具（经过策略检查）"""
+        """调用工具（经过策略检查、Hook 事件、安全护栏）"""
         start_time = time.time()
         user_id = context.get("user_id", "")
         session_id = context.get("session_id", "")
-        
+
         tool = self._registry.get_tool(tool_name)
         if not tool:
             return ToolResult(
@@ -102,12 +104,12 @@ class BaseAgent(ABC):
                 error=f"工具不存在: {tool_name}",
                 tool_name=tool_name
             )
-        
+
         # 参数校验
         valid, err = tool.validate_params(params)
         if not valid:
             return ToolResult(success=False, error=err, tool_name=tool_name)
-        
+
         # 策略检查
         risk_level = tool.get_risk_level()
         policy_ctx = PolicyContext(
@@ -115,7 +117,7 @@ class BaseAgent(ABC):
             session_id=session_id
         )
         policy_result = self._policy.check(policy_ctx, f"tool.{tool_name}", risk_level)
-        
+
         self._audit.log_action(
             AuditAction.TOOL_CALL,
             user_id=user_id,
@@ -126,14 +128,14 @@ class BaseAgent(ABC):
             result="policy_pass" if policy_result.allowed else "denied",
             metadata={"approval_required": policy_result.approval_required}
         )
-        
+
         if not policy_result.allowed:
             return ToolResult(
                 success=False,
                 error=f"权限不足: {policy_result.reason}",
                 tool_name=tool_name
             )
-        
+
         # L5高风险工具：检查审批状态
         tool_call_id = f"call_{tool_name}_{user_id}_{int(start_time * 1000)}"
         if risk_level == RiskLevel.L5_HIGH:
@@ -153,18 +155,64 @@ class BaseAgent(ABC):
                         error=f"L5高风险工具 [{tool_name}] 审批状态: {status.value}，需双人审批通过",
                         tool_name=tool_name
                     )
-        
+
+        # ── F1: Hook TOOL_BEFORE_EXECUTE ──────────────────────────────────
+        hook_context = context.copy()
+        hook_context["params"] = params
+        before_hook = await emit_hook(
+            HookEvent.TOOL_BEFORE_EXECUTE,
+            payload={
+                "tool_name": tool_name,
+                "params": params,
+                "risk_level": risk_level.value if isinstance(risk_level, RiskLevel) else risk_level,
+                "policy_allowed": policy_result.allowed,
+            },
+            session_id=session_id,
+            user_id=user_id,
+        )
+        if before_hook.blocked:
+            self._audit.log_action(
+                AuditAction.TOOL_CALL,
+                user_id=user_id,
+                session_id=session_id,
+                tool_name=tool_name,
+                risk_level=str(risk_level),
+                result="hook_blocked",
+                metadata={"blocked_reason": before_hook.message},
+            )
+            return ToolResult(
+                success=False,
+                error=f"Hook 拦截: {before_hook.message}",
+                tool_name=tool_name
+            )
+
+        # ── F3: SafetyGuardRail 强制审批检查（不可绕过）────────────────────
+        try:
+            guard_rail = get_safety_guard_rail()
+            await guard_rail.enforce(
+                tool_name=tool_name,
+                risk_level=risk_level,
+                context=context,
+                timeout=300,
+            )
+        except ApprovalRequiredError as e:
+            return ToolResult(
+                success=False,
+                error=str(e),
+                tool_name=tool_name
+            )
+
         # 前置检查
         pre_ok, pre_err = await tool.pre_execute(params, context)
         if not pre_ok:
             return ToolResult(success=False, error=pre_err, tool_name=tool_name)
-        
+
         # 执行
         try:
             result = await tool.execute(params, context)
             result.execution_time_ms = int((time.time() - start_time) * 1000)
             result.tool_name = tool_name
-            
+
             # L5高风险工具：标记已执行
             if risk_level == RiskLevel.L5_HIGH:
                 self._policy.approval_gate.enforce_execution(
@@ -172,13 +220,13 @@ class BaseAgent(ABC):
                     executor=user_id,
                     result=f"{'success' if result.success else 'failure'}: {result.error or 'ok'}"
                 )
-            
+
             # 后置检查
             post_ok, post_err = await tool.post_execute(result)
             if not post_ok:
                 result.success = False
                 result.error = post_err
-            
+
             self._audit.log_action(
                 AuditAction.TOOL_RESULT,
                 user_id=user_id,
@@ -189,9 +237,35 @@ class BaseAgent(ABC):
                 error_message=result.error or "",
                 duration_ms=result.execution_time_ms
             )
-            
+
+            # ── F1: Hook TOOL_AFTER_EXECUTE ────────────────────────────────
+            await emit_hook(
+                HookEvent.TOOL_AFTER_EXECUTE,
+                payload={
+                    "tool_name": tool_name,
+                    "params": params,
+                    "result": result.model_dump() if hasattr(result, "model_dump") else str(result),
+                    "success": result.success,
+                    "execution_time_ms": result.execution_time_ms,
+                },
+                session_id=session_id,
+                user_id=user_id,
+            )
+
             return result
+
         except Exception as e:
+            # ── F1: Hook TOOL_ERROR ───────────────────────────────────────
+            await emit_hook(
+                HookEvent.TOOL_ERROR,
+                payload={
+                    "tool_name": tool_name,
+                    "params": params,
+                    "error": str(e),
+                },
+                session_id=session_id,
+                user_id=user_id,
+            )
             return ToolResult(
                 success=False,
                 error=str(e),

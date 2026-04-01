@@ -7,6 +7,13 @@ import re
 from .ast_parser import ASTParser
 from .template_registry import TemplateRegistry
 
+# F1 Hook 系统集成
+try:
+    from src.gateway.hooks import HookEvent, emit_hook
+    HOOKS_AVAILABLE = True
+except ImportError:
+    HOOKS_AVAILABLE = False
+
 
 class SQLGuardStatus(Enum):
     """SQL护栏状态"""
@@ -99,6 +106,17 @@ class SQLGuard:
         """校验SQL安全性"""
         context = context or {}
         db_type = context.get("db_type", "mysql")
+        session_id = context.get("session_id", "")
+        user_id = context.get("user_id", "")
+
+        # F1: Hook SQL_BEFORE_GUARD
+        if HOOKS_AVAILABLE:
+            await emit_hook(
+                HookEvent.SQL_BEFORE_GUARD,
+                payload={"sql_statement": sql, "db_type": db_type, "params": context},
+                session_id=session_id,
+                user_id=user_id,
+            )
 
         # 1. 空SQL检查
         if not sql or not sql.strip():
@@ -138,6 +156,30 @@ class SQLGuard:
         # 3b. 危险操作检测
         dangerous = self._check_dangerous_operations(operations)
         if dangerous:
+            # F1: Hook SQL_DDL_DETECTED
+            if HOOKS_AVAILABLE:
+                ddl_hook = await emit_hook(
+                    HookEvent.SQL_DDL_DETECTED,
+                    payload={
+                        "sql_statement": sql_stripped,
+                        "dangerous_operations": dangerous,
+                        "tables_accessed": tables,
+                        "risk_level": "L5",
+                    },
+                    session_id=session_id,
+                    user_id=user_id,
+                )
+                if ddl_hook.blocked:
+                    return SQLGuardResult(
+                        status=SQLGuardStatus.DENIED,
+                        allowed=False,
+                        risk_level="L5",
+                        blocked_reason=f"DDL Hook 拦截: {ddl_hook.message}",
+                        tables_accessed=tables,
+                        operations=operations,
+                        ast_tree=ast_tree,
+                    )
+
             return SQLGuardResult(
                 status=SQLGuardStatus.DENIED,
                 allowed=False,
@@ -266,7 +308,7 @@ class SQLGuard:
             warnings.append("SQL已重写（字段脱敏）")
 
         # 默认：L2（诊断类操作）
-        return SQLGuardResult(
+        result = SQLGuardResult(
             status=SQLGuardStatus.ALLOWED,
             allowed=True,
             risk_level="L2",
@@ -276,6 +318,23 @@ class SQLGuard:
             operations=operations,
             ast_tree=ast_tree,
         )
+
+        # F1: Hook SQL_AFTER_GUARD（所有检测完成后）
+        if HOOKS_AVAILABLE:
+            await emit_hook(
+                HookEvent.SQL_AFTER_GUARD,
+                payload={
+                    "sql_statement": sql_stripped,
+                    "result_status": result.status.value,
+                    "risk_level": result.risk_level,
+                    "warnings": result.warnings,
+                    "allowed": result.allowed,
+                },
+                session_id=session_id,
+                user_id=user_id,
+            )
+
+        return result
 
     def _check_dangerous_operations(self, operations: List[str]) -> List[str]:
         """检查危险操作"""
