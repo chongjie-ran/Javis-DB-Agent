@@ -23,7 +23,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
 from src.tools.base import RiskLevel
 from src.gateway.hooks import HookEvent, HookContext, HookRule, HookAction, HookCondition, ConditionOperator
 from src.gateway.hooks import HookEngine, emit_hook
-from src.security.guard_rail import SafetyGuardRail, ApprovalRequiredError, GuardRailResult
+from src.security.guard_rail import SafetyGuardRail, ApprovalRequiredError, GuardRailResult, ApprovalToken
+import time
 
 
 # ============================================================================
@@ -144,11 +145,26 @@ class TestGateLayerEnforcement:
     @pytest.mark.asyncio
     async def test_l4_with_valid_token_passes(self, guard_rail):
         """GE-02: L4 持有有效令牌时放行"""
+        # Create valid ApprovalToken with matching params_hash
+        import hashlib
+        params = {"sql": "SELECT 1"}
+        params_hash = hashlib.sha256(str(sorted(params.items())).encode()).hexdigest()
+        now = time.time()
+        token = ApprovalToken(
+            request_id="VALID-TOKEN-001",
+            tool_name="execute_sql",
+            risk_level="L4",
+            params_hash=params_hash,
+            created_at=now,
+            expires_at=now + 600,  # 10 min TTL
+            approver="admin",
+        )
         context = {
             "user_id": "test",
             "session_id": "s1",
+            "params": params,
             "approval_tokens": {
-                "execute_sql:L4": "VALID-TOKEN-001"
+                "execute_sql:L4": token
             }
         }
         result = await guard_rail.enforce(
@@ -177,11 +193,25 @@ class TestGateLayerEnforcement:
     @pytest.mark.asyncio
     async def test_l5_with_valid_token_passes(self, guard_rail):
         """GE-04: L5 持有有效令牌时放行"""
+        import hashlib
+        params = {"table": "users"}
+        params_hash = hashlib.sha256(str(sorted(params.items())).encode()).hexdigest()
+        now = time.time()
+        token = ApprovalToken(
+            request_id="VALID-L5-TOKEN-001",
+            tool_name="drop_table",
+            risk_level="L5",
+            params_hash=params_hash,
+            created_at=now,
+            expires_at=now + 300,  # 5 min TTL for L5
+            approver="admin",
+        )
         context = {
             "user_id": "test",
             "session_id": "s1",
+            "params": params,
             "approval_tokens": {
-                "drop_table:L5": "VALID-L5-TOKEN-001"
+                "drop_table:L5": token
             }
         }
         result = await guard_rail.enforce(
@@ -218,10 +248,24 @@ class TestApprovalTokenVerification:
 
     def test_verify_token_exists(self, guard_rail):
         """AT-01: 令牌存在时验证通过"""
+        import hashlib
+        params = {"sql": "SELECT 1"}
+        params_hash = hashlib.sha256(str(sorted(params.items())).encode()).hexdigest()
+        now = time.time()
+        token = ApprovalToken(
+            request_id="TOKEN-001",
+            tool_name="execute_sql",
+            risk_level="L4",
+            params_hash=params_hash,
+            created_at=now,
+            expires_at=now + 600,
+            approver="admin",
+        )
         context = {
             "user_id": "test",
             "session_id": "s1",
-            "approval_tokens": {"execute_sql:L4": "TOKEN-001"}
+            "params": params,
+            "approval_tokens": {"execute_sql:L4": token}
         }
         assert guard_rail.verify_token(
             "execute_sql", RiskLevel.L4_MEDIUM, context
@@ -251,10 +295,24 @@ class TestApprovalTokenVerification:
 
     def test_verify_token_l5(self, guard_rail):
         """AT-04: L5 令牌验证"""
+        import hashlib
+        params = {"table": "users"}
+        params_hash = hashlib.sha256(str(sorted(params.items())).encode()).hexdigest()
+        now = time.time()
+        token = ApprovalToken(
+            request_id="L5-TOKEN-001",
+            tool_name="drop_table",
+            risk_level="L5",
+            params_hash=params_hash,
+            created_at=now,
+            expires_at=now + 300,
+            approver="admin",
+        )
         context = {
             "user_id": "test",
             "session_id": "s1",
-            "approval_tokens": {"drop_table:L5": "L5-TOKEN-001"}
+            "params": params,
+            "approval_tokens": {"drop_table:L5": token}
         }
         assert guard_rail.verify_token(
             "drop_table", RiskLevel.L5_HIGH, context

@@ -4,7 +4,7 @@ from typing import Optional
 from collections import defaultdict
 
 from .hook_event import HookEvent
-from .hook_rule import HookRule, HookAction, HookCondition, ConditionOperator
+from .hook_rule import HookRule, HookAction, HookCondition, ConditionOperator, ModifyOperation, ModifyOperationType
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +88,15 @@ class HookRegistry:
             "message": "DDL 操作被拦截",
             "conditions": [
                 {"field": "sql_statement", "operator": "regex_match", "value": "(DROP|TRUNCATE)"},
+            ],
+            "modify": [
+                {
+                    "operation": "clamp",
+                    "field": "params.limit",
+                    "min_val": 1,
+                    "max_val": 1000,
+                    "default_val": 1000,
+                }
             ]
         }
         """
@@ -100,6 +109,19 @@ class HookRegistry:
                 value=c["value"],
             ))
 
+        # 解析 modify 操作列表
+        modify_ops = []
+        for m in data.get("modify", []):
+            modify_ops.append(ModifyOperation(
+                operation=ModifyOperationType(m.get("operation", "replace")),
+                field=m["field"],
+                value=m.get("value"),
+                redact_with=m.get("redact_with", "****"),
+                min_val=m.get("min_val"),
+                max_val=m.get("max_val"),
+                default_val=m.get("default_val"),
+            ))
+
         return HookRule(
             name=data["name"],
             event=event,
@@ -108,6 +130,7 @@ class HookRegistry:
             action=HookAction(data.get("action", "log")),
             priority=data.get("priority", 100),
             message=data.get("message", ""),
+            modify_ops=modify_ops,
         )
 
 

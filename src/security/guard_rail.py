@@ -1,7 +1,9 @@
 """SafetyGuardRail - 不可绕过安全护栏"""
+import hashlib
 import logging
-from typing import Optional
-from dataclasses import dataclass
+import time
+from typing import Optional, Any
+from dataclasses import dataclass, field
 
 from src.tools.base import RiskLevel
 from src.gateway.approval import ApprovalGate, ApprovalStatus, ApprovalRequestResult
@@ -27,6 +29,23 @@ class GuardRailResult:
     approval_token: Optional[str] = None
     message: str = ""
     risk_level: str = "L1"
+
+
+@dataclass
+class ApprovalToken:
+    """
+    审批令牌（带 TTL 和参数哈希校验）
+
+    存储在 context["approval_tokens"] 中，格式：
+        token_key -> ApprovalToken
+    """
+    request_id: str
+    tool_name: str
+    risk_level: str
+    params_hash: str          # 审批时的 params SHA256
+    created_at: float        # 创建时间戳
+    expires_at: float        # 过期时间戳
+    approver: str = ""       # 审批人（用于审计）
 
 
 class SafetyGuardRail:
@@ -57,9 +76,13 @@ class SafetyGuardRail:
         self,
         approval_gate: Optional[ApprovalGate] = None,
         hook_engine: Optional[HookEngine] = None,
+        l4_ttl_seconds: int = 600,
+        l5_ttl_seconds: int = 300,
     ):
         self._approval_gate = approval_gate
         self._hook_engine = hook_engine
+        self._l4_ttl_seconds = l4_ttl_seconds
+        self._l5_ttl_seconds = l5_ttl_seconds
 
     @property
     def approval_gate(self) -> ApprovalGate:
@@ -126,13 +149,15 @@ class SafetyGuardRail:
         """L4 单签审批"""
         token_key = f"{tool_name}:L4"
         tokens = context.setdefault("approval_tokens", {})
+        params = context.get("params", {})
 
-        # 检查是否已有有效令牌
-        if tokens.get(token_key):
-            logger.debug(f"L4 token found for {tool_name}, skipping approval")
+        # 检查是否已有有效令牌（TTL + params_hash 校验）
+        if self._validate_token(token_key, params, tokens):
+            logger.debug(f"L4 token valid for {tool_name}, skipping approval")
+            token: ApprovalToken = tokens[token_key]
             return GuardRailResult(
                 allowed=True,
-                approval_token=tokens[token_key],
+                approval_token=token.request_id,
                 risk_level=risk_str,
                 message="L4 approval token valid",
             )
@@ -143,7 +168,7 @@ class SafetyGuardRail:
             tool_name=tool_name,
             risk_level="L4",
             requester=context.get("user_id", "unknown"),
-            params=context.get("params", {}),
+            params=params,
             timeout=timeout,
         )
 
@@ -153,8 +178,19 @@ class SafetyGuardRail:
                 f"原因: {result.error}"
             )
 
-        # 写入令牌
-        tokens[token_key] = result.request_id
+        # 写入令牌（带 TTL）
+        params_hash = self._hash_params(params)
+        now = time.time()
+        token = ApprovalToken(
+            request_id=result.request_id,
+            tool_name=tool_name,
+            risk_level="L4",
+            params_hash=params_hash,
+            created_at=now,
+            expires_at=now + self._l4_ttl_seconds,
+            approver="",
+        )
+        tokens[token_key] = token
         return GuardRailResult(
             allowed=True,
             approval_token=result.request_id,
@@ -172,13 +208,15 @@ class SafetyGuardRail:
         """L5 双人审批"""
         token_key = f"{tool_name}:L5"
         tokens = context.setdefault("approval_tokens", {})
+        params = context.get("params", {})
 
-        # 检查是否已有有效令牌
-        if tokens.get(token_key):
-            logger.debug(f"L5 token found for {tool_name}, skipping dual approval")
+        # 检查是否已有有效令牌（TTL + params_hash 校验）
+        if self._validate_token(token_key, params, tokens):
+            logger.debug(f"L5 token valid for {tool_name}, skipping dual approval")
+            token: ApprovalToken = tokens[token_key]
             return GuardRailResult(
                 allowed=True,
-                approval_token=tokens[token_key],
+                approval_token=token.request_id,
                 risk_level=risk_str,
                 message="L5 dual approval token valid",
             )
@@ -189,7 +227,7 @@ class SafetyGuardRail:
             tool_name=tool_name,
             risk_level="L5",
             requester=context.get("user_id", "unknown"),
-            params=context.get("params", {}),
+            params=params,
             timeout=timeout,
         )
 
@@ -199,7 +237,19 @@ class SafetyGuardRail:
                 f"原因: {result.error}"
             )
 
-        tokens[token_key] = result.request_id
+        # 写入令牌（带 TTL）
+        params_hash = self._hash_params(params)
+        now = time.time()
+        token = ApprovalToken(
+            request_id=result.request_id,
+            tool_name=tool_name,
+            risk_level="L5",
+            params_hash=params_hash,
+            created_at=now,
+            expires_at=now + self._l5_ttl_seconds,
+            approver="",
+        )
+        tokens[token_key] = token
         return GuardRailResult(
             allowed=True,
             approval_token=result.request_id,
@@ -309,6 +359,45 @@ class SafetyGuardRail:
 
             await asyncio.sleep(min(poll_interval, timeout - elapsed))
 
+    def _hash_params(self, params: dict) -> str:
+        """计算 params 的 SHA256 哈希（用于参数漂移检测）"""
+        content = str(sorted(params.items()))
+        return hashlib.sha256(content.encode()).hexdigest()
+
+    def _validate_token(self, token_key: str, params: dict, tokens: dict) -> bool:
+        """
+        验证令牌有效性（TTL 过期 + 参数漂移检测）
+
+        Args:
+            token_key: 令牌 key
+            params: 当前执行参数
+            tokens: 令牌字典
+
+        Returns:
+            True 表示令牌有效，False 表示无效（需重新审批）
+        """
+        token = tokens.get(token_key)
+        if not token:
+            return False
+
+        # TTL 过期检查
+        if time.time() > token.expires_at:
+            logger.info(f"Token expired for {token_key}, removing")
+            tokens.pop(token_key, None)
+            return False
+
+        # 参数漂移检测
+        current_hash = self._hash_params(params)
+        if current_hash != token.params_hash:
+            logger.warning(
+                f"Params drift detected for {token_key}: "
+                f"approved={token.params_hash[:8]}... current={current_hash[:8]}..."
+            )
+            tokens.pop(token_key, None)
+            return False
+
+        return True
+
     def verify_token(
         self,
         tool_name: str,
@@ -323,7 +412,8 @@ class SafetyGuardRail:
         risk_str = f"L{int(risk_level)}" if isinstance(risk_level, (int, RiskLevel)) else str(risk_level)
         token_key = f"{tool_name}:{risk_str}"
         tokens = context.get("approval_tokens", {})
-        return tokens.get(token_key) is not None
+        params = context.get("params", {})
+        return self._validate_token(token_key, params, tokens)
 
     async def check_ddl_with_hook(
         self,

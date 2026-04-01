@@ -1,10 +1,10 @@
 """RuleEngine - 规则评估引擎"""
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from .hook_event import HookEvent
 from .hook_context import HookContext
-from .hook_rule import HookRule, HookAction
+from .hook_rule import HookRule, HookAction, ModifyOperation, ModifyOperationType
 from .hook_registry import HookRegistry
 
 logger = logging.getLogger(__name__)
@@ -96,10 +96,110 @@ class RuleEngine:
                        f"user={context.user_id}, session={context.session_id}")
 
         elif action == HookAction.MODIFY:
-            # MODIFY 动作由 handler 处理，这里仅记录
-            logger.debug(f"Hook modify: {rule.name}")
+            # 执行 payload 修改
+            if rule.modify_ops:
+                for op in rule.modify_ops:
+                    context = self._apply_modify(context, op)
+            logger.debug(f"Hook modify applied: {rule.name}")
 
         return context
+
+    def _apply_modify(
+        self,
+        context: HookContext,
+        op: ModifyOperation,
+    ) -> HookContext:
+        """
+        应用单个修改操作到 context.payload
+
+        Args:
+            context: Hook 上下文
+            op: 修改操作定义
+
+        Returns:
+            修改后的 context（就地修改 payload）
+        """
+        field = op.field
+        payload = context.payload
+
+        if op.operation == ModifyOperationType.REPLACE:
+            self._set_nested(payload, field, op.value)
+            logger.debug(f"MODIFY REPLACE: {field} = {op.value}")
+
+        elif op.operation == ModifyOperationType.REDACT:
+            self._set_nested(payload, field, op.redact_with)
+            logger.debug(f"MODIFY REDACT: {field} = {op.redact_with}")
+
+        elif op.operation == ModifyOperationType.ADD:
+            if self._get_nested(payload, field) is None:
+                self._set_nested(payload, field, op.value)
+                logger.debug(f"MODIFY ADD: {field} = {op.value}")
+            else:
+                logger.debug(f"MODIFY ADD skipped: {field} already exists")
+
+        elif op.operation == ModifyOperationType.REMOVE:
+            if self._remove_nested(payload, field):
+                logger.debug(f"MODIFY REMOVE: {field}")
+            else:
+                logger.debug(f"MODIFY REMOVE skipped: {field} not found")
+
+        elif op.operation == ModifyOperationType.CLAMP:
+            current = self._get_nested(payload, field)
+            if current is None:
+                current = op.default_val
+                self._set_nested(payload, field, current)
+                logger.debug(f"MODIFY CLAMP: {field} = {current} (default, field was missing)")
+            else:
+                try:
+                    clamped = max(op.min_val, min(int(current), op.max_val))
+                    self._set_nested(payload, field, clamped)
+                    logger.debug(f"MODIFY CLAMP: {field} = {clamped} (from {current})")
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"MODIFY CLAMP skipped: cannot clamp {field} = {current}: {e}")
+
+        return context
+
+    def _get_nested(self, data: dict, field: str) -> Any:
+        """获取嵌套字段值，如 'params.limit' 从 payload 中获取"""
+        parts = field.split(".")
+        current = data
+        for i, part in enumerate(parts):
+            if isinstance(current, dict):
+                current = current.get(part)
+                if current is None and i < len(parts) - 1:
+                    return None
+            else:
+                return None
+        return current
+
+    def _set_nested(self, data: dict, field: str, value: Any) -> None:
+        """设置嵌套字段值，如 'params.limit' 到 payload 中"""
+        parts = field.split(".")
+        current = data
+        for i, part in enumerate(parts):
+            if i == len(parts) - 1:
+                # 最后一节，直接设置
+                current[part] = value
+            else:
+                if part not in current or not isinstance(current[part], dict):
+                    current[part] = {}
+                current = current[part]
+
+    def _remove_nested(self, data: dict, field: str) -> bool:
+        """删除嵌套字段，如 'params.limit' 从 payload 中删除"""
+        parts = field.split(".")
+        current = data
+        for i, part in enumerate(parts):
+            if i == len(parts) - 1:
+                if part in current:
+                    del current[part]
+                    return True
+                return False
+            else:
+                if part not in current or not isinstance(current[part], dict):
+                    return False
+                current = current[part]
+        return False
 
     def check_blocked(
         self,

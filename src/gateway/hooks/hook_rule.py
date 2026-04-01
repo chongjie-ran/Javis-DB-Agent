@@ -23,6 +23,15 @@ class HookAction(str, Enum):
     MODIFY = "modify"    # 修改 payload
 
 
+class ModifyOperationType(str, Enum):
+    """MODIFY 动作的操作类型"""
+    REPLACE = "replace"   # 替换字段值
+    REDACT = "redact"     # 脱敏（替换为占位符）
+    ADD = "add"          # 添加字段
+    REMOVE = "remove"    # 删除字段
+    CLAMP = "clamp"      # 限制数值范围
+
+
 class ConditionOperator(str, Enum):
     """条件操作符"""
     EQ = "eq"
@@ -107,6 +116,27 @@ class HookCondition:
 
 
 @dataclass
+class ModifyOperation:
+    """
+    MODIFY 动作的单个操作定义
+
+    支持 5 种操作类型：
+    - REPLACE: 替换字段值
+    - REDACT: 脱敏（替换为占位符）
+    - ADD: 添加字段
+    - REMOVE: 移除字段
+    - CLAMP: 限制数值范围
+    """
+    operation: ModifyOperationType  # 操作类型
+    field: str                     # 字段路径，如 "params.limit" 或 "payload.statement"
+    value: Any = None             # REPLACE / ADD 的值
+    redact_with: str = "****"     # REDACT 替换值
+    min_val: int = None           # CLAMP 下限
+    max_val: int = None           # CLAMP 上限
+    default_val: Any = None       # CLAMP 默认值（字段不存在时）
+
+
+@dataclass
 class HookRule:
     """
     Hook 规则定义
@@ -130,6 +160,7 @@ class HookRule:
     handler: Optional[Callable] = None  # async def(context: HookContext) -> HookContext
     priority: int = 100  # 默认优先级
     message: str = ""
+    modify_ops: list[ModifyOperation] = field(default_factory=list)  # MODIFY 动作的操作列表
 
     def matches(self, context_dict: dict) -> bool:
         """检查规则是否匹配当前上下文"""
@@ -156,4 +187,16 @@ class HookRule:
             "action": self.action.value,
             "priority": self.priority,
             "message": self.message,
+            "modify_ops": [
+                {
+                    "operation": op.operation.value,
+                    "field": op.field,
+                    "value": op.value,
+                    "redact_with": op.redact_with,
+                    "min_val": op.min_val,
+                    "max_val": op.max_val,
+                    "default_val": op.default_val,
+                }
+                for op in self.modify_ops
+            ],
         }

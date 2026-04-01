@@ -51,6 +51,7 @@ class ApprovalStatusResponse:
     requester: str = ""
     approvers: list[str] = field(default_factory=list)
     created_at: float = 0.0
+    params_hash: str = ""  # params 的 SHA256，用于检测参数漂移
 
 
 @dataclass
@@ -79,6 +80,7 @@ class ApprovalRequest:
     requester: str
     created_at: float
     status: ApprovalStatus
+    params_hash: str = ""   # params 的 SHA256，用于检测参数漂移
     approvers: list[str] = field(default_factory=list)
     comments: list[str] = field(default_factory=list)
     approval_count: int = 0  # 已通过人数（L5需要2）
@@ -89,6 +91,12 @@ class ApprovalRequest:
         if self.risk_level == "L5":
             return 2
         return 1
+
+    def compute_params_hash(self) -> str:
+        """计算当前 params 的 SHA256 哈希"""
+        import hashlib
+        content = str(sorted(self.params.items()))
+        return hashlib.sha256(content.encode()).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +233,7 @@ class ApprovalGate:
             requester=context.get("user_id", context.get("requester", "unknown")),
             created_at=time.time(),
             status=ApprovalStatus.PENDING,
+            params_hash=request.compute_params_hash(),
         )
         self._requests[request_id] = request
         self._events[request_id] = asyncio.Event()
@@ -315,6 +324,7 @@ class ApprovalGate:
             requester=request.requester,
             approvers=request.approvers,
             created_at=request.created_at,
+            params_hash=request.params_hash,
         )
 
     # -------------------------------------------------------------------------
