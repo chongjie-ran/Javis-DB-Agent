@@ -468,7 +468,8 @@ class ApprovalGate:
         try:
             # 回调可以是同步或异步
             import asyncio
-            if asyncio.iscoroutinefunction(callback):
+            import inspect
+            if inspect.iscoroutinefunction(callback):
                 await callback(request)
             else:
                 callback(request)
