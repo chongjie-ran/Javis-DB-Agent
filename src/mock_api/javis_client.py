@@ -3,6 +3,7 @@
 """
 import time
 import random
+import threading
 from typing import Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -778,13 +779,16 @@ class MockJavisClient:
         }
 
 
-# 单例模式
+# 单例模式（线程安全）
 _mock_client: Optional[MockJavisClient] = None
+_mock_client_lock = threading.Lock()
 
 
 def get_mock_javis_client() -> MockJavisClient:
-    """获取Mock客户端单例"""
+    """获取Mock客户端单例（线程安全）"""
     global _mock_client
     if _mock_client is None:
-        _mock_client = MockJavisClient()
+        with _mock_client_lock:
+            if _mock_client is None:  # 二次检查
+                _mock_client = MockJavisClient()
     return _mock_client

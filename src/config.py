@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, field_validator
 from typing import Optional
 import os
+import threading
 from pathlib import Path
 
 
@@ -74,17 +75,21 @@ class Settings(BaseSettings):
     )
 
 
-# 全局单例
+# 全局单例（线程安全）
 _settings: Optional[Settings] = None
+_settings_lock = threading.Lock()
 
 
 def get_settings() -> Settings:
     global _settings
     if _settings is None:
-        _settings = Settings()
+        with _settings_lock:
+            if _settings is None:  # 二次检查
+                _settings = Settings()
     return _settings
 
 
 def reload_settings():
     global _settings
-    _settings = Settings()
+    with _settings_lock:
+        _settings = Settings()

@@ -1,9 +1,18 @@
 """HookRule - Hook 规则结构"""
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any, Callable, Optional
 from enum import Enum
+import re
 
 from .hook_event import HookEvent
+
+
+# 全局正则编译缓存（线程安全，LRU淘汰）
+@lru_cache(maxsize=256)
+def _compile_regex(pattern: str):
+    """线程安全地缓存编译后的正则表达式"""
+    return re.compile(pattern)
 
 
 class HookAction(str, Enum):
@@ -85,8 +94,8 @@ class HookCondition:
         elif op == ConditionOperator.CONTAINS:
             return self.value in actual if hasattr(actual, "__contains__") else False
         elif op == ConditionOperator.REGEX_MATCH:
-            import re
-            return bool(re.search(self.value, str(actual)))
+            compiled = _compile_regex(self.value)
+            return compiled.search(str(actual)) is not None
         elif op == ConditionOperator.STARTS_WITH:
             return str(actual).startswith(self.value)
         elif op == ConditionOperator.ENDS_WITH:

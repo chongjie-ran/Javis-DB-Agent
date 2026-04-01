@@ -1,5 +1,6 @@
 """统一API客户端工厂 - 根据配置自动选择Mock或Real API"""
 import os
+import threading
 import yaml
 from typing import Optional, TYPE_CHECKING
 
@@ -169,31 +170,35 @@ class UnifiedZCloudClient:
             await self._real_client.close()
 
 
-# 全局单例
+# 全局单例（线程安全）
 _unified_client: Optional[UnifiedZCloudClient] = None
+_unified_client_lock = threading.Lock()
 
 
 def get_unified_client() -> UnifiedZCloudClient:
-    """获取统一API客户端单例"""
+    """获取统一API客户端单例（线程安全）"""
     global _unified_client
     if _unified_client is None:
-        _unified_client = UnifiedZCloudClient()
+        with _unified_client_lock:
+            if _unified_client is None:  # 二次检查
+                _unified_client = UnifiedZCloudClient()
     return _unified_client
 
 
 def reset_unified_client():
-    """重置客户端（切换配置后调用）"""
+    """重置客户端（切换配置后调用，线程安全）"""
     global _unified_client
-    if _unified_client:
-        import asyncio
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(_unified_client.close())
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+    with _unified_client_lock:
+        if _unified_client:
+            import asyncio
             try:
-                loop.run_until_complete(_unified_client.close())
-            finally:
-                loop.close()
-    _unified_client = None
+                loop = asyncio.get_running_loop()
+                loop.create_task(_unified_client.close())
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(_unified_client.close())
+                finally:
+                    loop.close()
+        _unified_client = None

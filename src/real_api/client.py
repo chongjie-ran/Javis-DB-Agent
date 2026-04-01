@@ -1,5 +1,6 @@
 """真实Javis API Client"""
 import httpx
+import threading
 import time
 from typing import Optional, Any
 from src.real_api.auth import AuthProvider, APIKeyProvider, create_auth_provider
@@ -242,37 +243,41 @@ class JavisRealClient:
             return {"status": "error", "error": str(e)}
 
 
-# 单例
+# 单例（线程安全）
 _real_client: Optional[JavisRealClient] = None
+_real_client_lock = threading.Lock()
 
 
 def get_real_client() -> JavisRealClient:
-    """获取真实API客户端单例"""
+    """获取真实API客户端单例（线程安全）"""
     global _real_client
     if _real_client is None:
-        _real_client = JavisRealClient()
+        with _real_client_lock:
+            if _real_client is None:  # 二次检查
+                _real_client = JavisRealClient()
     return _real_client
 
 
 def reset_real_client():
-    """重置客户端（切换配置后调用）
+    """重置客户端（切换配置后调用，线程安全）
 
     同步安全：无论是否有running event loop都能正常工作。
-    在有running loop时异步调度close任务；在无running loop时同步执行close。
+    在有running loop时异步调度close任务；在无running loop时同步执行关闭。
     """
     global _real_client
-    if _real_client:
-        import asyncio
-        try:
-            loop = asyncio.get_running_loop()
-            # 有running loop：异步调度关闭任务（不等待）
-            loop.create_task(_real_client.close())
-        except RuntimeError:
-            # 没有running loop：创建新的event loop同步执行关闭
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+    with _real_client_lock:
+        if _real_client:
+            import asyncio
             try:
-                loop.run_until_complete(_real_client.close())
-            finally:
-                loop.close()
-    _real_client = None
+                loop = asyncio.get_running_loop()
+                # 有running loop：异步调度关闭任务（不等待）
+                loop.create_task(_real_client.close())
+            except RuntimeError:
+                # 没有running loop：创建新的event loop同步执行关闭
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(_real_client.close())
+                finally:
+                    loop.close()
+        _real_client = None
