@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.agents.base import BaseAgent, AgentResponse
+from src.agents.executor import ParallelAgentExecutor
 from src.agents.diagnostic import DiagnosticAgent
 from src.agents.risk import RiskAgent
 from src.agents.sql_analyzer import SQLAnalyzerAgent
@@ -339,6 +340,8 @@ class OrchestratorAgent(BaseAgent):
     def __init__(self):
         super().__init__()
         self._init_agents()
+        # V2.6 R2: 并行Agent执行器
+        self._executor = ParallelAgentExecutor(orchestrator=self)
     
     def _init_agents(self):
         """初始化子Agent"""
@@ -555,8 +558,8 @@ class OrchestratorAgent(BaseAgent):
         # 3. 构建执行计划
         plan = self._build_plan(selected_agents, goal, context)
         
-        # 4. 执行计划
-        results = await self._execute_plan(plan, context)
+        # 4. 执行计划（V2.6 R2: 传递intent以支持并行执行）
+        results = await self._execute_plan(plan, context, intent)
         
         # 5. 汇总结果
         aggregated = self._aggregate_results(results, intent)
@@ -613,10 +616,11 @@ class OrchestratorAgent(BaseAgent):
         # Step 1: 语义向量匹配（v1.3新增）
         try:
             semantic_intent, semantic_score = await self._semantic_intent_recognize(goal)
+        except (ConnectionError, TimeoutError) as e:
+            logger.warning(f"语义识别服务不可用: {e}，降级到 GENERAL")
+            return Intent.GENERAL
         except Exception as e:
-            # _semantic_intent_recognize 内部已做 fallback，
-            # 此处捕获是为了防止意外异常穿透
-            logger.warning(f"语义意图识别异常: {e}")
+            logger.error(f"语义意图识别意外异常: {e}", exc_info=True)
             return Intent.GENERAL
         if semantic_score >= self.SEMANTIC_SIMILARITY_THRESHOLD:
             # 语义匹配成功，记录反馈供自演化使用
@@ -839,14 +843,53 @@ class OrchestratorAgent(BaseAgent):
             })
         return plan
     
-    async def _execute_plan(self, plan: list[dict], context: dict) -> list[AgentResponse]:
-        """执行计划"""
-        results = []
+    async def _execute_plan(self, plan: list[dict], context: dict, intent: Intent = None) -> list[AgentResponse]:
+        """
+        执行计划 - V2.6 R2 并行执行增强
+        
+        如果有多个Agent且Intent支持并行，则使用ParallelAgentExecutor并行执行。
+        否则回退到原有串行逻辑。
+        
+        Args:
+            plan: 执行计划
+            context: 执行上下文
+            intent: 用户意图（用于决定并行策略）
+            
+        Returns:
+            AgentResponse 列表
+        """
+        # 收集计划中的Agent
+        agents = []
         for step in plan:
             agent = self.get_agent(step["agent"])
             if agent:
-                response = await agent.process(step["task"], context)
-                results.append(response)
+                agents.append(agent)
+        
+        if not agents:
+            return []
+        
+        # 如果有多个Agent且有intent，尝试并行执行
+        if len(agents) > 1 and intent and hasattr(self, "_executor"):
+            try:
+                execution_result = await self._executor.execute(
+                    goal=plan[0]["task"],
+                    intent=intent,
+                    agents=agents,
+                    context=context
+                )
+                # 记录执行元数据
+                for i, resp in enumerate(execution_result.agent_responses):
+                    resp.metadata["execution_mode"] = execution_result.execution_mode
+                    resp.metadata["total_time_ms"] = execution_result.total_time_ms
+                return execution_result.agent_responses
+            except Exception as e:
+                logger.warning(f"[Orchestrator] Parallel execution failed, falling back to sequential: {e}")
+        
+        # 回退到串行执行
+        results = []
+        for agent in agents:
+            response = await agent.process(plan[0]["task"], context)
+            results.append(response)
         return results
     
     def _aggregate_results(self, results: list[AgentResponse], intent: Intent) -> dict:
