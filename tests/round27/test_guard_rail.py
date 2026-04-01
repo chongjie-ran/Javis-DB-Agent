@@ -284,10 +284,24 @@ class TestApprovalTokenVerification:
 
     def test_verify_token_wrong_tool(self, guard_rail):
         """AT-03: 工具名不匹配时验证失败"""
+        import hashlib
+        params = {"sql": "SELECT 1"}
+        params_hash = hashlib.sha256(str(sorted(params.items())).encode()).hexdigest()
+        now = time.time()
+        token = ApprovalToken(
+            request_id="TOKEN-001",
+            tool_name="execute_sql",
+            risk_level="L4",
+            params_hash=params_hash,
+            created_at=now,
+            expires_at=now + 600,
+            approver="admin",
+        )
         context = {
             "user_id": "test",
             "session_id": "s1",
-            "approval_tokens": {"execute_sql:L4": "TOKEN-001"}
+            "params": params,
+            "approval_tokens": {"execute_sql:L4": token}
         }
         assert guard_rail.verify_token(
             "drop_table", RiskLevel.L4_MEDIUM, context

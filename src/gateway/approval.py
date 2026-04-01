@@ -223,6 +223,9 @@ class ApprovalGate:
                 logger.info(f"[ApprovalGate] Reusing pending request: {request_id}")
                 return ApprovalRequestResult(success=True, request_id=request_id)
 
+        # 计算 params_hash（用于参数漂移检测）
+        params_hash = hashlib.sha256(str(sorted(params.items())).encode()).hexdigest()
+
         request = ApprovalRequest(
             request_id=request_id,
             tool_call_id=tool_call_id,
@@ -233,7 +236,7 @@ class ApprovalGate:
             requester=context.get("user_id", context.get("requester", "unknown")),
             created_at=time.time(),
             status=ApprovalStatus.PENDING,
-            params_hash=request.compute_params_hash(),
+            params_hash=params_hash,
         )
         self._requests[request_id] = request
         self._events[request_id] = asyncio.Event()

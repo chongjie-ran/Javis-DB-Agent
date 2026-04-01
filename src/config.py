@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     policy_require_approval_l4: bool = True  # L4及以上需要审批
     policy_require_dual_approval_l5: bool = True  # L5需要双人审批
     
+    # 审批令牌TTL
+    approval_l4_ttl_seconds: int = 600  # L4令牌有效期10分钟
+    approval_l5_ttl_seconds: int = 300  # L5令牌有效期5分钟
+    
     # TLS/SSL配置
     https_enabled: bool = False  # 强制HTTPS
     hsts_enabled: bool = False  # HSTS头

@@ -76,13 +76,16 @@ class SafetyGuardRail:
         self,
         approval_gate: Optional[ApprovalGate] = None,
         hook_engine: Optional[HookEngine] = None,
-        l4_ttl_seconds: int = 600,
-        l5_ttl_seconds: int = 300,
+        l4_ttl_seconds: Optional[int] = None,
+        l5_ttl_seconds: Optional[int] = None,
     ):
         self._approval_gate = approval_gate
         self._hook_engine = hook_engine
-        self._l4_ttl_seconds = l4_ttl_seconds
-        self._l5_ttl_seconds = l5_ttl_seconds
+        # 从 config.py 读取 TTL 配置
+        from src.config import get_settings
+        settings = get_settings()
+        self._l4_ttl_seconds = l4_ttl_seconds if l4_ttl_seconds is not None else settings.approval_l4_ttl_seconds
+        self._l5_ttl_seconds = l5_ttl_seconds if l5_ttl_seconds is not None else settings.approval_l5_ttl_seconds
 
     @property
     def approval_gate(self) -> ApprovalGate:
@@ -266,28 +269,30 @@ class SafetyGuardRail:
         timeout: int,
     ) -> ApprovalRequestResult:
         """发起审批请求（带超时等待）"""
-        import hashlib
-        import time
-
-        request_id = hashlib.md5(
-            f"{tool_name}:{risk_level}:{requester}:{time.time()}".encode()
-        ).hexdigest()[:16]
-
-        # 直接使用 ApprovalGate 的接口
         gate = self.approval_gate
 
-        # 创建请求（内部）
-        await gate.request_approval(
-            tool_name=tool_name,
-            risk_level=risk_level,
-            requester=requester,
+        # 构建 context 供 ApprovalGate 使用
+        context = {
+            "user_id": requester,
+            "risk_level": risk_level,
+            "action": tool_name,
+        }
+
+        # 创建审批请求
+        result = await gate.request_approval(
+            action=tool_name,
+            context=context,
             params=params,
         )
+
+        if not result.success:
+            return result
 
         # 带超时的等待循环
         import asyncio
         start_time = time.time()
         poll_interval = 2.0  # 每 2 秒轮询一次
+        request_id = result.request_id
 
         while True:
             status_resp = await gate.get_status(request_id)
@@ -318,26 +323,28 @@ class SafetyGuardRail:
         timeout: int,
     ) -> ApprovalRequestResult:
         """发起双人审批请求（带超时等待）"""
-        import hashlib
-        import time
-
-        request_id = hashlib.md5(
-            f"{tool_name}:{risk_level}:{requester}:dual:{time.time()}".encode()
-        ).hexdigest()[:16]
-
         gate = self.approval_gate
 
-        await gate.request_approval(
-            tool_name=tool_name,
-            risk_level=risk_level,
-            requester=requester,
+        context = {
+            "user_id": requester,
+            "risk_level": risk_level,
+            "action": tool_name,
+        }
+
+        result = await gate.request_approval(
+            action=tool_name,
+            context=context,
             params=params,
         )
+
+        if not result.success:
+            return result
 
         # 带超时的等待循环
         import asyncio
         start_time = time.time()
         poll_interval = 2.0
+        request_id = result.request_id
 
         while True:
             status_resp = await gate.get_status(request_id)
