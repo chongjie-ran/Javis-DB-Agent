@@ -268,7 +268,7 @@ class SafetyGuardRail:
         params: dict,
         timeout: int,
     ) -> ApprovalRequestResult:
-        """发起审批请求（带超时等待）"""
+        """发起审批请求（Event-based 等待，V2.7 改进）"""
         gate = self.approval_gate
 
         # 构建 context 供 ApprovalGate 使用
@@ -288,31 +288,40 @@ class SafetyGuardRail:
         if not result.success:
             return result
 
-        # 带超时的等待循环
-        import asyncio
-        start_time = time.time()
-        poll_interval = 2.0  # 每 2 秒轮询一次
         request_id = result.request_id
 
-        while True:
-            status_resp = await gate.get_status(request_id)
-            if status_resp.status != ApprovalStatus.PENDING:
-                is_approved = status_resp.status == ApprovalStatus.APPROVED
-                reason = status_resp.status.value
-                if is_approved:
-                    return ApprovalRequestResult(success=True, request_id=request_id)
-                else:
-                    return ApprovalRequestResult(
-                        success=False, request_id=request_id, error=f"审批{reason}"
-                    )
+        # V2.7: Event-based 等待（替代轮询）
+        # 创建一个 asyncio.Event，当审批完成时由 callback 设置
+        done_event = asyncio.Event()
 
-            elapsed = time.time() - start_time
-            if elapsed >= timeout:
+        def approval_done_callback(req):
+            """审批完成时设置的回调（同步）"""
+            # 不在回调中 await，直接设置事件
+            done_event.set()
+
+        gate.register_callback(request_id, approval_done_callback)
+
+        try:
+            # 等待 Event 设置（带超时）
+            try:
+                await asyncio.wait_for(done_event.wait(), timeout=timeout)
+            except asyncio.TimeoutError:
                 return ApprovalRequestResult(
                     success=False, request_id=request_id, error="审批超时"
                 )
 
-            await asyncio.sleep(min(poll_interval, timeout - elapsed))
+            # Event 被设置后，检查最终状态
+            status_resp = await gate.get_status(request_id)
+            if status_resp.status == ApprovalStatus.APPROVED:
+                return ApprovalRequestResult(success=True, request_id=request_id)
+            else:
+                return ApprovalRequestResult(
+                    success=False,
+                    request_id=request_id,
+                    error=f"审批{status_resp.status.value}",
+                )
+        finally:
+            gate.unregister_callback(request_id)
 
     async def _request_dual_approval(
         self,
@@ -322,7 +331,7 @@ class SafetyGuardRail:
         params: dict,
         timeout: int,
     ) -> ApprovalRequestResult:
-        """发起双人审批请求（带超时等待）"""
+        """发起双人审批请求（Event-based 等待，V2.7 改进）"""
         gate = self.approval_gate
 
         context = {
@@ -340,31 +349,35 @@ class SafetyGuardRail:
         if not result.success:
             return result
 
-        # 带超时的等待循环
-        import asyncio
-        start_time = time.time()
-        poll_interval = 2.0
         request_id = result.request_id
 
-        while True:
-            status_resp = await gate.get_status(request_id)
-            if status_resp.status != ApprovalStatus.PENDING:
-                is_approved = status_resp.status == ApprovalStatus.APPROVED
-                reason = status_resp.status.value
-                if is_approved:
-                    return ApprovalRequestResult(success=True, request_id=request_id)
-                else:
-                    return ApprovalRequestResult(
-                        success=False, request_id=request_id, error=f"双人审批{reason}"
-                    )
+        # V2.7: Event-based 等待（替代轮询）
+        done_event = asyncio.Event()
 
-            elapsed = time.time() - start_time
-            if elapsed >= timeout:
+        def dual_approval_done_callback(req):
+            done_event.set()
+
+        gate.register_callback(request_id, dual_approval_done_callback)
+
+        try:
+            try:
+                await asyncio.wait_for(done_event.wait(), timeout=timeout)
+            except asyncio.TimeoutError:
                 return ApprovalRequestResult(
                     success=False, request_id=request_id, error="双人审批超时"
                 )
 
-            await asyncio.sleep(min(poll_interval, timeout - elapsed))
+            status_resp = await gate.get_status(request_id)
+            if status_resp.status == ApprovalStatus.APPROVED:
+                return ApprovalRequestResult(success=True, request_id=request_id)
+            else:
+                return ApprovalRequestResult(
+                    success=False,
+                    request_id=request_id,
+                    error=f"双人审批{status_resp.status.value}",
+                )
+        finally:
+            gate.unregister_callback(request_id)
 
     def _hash_params(self, params: dict) -> str:
         """计算 params 的 SHA256 哈希（用于参数漂移检测）"""

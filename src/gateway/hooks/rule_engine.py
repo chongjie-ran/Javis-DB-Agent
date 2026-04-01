@@ -87,9 +87,12 @@ class RuleEngine:
             context.set_blocked(rule.message or f"Blocked by rule: {rule.name}")
 
         elif action == HookAction.WARN:
-            warning_msg = rule.message or f"Warning from rule: {rule.name}"
-            context.add_warning(warning_msg)
-            logger.warning(f"Hook warning: {warning_msg}")
+            # 只有当 handler 未添加任何 warning 时才添加默认 message
+            # 避免重复：handler 可能已经添加了具体的 warning
+            if not context.warnings:
+                warning_msg = rule.message or f"Warning from rule: {rule.name}"
+                context.add_warning(warning_msg)
+                logger.warning(f"Hook warning: {warning_msg}")
 
         elif action == HookAction.LOG:
             logger.info(f"Hook log [{rule.name}]: event={context.event.value}, "

@@ -81,6 +81,14 @@ class Session:
     def set_context_value(self, key: str, value: Any):
         self.context[key] = value
     
+    def get_metadata_value(self, key: str, default: Any = None) -> Any:
+        """获取 metadata 中的值"""
+        return self.metadata.get(key, default)
+    
+    def set_metadata_value(self, key: str, value: Any):
+        """设置 metadata 中的值（用于持久化存储）"""
+        self.metadata[key] = value
+    
     def to_dict(self) -> dict:
         return {
             "session_id": self.session_id,
@@ -273,9 +281,14 @@ class PersistentSessionManager:
             if time.time() - session.updated_at < self.ttl_seconds:
                 return session
             else:
-                # 已过期，从缓存删除
+                # 已过期，从缓存和数据库删除
                 self._cache.pop(session_id, None)
                 self._user_sessions[session.user_id].remove(session_id)
+                # 直接从数据库删除，不调用 delete_session（避免不必要的缓存操作）
+                with self._get_conn() as conn:
+                    conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+                    conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+                    conn.commit()
                 return None
         
         # 从数据库加载
@@ -292,7 +305,11 @@ class PersistentSessionManager:
         
         # 检查是否过期
         if time.time() - session.updated_at >= self.ttl_seconds:
-            self.delete_session(session_id)
+            # 直接从数据库删除，不调用 delete_session（避免不必要的缓存操作）
+            with self._get_conn() as conn:
+                conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+                conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+                conn.commit()
             return None
         
         # 加载消息

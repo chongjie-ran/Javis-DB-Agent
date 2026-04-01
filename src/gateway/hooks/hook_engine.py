@@ -21,20 +21,24 @@ class HookResult:
         blocked: 是否被阻止
         message: 阻止/警告消息
         warnings: 警告列表
-        event: 触发的事件
+        event: 触发的事件 (HookEvent 枚举)
         matched_rules: 匹配的规则名称列表
+        payload: 事件负载数据 (从 context.payload 复制)
     """
     blocked: bool = False
     message: str = ""
     warnings: list[str] = None
     event: HookEvent = None
     matched_rules: list[str] = None
+    payload: dict = None
 
     def __post_init__(self):
         if self.warnings is None:
             self.warnings = []
         if self.matched_rules is None:
             self.matched_rules = []
+        if self.payload is None:
+            self.payload = {}
 
     @classmethod
     def from_context(cls, context: HookContext, matched_rules: list[str] = None) -> "HookResult":
@@ -44,6 +48,7 @@ class HookResult:
             warnings=list(context.warnings),
             event=context.event,
             matched_rules=matched_rules or [],
+            payload=dict(context.payload),  # 复制 payload 避免引用问题
         )
 
 

@@ -138,3 +138,85 @@ async def reject_request(request_id: str, body: RejectRequest):
         "status": "rejected",
         "message": f"rejected by {body.approver}: {body.reason}",
     }
+
+
+# ---------------------------------------------------------------------------
+# V2.7: Webhook 回调接口
+# ---------------------------------------------------------------------------
+
+class WebhookPayload(BaseModel):
+    """外部审批系统回调 payload"""
+    request_id: str
+    action: str          # "approve" | "reject"
+    approver: str = ""   # 审批人
+    comment: str = ""    # 审批意见（approve时）
+    reason: str = ""     # 拒绝原因（reject时）
+
+
+class WebhookResponse(BaseModel):
+    """Webhook 响应"""
+    success: bool
+    message: str
+
+
+@router.post("/webhook", response_model=WebhookResponse)
+async def approval_webhook(body: WebhookPayload):
+    """
+    外部审批系统（飞书/企微审批等）回调接口
+
+    外部审批系统完成审批后，调用此接口通知 Javis-DB-Agent。
+
+    调用方式：
+        POST /api/v1/approvals/webhook
+        Content-Type: application/json
+        {
+            "request_id": "abc123",
+            "action": "approve",    # "approve" 或 "reject"
+            "approver": "zhangsan",
+            "comment": "同意",       # approve 时的意见
+            "reason": "风险太高"      # reject 时的原因
+        }
+
+    Returns:
+        {"success": true, "message": "..."}
+    """
+    gate = get_approval_gate()
+    if not gate:
+        raise HTTPException(status_code=503, detail="ApprovalGate not configured")
+
+    request_id = body.request_id
+    action = body.action.lower()
+    approver = body.approver or "external"
+
+    if action == "approve":
+        comment = body.comment or ""
+        success = await gate.approve(request_id, approver, comment)
+        if not success:
+            return WebhookResponse(
+                success=False,
+                message=f"Request not found: {request_id}",
+            )
+        req = gate.get_request(request_id)
+        return WebhookResponse(
+            success=True,
+            message=f"Approved by {approver} (status={req.status.value})",
+        )
+
+    elif action == "reject":
+        reason = body.reason or body.comment or ""
+        success = await gate.reject(request_id, approver, reason)
+        if not success:
+            return WebhookResponse(
+                success=False,
+                message=f"Request not found: {request_id}",
+            )
+        return WebhookResponse(
+            success=True,
+            message=f"Rejected by {approver}: {reason}",
+        )
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid action: {action}. Must be 'approve' or 'reject'",
+        )

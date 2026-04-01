@@ -128,6 +128,8 @@ class ApprovalGate:
         self._timeout = timeout_seconds
         # 事件字典，用于唤醒等待中的协程
         self._events: dict[str, asyncio.Event] = {}
+        # V2.7: Webhook callback 注册表（request_id -> callback）
+        self._webhook_callbacks: dict[str, Callable] = {}
 
     # -------------------------------------------------------------------------
     # 内部工具
@@ -380,6 +382,10 @@ class ApprovalGate:
 
         request.status = ApprovalStatus.APPROVED
         self._events[request_id].set()
+
+        # V2.7: 触发 webhook callback
+        await self._trigger_callback(request_id)
+
         return True
 
     async def reject(self, request_id: str, approver: str, reason: str = "") -> bool:
@@ -408,7 +414,74 @@ class ApprovalGate:
             f"approver={approver} reason={reason}"
         )
         self._events[request_id].set()
+
+        # V2.7: 触发 webhook callback
+        await self._trigger_callback(request_id)
+
         return True
+
+    # -------------------------------------------------------------------------
+    # V2.7: Webhook/Callback 支持
+    # -------------------------------------------------------------------------
+
+    def register_callback(
+        self,
+        request_id: str,
+        callback: Callable[["ApprovalRequest"], None],
+    ) -> bool:
+        """
+        注册审批完成的回调函数。
+
+        Args:
+            request_id: 审批请求ID
+            callback: 回调函数，签名为 (ApprovalRequest) -> None
+
+        Returns:
+            是否注册成功（request_id 存在时返回True）
+        """
+        if request_id not in self._requests:
+            logger.warning(
+                f"[ApprovalGate] register_callback: unknown request_id={request_id}"
+            )
+            return False
+
+        self._webhook_callbacks[request_id] = callback
+        logger.debug(f"[ApprovalGate] Callback registered for request_id={request_id}")
+        return True
+
+    def unregister_callback(self, request_id: str) -> None:
+        """注销指定 request_id 的回调"""
+        self._webhook_callbacks.pop(request_id, None)
+
+    async def _trigger_callback(self, request_id: str) -> None:
+        """
+        触发审批请求完成时的回调（内部方法，供 approve/reject/timeout 调用）
+        """
+        callback = self._webhook_callbacks.get(request_id)
+        if callback is None:
+            return
+
+        request = self._requests.get(request_id)
+        if request is None:
+            return
+
+        try:
+            # 回调可以是同步或异步
+            import asyncio
+            if asyncio.iscoroutinefunction(callback):
+                await callback(request)
+            else:
+                callback(request)
+            logger.debug(
+                f"[ApprovalGate] Callback triggered for request_id={request_id}"
+            )
+        except Exception as e:
+            logger.error(
+                f"[ApprovalGate] Callback error for request_id={request_id}: {e}"
+            )
+        finally:
+            # 回调触发后自动注销
+            self.unregister_callback(request_id)
 
     # -------------------------------------------------------------------------
     # 公共接口：查询
@@ -425,7 +498,7 @@ class ApprovalGate:
             if r.status == ApprovalStatus.PENDING
         ]
 
-    def cleanup_timeout(self) -> int:
+    async def cleanup_timeout(self) -> int:
         """
         清理超时的请求（同步调用，定时任务使用）。
         Returns: 清理的请求数量
@@ -440,6 +513,8 @@ class ApprovalGate:
                 request.status = ApprovalStatus.TIMEOUT
                 if request_id in self._events:
                     self._events[request_id].set()
+                # V2.7: 触发超时回调
+                await self._trigger_callback(request_id)
                 cleaned += 1
                 logger.info(f"[ApprovalGate] cleanup timeout: {request_id}")
         return cleaned
