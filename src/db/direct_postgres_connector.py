@@ -42,23 +42,26 @@ class DirectPostgresConnector:
 
     async def get_sessions(self, limit: int = 100) -> list[dict]:
         """获取PostgreSQL会话列表（pg_stat_activity风格）"""
-        pool = await self._get_pool()
-        async with pool.acquire() as conn:
-            rows = await conn.fetch(
-                """
-                SELECT pid, usename AS username, datname AS db,
-                       state, query, query_start,
-                       wait_event_type AS wait_event,
-                       client_addr AS machine,
-                       application_name
-                FROM pg_stat_activity
-                WHERE datname IS NOT NULL
-                ORDER BY query_start NULLS LAST
-                LIMIT $1
-                """,
-                limit,
-            )
-            return [dict(row) for row in rows]
+        try:
+            pool = await self._get_pool()
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    """
+                    SELECT pid, usename AS username, datname AS db,
+                           state, query, query_start,
+                           wait_event_type AS wait_event,
+                           client_addr AS machine,
+                           application_name
+                    FROM pg_stat_activity
+                    WHERE datname IS NOT NULL
+                    ORDER BY query_start NULLS LAST
+                    LIMIT $1
+                    """,
+                    limit,
+                )
+                return [dict(row) for row in rows]
+        except Exception:
+            return []
 
     async def get_locks(self) -> list[dict]:
         """获取PostgreSQL锁信息（pg_locks风格）"""

@@ -611,7 +611,13 @@ class OrchestratorAgent(BaseAgent):
         - 自动学习用户实际问法
         """
         # Step 1: 语义向量匹配（v1.3新增）
-        semantic_intent, semantic_score = await self._semantic_intent_recognize(goal)
+        try:
+            semantic_intent, semantic_score = await self._semantic_intent_recognize(goal)
+        except Exception as e:
+            # _semantic_intent_recognize 内部已做 fallback，
+            # 此处捕获是为了防止意外异常穿透
+            logger.warning(f"语义意图识别异常: {e}")
+            return Intent.GENERAL
         if semantic_score >= self.SEMANTIC_SIMILARITY_THRESHOLD:
             # 语义匹配成功，记录反馈供自演化使用
             self._record_intent_feedback(goal, semantic_intent, semantic_score)

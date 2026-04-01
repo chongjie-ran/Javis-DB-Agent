@@ -161,7 +161,7 @@ class InspectorAgent(BaseAgent):
             metadata={
                 "agent": self.name,
                 "tool_results_count": len([v for v in tool_results.values() if v]),
-                "has_real_data": bool(pg_connector or mysql_connector),
+                "has_real_data": bool(db_connector or pg_connector or mysql_connector),
             }
         )
     

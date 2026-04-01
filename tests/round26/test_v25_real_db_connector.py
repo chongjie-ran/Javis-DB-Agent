@@ -101,12 +101,14 @@ class TestDBConnectorRecognition:
         ctx = {**mock_context, "pg_connector": FakePGConnector()}
 
         # Mock call_tool 来验证工具被调用
-        with patch.object(inspector_agent, "call_tool", new_callable=AsyncMock) as mock_call_tool:
-            mock_call_tool.return_value = MagicMock(
-                success=True,
-                data={"sessions": [], "total": 0}
-            )
-            response = await inspector_agent._process_direct("数据库健康检查", ctx)
+        with patch.object(inspector_agent, "think", new_callable=AsyncMock) as mock_think:
+            mock_think.return_value = "健康评分 95，状态优秀。"
+            with patch.object(inspector_agent, "call_tool", new_callable=AsyncMock) as mock_call_tool:
+                mock_call_tool.return_value = MagicMock(
+                    success=True,
+                    data={"sessions": [], "total": 0}
+                )
+                response = await inspector_agent._process_direct("数据库健康检查", ctx)
 
         assert response.success is True
         assert is_meaningful_content(response.content)
@@ -128,12 +130,14 @@ class TestDBConnectorRecognition:
 
         ctx = {**mock_context, "db_connector": FakeDBConnector()}
 
-        with patch.object(inspector_agent, "call_tool", new_callable=AsyncMock) as mock_call_tool:
-            mock_call_tool.return_value = MagicMock(
-                success=True,
-                data={"sessions": [], "total": 0}
-            )
-            response = await inspector_agent._process_direct("查看会话", ctx)
+        with patch.object(inspector_agent, "think", new_callable=AsyncMock) as mock_think:
+            mock_think.return_value = "数据库状态检查完成，各项指标正常。"
+            with patch.object(inspector_agent, "call_tool", new_callable=AsyncMock) as mock_call_tool:
+                mock_call_tool.return_value = MagicMock(
+                    success=True,
+                    data={"sessions": [], "total": 0}
+                )
+                response = await inspector_agent._process_direct("查看会话", ctx)
 
         assert response.success is True
         assert is_meaningful_content(response.content)
@@ -174,8 +178,10 @@ class TestDBConnectorRecognition:
             call_args.append((tool_name, ctx.get("db_connector")))
             return MagicMock(success=True, data={"sessions": [], "total": 0})
 
-        with patch.object(inspector_agent, "call_tool", side_effect=mock_call_tool):
-            response = await inspector_agent._process_direct("健康检查", ctx)
+        with patch.object(inspector_agent, "think", new_callable=AsyncMock) as mock_think:
+            mock_think.return_value = "健康检查完成。"
+            with patch.object(inspector_agent, "call_tool", side_effect=mock_call_tool):
+                response = await inspector_agent._process_direct("健康检查", ctx)
 
         assert response.success is True
         # db_connector 应该被传入（pg_connector 优先）
@@ -188,7 +194,9 @@ class TestDBConnectorRecognition:
     @pytest.mark.asyncio
     async def test_dbc_04_no_connector_returns_mock_data(self, inspector_agent, mock_context):
         """DBC-04: 无连接器时，InspectorAgent 不崩溃并返回友好内容"""
-        response = await inspector_agent._process_direct("数据库健康检查", mock_context)
+        with patch.object(inspector_agent, "think", new_callable=AsyncMock) as mock_think:
+            mock_think.return_value = "数据库健康检查完成，状态正常。"
+            response = await inspector_agent._process_direct("数据库健康检查", mock_context)
 
         assert response.success is True
         assert is_meaningful_content(response.content)
@@ -227,8 +235,10 @@ class TestRealDBConnection:
             call_args.append(tool_name)
             return MagicMock(success=True, data={"sessions": [], "total": 2})
 
-        with patch.object(inspector_agent, "call_tool", side_effect=mock_call_tool):
-            response = await inspector_agent._process_direct("分析会话", ctx)
+        with patch.object(inspector_agent, "think", new_callable=AsyncMock) as mock_think:
+            mock_think.return_value = "会话分析完成。"
+            with patch.object(inspector_agent, "call_tool", side_effect=mock_call_tool):
+                response = await inspector_agent._process_direct("分析会话", ctx)
 
         assert response.success is True
         assert "pg_session_analysis" in call_args, \
@@ -254,8 +264,10 @@ class TestRealDBConnection:
             call_args.append(tool_name)
             return MagicMock(success=True, data={"locks": [], "total": 1})
 
-        with patch.object(inspector_agent, "call_tool", side_effect=mock_call_tool):
-            response = await inspector_agent._process_direct("分析锁", ctx)
+        with patch.object(inspector_agent, "think", new_callable=AsyncMock) as mock_think:
+            mock_think.return_value = "锁分析完成。"
+            with patch.object(inspector_agent, "call_tool", side_effect=mock_call_tool):
+                response = await inspector_agent._process_direct("分析锁", ctx)
 
         assert response.success is True
         assert "pg_lock_analysis" in call_args, \
@@ -283,8 +295,10 @@ class TestRealDBConnection:
             call_args.append(tool_name)
             return MagicMock(success=True, data={"replication": {}})
 
-        with patch.object(inspector_agent, "call_tool", side_effect=mock_call_tool):
-            response = await inspector_agent._process_direct("复制状态", ctx)
+        with patch.object(inspector_agent, "think", new_callable=AsyncMock) as mock_think:
+            mock_think.return_value = "复制状态分析完成。"
+            with patch.object(inspector_agent, "call_tool", side_effect=mock_call_tool):
+                response = await inspector_agent._process_direct("复制状态", ctx)
 
         assert response.success is True
         assert "pg_replication_status" in call_args, \
@@ -312,8 +326,10 @@ class TestRealDBConnection:
             received_connector = call_ctx.get("db_connector")
             return MagicMock(success=True, data={"sessions": []})
 
-        with patch.object(inspector_agent, "call_tool", side_effect=mock_call_tool):
-            await inspector_agent._process_direct("健康检查", ctx)
+        with patch.object(inspector_agent, "think", new_callable=AsyncMock) as mock_think:
+            mock_think.return_value = "健康检查完成。"
+            with patch.object(inspector_agent, "call_tool", side_effect=mock_call_tool):
+                await inspector_agent._process_direct("健康检查", ctx)
 
         assert received_connector is fake_connector, \
             "db_connector should be passed to call_tool context"
@@ -428,7 +444,9 @@ class TestConnectionExceptionHandling:
 
         ctx = {**mock_context, "pg_connector": TimeoutPGConnector()}
 
-        response = await inspector_agent._process_direct("健康检查", ctx)
+        with patch.object(inspector_agent, "think", new_callable=AsyncMock) as mock_think:
+            mock_think.return_value = "健康检查完成，各项指标正常。"
+            response = await inspector_agent._process_direct("健康检查", ctx)
 
         # 不应崩溃，应返回错误信息
         assert response.success is True
@@ -506,9 +524,11 @@ class TestMySQLConnectorSupport:
 
         ctx = {**mock_context, "mysql_connector": FakeMySQLConnector()}
 
-        with patch.object(inspector_agent, "call_tool", new_callable=AsyncMock) as mock_call_tool:
-            mock_call_tool.return_value = MagicMock(success=True, data={})
-            response = await inspector_agent._process_direct("MySQL健康检查", ctx)
+        with patch.object(inspector_agent, "think", new_callable=AsyncMock) as mock_think:
+            mock_think.return_value = "MySQL健康检查完成。"
+            with patch.object(inspector_agent, "call_tool", new_callable=AsyncMock) as mock_call_tool:
+                mock_call_tool.return_value = MagicMock(success=True, data={})
+                response = await inspector_agent._process_direct("MySQL健康检查", ctx)
 
         assert response.success is True
         assert is_meaningful_content(response.content)
@@ -522,8 +542,9 @@ class TestMySQLConnectorSupport:
 
         ctx = {**mock_context, "mysql_connector": BadMySQLConnector()}
 
-        # 不应崩溃
-        response = await inspector_agent._process_direct("MySQL健康检查", ctx)
+        with patch.object(inspector_agent, "think", new_callable=AsyncMock) as mock_think:
+            mock_think.return_value = "MySQL健康检查完成。"
+            response = await inspector_agent._process_direct("MySQL健康检查", ctx)
 
         assert response.success is True
 

@@ -4,6 +4,17 @@ All notable changes to the Javis-DB-Agent will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v2.5] - 2026-04-01
+
+### Added
+- **Inspector真实DB连接器** - InspectorAgent识别并使用context.pg_connector直连数据库
+- **DirectPostgresConnector** - asyncpg直连PostgreSQL连接器，支持连接池管理
+- **Orchestrator LLM Fallback优化** - 主LLM失败时智能降级到备用响应
+
+### Fixed
+- **连接器识别** - Inspector正确识别pg_connector/db_connector并传递上下文
+- **fallback触发逻辑** - 超时/异常/空结果时正确触发fallback机制
+
 ## [v2.1] - 2026-03-31
 
 ### Added
