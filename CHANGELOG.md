@@ -4,6 +4,24 @@ All notable changes to the Javis-DB-Agent will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v2.6] - 2026-04-01
+
+### Added
+- **F1: Hook事件驱动系统** - src/gateway/hooks/ (6个文件)
+  - HookEngine, HookRegistry, RuleEngine, HookEvent (14种事件)
+  - async/sync 双模式支持
+- **F2: 并行Agent执行引擎** - src/agents/executor/ (4个文件)
+  - ParallelAgentExecutor, ResultAggregator, ConfidenceCalculator
+  - 6种Intent并行策略 + 11种串行策略
+- **F3: SafetyGuardRail** - src/security/guard_rail.py
+  - 不可绕过审批门卫，L4/L5强制审批
+- **F4: 可观测性框架** - src/observability/ (4个文件)
+  - Tracer (OpenTelemetry), Metrics (Prometheus), Logger (JSON Lines)
+
+### Fixed
+- **P1: ReDoS防护** - HookCondition正则编译缓存
+- **P1: 线程安全** - 全局单例threading.Lock保护
+
 ## [v2.5] - 2026-04-01
 
 ### Added
