@@ -8,18 +8,28 @@
 - BreakingValidator: 主动构造边界条件来打破假设
 - ValidatorRegistry: 验证器注册与管理中心
 - ValidationResult: 验证结果数据结构
+- ValidationMode: 验证模式（CONFIRM/BREAK/BOTH）
+- AdversarialValidationHook: 对抗性验证Hook
 
 使用示例：
-    registry = ValidatorRegistry()
+    from src.validation import (
+        ValidatorRegistry,
+        ValidationMode,
+        get_validator_registry,
+        AdversarialValidationHook,
+    )
 
-    # 注册对抗性验证器
-    registry.register("completion_claim", CompletionClaimValidator())
-    registry.register("sql_boundary", SQLBoundaryValidator())
+    # 方式1：使用全局单例
+    registry = get_validator_registry()
+    registry.register("completion_claim", CompletionBreakingValidator())
 
-    # 在AgentRunner的after_iteration中调用
-    result = registry.validate(context)
-    if result.broken:
-        ctx.set_blocked(f"假设被打破: {result.reason}")
+    # 方式2：创建Hook
+    hook = create_adversarial_hook()
+
+    # 在AgentRunner.after_iteration中：
+    result = await registry.validate(context)
+    if result.has_broken_claims():
+        raise AdversarialChallengeError(result.get_broken_claims())
 """
 
 from .validator_registry import (
@@ -27,21 +37,44 @@ from .validator_registry import (
     Validator,
     BreakingValidator,
     ValidationResult,
+    ValidationMode,
+    BreakResult,
+    ValidatorResult,
+    MultiValidationResult,
     get_validator_registry,
+    reset_validator_registry,
 )
 from .validators import (
-    CompletionClaimValidator,
+    CompletionBreakingValidator,
     SQLBoundaryValidator,
     TokenOverBudgetValidator,
+    CodeQualityValidator,
+)
+from .adversarial_hook import (
+    AdversarialValidationHook,
+    AdversarialChallengeError,
+    create_adversarial_hook,
 )
 
 __all__ = [
+    # 核心注册表
     "ValidatorRegistry",
     "Validator",
     "BreakingValidator",
     "ValidationResult",
+    "ValidationMode",
+    "BreakResult",
+    "ValidatorResult",
+    "MultiValidationResult",
     "get_validator_registry",
-    "CompletionClaimValidator",
+    "reset_validator_registry",
+    # 预置验证器
+    "CompletionBreakingValidator",
     "SQLBoundaryValidator",
     "TokenOverBudgetValidator",
+    "CodeQualityValidator",
+    # Hook
+    "AdversarialValidationHook",
+    "AdversarialChallengeError",
+    "create_adversarial_hook",
 ]
