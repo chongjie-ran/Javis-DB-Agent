@@ -1,6 +1,6 @@
 # Javis-DB-Agent - 数据库运维智能体系统
 
-> 版本：v2.7 | 日期：2026-04-01 | 状态：✅ V2.7 Release（Webhook审批通知、HMAC签名、Token TTL、Hook MODIFY）
+> 版本：v3.0 | 日期：2026-04-02 | 状态：✅ V3.0 Release（Hook生命周期 + AgentRunner + 双层记忆 + 对抗性验证 + 自我合理化防护 + TaskScheduler + Subagent双模式）
 
 ---
 
@@ -21,6 +21,17 @@
 - 🔐 **OAuth2认证** - API Key + OAuth2 认证支持 ⭐ Round 9
 
 ---
+
+### V3.0 核心能力（2026-04-02）
+
+V3.0 重大架构升级：
+- 🪝 **Hook生命周期系统** - 8个Hook点：before_iteration, before_execute_tools, after_execute_tools, before_llm, on_stream, after_llm, after_iteration, on_error, on_complete
+- 🏃 **AgentRunner重构** - AgentRunSpec规格定义，InstructionSelfContainValidator指令自包含验证
+- 🧠 **双层记忆系统** - HISTORY.md短期记忆 + MEMORY.md长期记忆 + TokenMonitor token监控
+- ⚔️ **对抗性验证系统** - ValidatorRegistry验证器注册表 + BreakingValidator打破声明 + AdversarialValidationHook
+- 🛡️ **自我合理化防护** - 19个信号词检测 + 9种防护动作 + 开发者特有信号支持
+- 📅 **TaskScheduler** - 任务分类（READ_ONLY/WRITE_SAME_FILE/WRITE_DIFF_FILE/VERIFY）+ FileLockManager文件锁 + 死锁预防
+- 🤖 **Subagent双模式** - ExploreSpec（5分钟/只读/30k token）+ ExecuteSpec（60分钟/可写/100k token）
 
 ### V2.x 核心能力
 
@@ -75,10 +86,15 @@ Javis-DB-Agent/
 │   ├── llm/            # LLM交互（Ollama客户端）
 │   ├── mock_api/       # Mock Javis-DB-Agent API
 │   ├── real_api/       # Real Javis-DB-Agent API Client ⭐ Round 9
-│   └── api/            # FastAPI路由 + Dashboard ⭐ Round 9
+│   ├── api/            # FastAPI路由 + Dashboard ⭐ Round 9
+│   ├── hooks/          # Hook生命周期系统 ⭐ V3.0
+│   ├── memory/         # 双层记忆系统 ⭐ V3.0
+│   ├── validation/      # 对抗性验证系统 ⭐ V3.0
+│   ├── scheduler/      # TaskScheduler任务调度 ⭐ V3.0
+│   └── subagent/       # Subagent双模式工厂 ⭐ V3.0
 ├── templates/           # Web Dashboard ⭐ Round 9
 ├── scripts/             # 工具脚本（API模式切换）⭐ Round 9
-├── tests/              # 测试（Round 2-4, Round 9，共419个测试）
+├── tests/              # 测试（Round 2-4, Round 9, V3.0，共2520个测试）
 ├── mock_javis_api/    # Mock API Server（12个接口）
 ├── configs/            # 配置文件
 ├── knowledge/          # 知识内容（15条告警规则、8个SOP、3个案例）
@@ -187,6 +203,7 @@ python3 -m pytest tests/round9/ -v
 
 | 版本 | 完成时间 | 核心成果 | 测试数 |
 |------|----------|----------|--------|
+| V3.0 | 2026-04-02 | Hook生命周期 + AgentRunner + 双层记忆 + 对抗性验证 + 自我合理化防护 + TaskScheduler + Subagent双模式 | ~100+ |
 | V2.7 | 2026-04-01 | Webhook审批通知、HMAC签名、IP白名单、Replay防护 | 38 |
 | V2.6.1 | 2026-04-01 | Token TTL、Hook MODIFY、后台自动清理 | 56 |
 | V2.6 | 2026-04-01 | Hook事件驱动、并行引擎、SafetyGuardRail、可观测性 | - |
