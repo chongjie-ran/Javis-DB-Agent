@@ -111,6 +111,9 @@ class CompositeHook:
     def on_complete(self, ctx: AgentHookContext) -> AgentHookContext:
         return self._call("on_complete", ctx)
 
+    def on_start(self, ctx: AgentHookContext) -> AgentHookContext:
+        return self._call("on_start", ctx)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 全局CompositeHook单例
