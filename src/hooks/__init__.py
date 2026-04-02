@@ -14,14 +14,16 @@
 | 任务并发隔离    | before_execute_tools   | Phase 5   |
 | 探索/执行分离   | before_iteration       | Phase 6   |
 """
-from .hook_system import AgentHook, CompositeHook, get_composite_hook
-from .events import AgentHookEvent
-from .context import AgentHookContext
+from .hook import AgentHook
+from .composite_hook import CompositeHook, get_composite_hook, reset_composite_hook
+from .hook_events import AgentHookEvent
+from .hook_context import AgentHookContext
 
 __all__ = [
     "AgentHook",
     "CompositeHook",
     "get_composite_hook",
+    "reset_composite_hook",
     "AgentHookEvent",
     "AgentHookContext",
 ]
