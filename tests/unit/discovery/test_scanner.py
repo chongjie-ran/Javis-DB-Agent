@@ -151,11 +151,12 @@ class TestDatabaseScanner:
         mock_proc.pid = 1234
         mock_proc.name.return_value = "postgres"
         mock_proc.exe.return_value = "/usr/lib/postgresql/16/bin/postgres"
+        mock_proc.info = {"name": "postgres", "pid": 1234, "exe": "/usr/lib/postgresql/16/bin/postgres", "cmdline": []}
 
         mock_conn = MagicMock()
         mock_conn.status = "LISTEN"
         mock_conn.laddr.port = 5432
-        mock_proc.connections.return_value = [mock_conn]
+        mock_proc.net_connections.return_value = [mock_conn]
 
         with patch('src.discovery.scanner.psutil.process_iter', return_value=[mock_proc]):
             results = scanner.scan_processes()
@@ -172,11 +173,12 @@ class TestDatabaseScanner:
         mock_proc.pid = 5678
         mock_proc.name.return_value = "mysqld"
         mock_proc.exe.return_value = "/usr/sbin/mysqld"
+        mock_proc.info = {"name": "mysqld", "pid": 5678, "exe": "/usr/sbin/mysqld", "cmdline": []}
 
         mock_conn = MagicMock()
         mock_conn.status = "LISTEN"
         mock_conn.laddr.port = 3306
-        mock_proc.connections.return_value = [mock_conn]
+        mock_proc.net_connections.return_value = [mock_conn]
 
         with patch('src.discovery.scanner.psutil.process_iter', return_value=[mock_proc]):
             results = scanner.scan_processes()

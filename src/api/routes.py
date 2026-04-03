@@ -1,4 +1,5 @@
 """API路由"""
+import asyncio
 from fastapi import APIRouter, HTTPException, Response, Depends, Request
 from src.security.rate_limit import rate_limit
 from src.api.schemas import (
@@ -17,6 +18,9 @@ from src.api.metrics import get_metrics
 import time
 
 router = APIRouter(prefix="/api/v1")
+
+# 端点超时配置（秒）
+_ENDPOINT_TIMEOUT = 30.0
 
 # 全局Agent实例
 _orchestrator: OrchestratorAgent = None
@@ -53,12 +57,19 @@ async def chat(request: ChatRequest):
         "extra_info": str(request.context),
     }
     
-    # 处理对话
-    response = await orch.handle_chat(request.message, context)
+    # 处理对话（带超时保护）
+    try:
+        response = await asyncio.wait_for(
+            orch.handle_chat(request.message, context),
+            timeout=_ENDPOINT_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="LLM响应超时(30s)，请检查Ollama服务或稍后重试")
     
     # 记录到会话
     session.add_message("user", request.message)
     session.add_message("assistant", response.content)
+    session_mgr.save_session(session)
     
     return ChatResponse(
         session_id=session.session_id,
@@ -81,7 +92,13 @@ async def diagnose(request: DiagnoseRequest):
         "instance_id": request.instance_id or "",
     }
     
-    response = await orch.handle_diagnose(request.alert_id, context)
+    try:
+        response = await asyncio.wait_for(
+            orch.handle_diagnose(request.alert_id, context),
+            timeout=_ENDPOINT_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="LLM响应超时(30s)，请检查Ollama服务或稍后重试")
     
     return DiagnoseResponse(
         data={
@@ -106,11 +123,16 @@ async def analyze_sql(request: SQLAnalyzeRequest):
     }
     
     if request.sql:
-        response = await agent.analyze_sql(request.sql, context)
+        coro = agent.analyze_sql(request.sql, context)
     elif request.session_id:
-        response = await agent.analyze_session(request.session_id, context)
+        coro = agent.analyze_session(request.session_id, context)
     else:
         raise HTTPException(status_code=400, detail="需要提供sql或session_id")
+    
+    try:
+        response = await asyncio.wait_for(coro, timeout=_ENDPOINT_TIMEOUT)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="LLM响应超时(30s)，请检查Ollama服务或稍后重试")
     
     return APIResponse(data={"analysis": response.content, "metadata": response.metadata})
 
@@ -127,7 +149,13 @@ async def inspect(request: InspectRequest):
     
     for instance_id in request.instance_ids:
         context = {"user_id": "system", "instance_id": instance_id}
-        response = await agent.inspect_instance(instance_id, context)
+        try:
+            response = await asyncio.wait_for(
+                agent.inspect_instance(instance_id, context),
+                timeout=_ENDPOINT_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(status_code=504, detail="LLM响应超时(30s)，请检查Ollama服务或稍后重试")
         results.append({
             "instance_id": instance_id,
             "result": response.content,
@@ -152,11 +180,16 @@ async def generate_report(request: ReportRequest):
     }
     
     if request.report_type == "rca" and request.incident_id:
-        response = await agent.generate_rca(request.incident_id, context)
+        coro = agent.generate_rca(request.incident_id, context)
     elif request.report_type == "inspection" and request.instance_id:
-        response = await agent.generate_inspection_report(request.instance_id, context)
+        coro = agent.generate_inspection_report(request.instance_id, context)
     else:
-        response = await agent.generate_summary(request.data, context)
+        coro = agent.generate_summary(request.data, context)
+    
+    try:
+        response = await asyncio.wait_for(coro, timeout=_ENDPOINT_TIMEOUT)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="LLM响应超时(30s)，请检查Ollama服务或稍后重试")
     
     return APIResponse(data={"report": response.content, "metadata": response.metadata})
 

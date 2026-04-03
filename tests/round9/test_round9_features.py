@@ -401,10 +401,171 @@ class TestDashboardTemplate:
 class TestRound9Integration:
     """Round9功能集成测试"""
     
-    @pytest.mark.skip(reason="需要运行中的event loop，P2")
     def test_mock_to_real_workflow(self):
-        """测试Mock到Real的完整工作流 - 需要async context"""
-        pass
+        """测试Mock到Real的完整工作流
+        
+        验证以下切换链路：
+        1. 配置文件从 mock 切换到 real 模式
+        2. AuthProvider 从 mock-style 切换到真实 API Key
+        3. AuthProvider 从 API Key 切换到 OAuth2
+        4. JavisRealClient 根据配置创建正确的 auth provider
+        5. reset_real_client 在切换后能重置单例
+        """
+        import tempfile
+        import yaml as yaml_mod
+        from src.real_api.auth import (
+            create_auth_provider,
+            APIKeyProvider,
+            OAuth2Provider,
+        )
+        from src.real_api.client import JavisRealClient, reset_real_client
+        from src.real_api import config as real_api_config_mod
+        
+        # ---- 准备临时配置文件 ----
+        initial_config = {
+            "javis_api": {
+                "base_url": "http://localhost:18080",
+                "use_mock": True,
+            },
+            "javis_real_api": {
+                "base_url": "https://javis-db.example.com/api/v1",
+                "auth_type": "api_key",
+                "api_key": "mock-key-for-testing",
+            },
+        }
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml_mod.dump(initial_config, f)
+            temp_config_path = f.name
+        
+        try:
+            # ---- Step 1: 验证 Mock 模式配置 ----
+            with patch.object(real_api_config_mod, 'RealAPIConfig') as MockConfig:
+                mock_instance = MagicMock()
+                mock_instance.use_mock = True
+                mock_instance.auth_type = "api_key"
+                mock_instance.api_key = "mock-key-for-testing"
+                mock_instance.api_key_header = "X-API-Key"
+                mock_instance.base_url = "http://localhost:18080"
+                MockConfig.return_value = mock_instance
+                
+                client = JavisRealClient(config=mock_instance)
+                auth = client._create_auth()
+                
+                assert isinstance(auth, APIKeyProvider)
+                assert auth._api_key == "mock-key-for-testing"
+                assert auth.get_auth_headers() == {"X-API-Key": "mock-key-for-testing"}
+            
+            # ---- Step 2: 切换到 Real API Key 模式 ----
+            real_api_key_config = {
+                "base_url": "https://javis-db.example.com/api/v1",
+                "auth_type": "api_key",
+                "api_key": "real-api-key-12345",
+                "api_key_header": "X-API-Key",
+                "oauth_token_url": "",
+                "oauth_client_id": "",
+                "oauth_client_secret": "",
+                "oauth_scope": "read write",
+                "oauth2_grant_type": "client_credentials",
+                "oauth2_access_token": "",
+                "oauth2_refresh_token": "",
+                "timeout": 30,
+                "max_retries": 3,
+                "use_mock": False,
+            }
+            
+            real_config_instance = MagicMock()
+            real_config_instance.use_mock = False
+            real_config_instance.auth_type = "api_key"
+            real_config_instance.api_key = "real-api-key-12345"
+            real_config_instance.api_key_header = "X-API-Key"
+            real_config_instance.base_url = "https://javis-db.example.com/api/v1"
+            
+            client_real = JavisRealClient(config=real_config_instance)
+            auth_real = client_real._create_auth()
+            
+            assert isinstance(auth_real, APIKeyProvider)
+            assert auth_real._api_key == "real-api-key-12345"
+            assert auth_real._header_name == "X-API-Key"
+            headers = auth_real.get_auth_headers()
+            assert headers == {"X-API-Key": "real-api-key-12345"}
+            
+            # ---- Step 3: 切换到 Real OAuth2 模式 ----
+            oauth2_config = {
+                "auth_type": "oauth2",
+                "api_key": "",
+                "api_key_header": "X-API-Key",
+                "oauth_token_url": "https://auth.example.com/oauth/token",
+                "oauth_client_id": "client-id-abc",
+                "oauth_client_secret": "client-secret-xyz",
+                "oauth_scope": "read write",
+                "oauth2_grant_type": "client_credentials",
+                "oauth2_access_token": "pre-token-for-testing",
+                "oauth2_refresh_token": "",
+                "timeout": 30,
+            }
+            
+            oauth2_auth = create_auth_provider(oauth2_config)
+            assert isinstance(oauth2_auth, OAuth2Provider)
+            assert oauth2_auth.token_url == "https://auth.example.com/oauth/token"
+            assert oauth2_auth.client_id == "client-id-abc"
+            assert oauth2_auth.grant_type == "client_credentials"
+            
+            # OAuth2 auth headers 返回 Bearer token（使用预置 token，无网络请求）
+            headers = oauth2_auth.get_auth_headers()
+            assert "Authorization" in headers
+            assert headers["Authorization"] == "Bearer pre-token-for-testing"
+            
+            # ---- Step 4: 验证 switch_api_mode 脚本配置切换逻辑 ----
+            # 通过临时配置文件验证脚本逻辑
+            def load_temp_config():
+                with open(temp_config_path, "r") as f:
+                    return yaml_mod.safe_load(f)
+            
+            # 模拟 switch_to_mock 行为
+            config = load_temp_config()
+            config["javis_api"]["use_mock"] = True
+            with open(temp_config_path, "w") as f:
+                yaml_mod.dump(config, f)
+            
+            cfg_after_mock = load_temp_config()
+            assert cfg_after_mock["javis_api"]["use_mock"] is True
+            
+            # 模拟 switch_to_real 行为（API Key）
+            config = load_temp_config()
+            config["javis_api"]["use_mock"] = False
+            config["javis_real_api"]["auth_type"] = "api_key"
+            config["javis_real_api"]["api_key"] = "switched-real-key"
+            config["javis_real_api"]["base_url"] = "https://prod-api.example.com"
+            with open(temp_config_path, "w") as f:
+                yaml_mod.dump(config, f)
+            
+            cfg_after_real = load_temp_config()
+            assert cfg_after_real["javis_api"]["use_mock"] is False
+            assert cfg_after_real["javis_real_api"]["auth_type"] == "api_key"
+            assert cfg_after_real["javis_real_api"]["api_key"] == "switched-real-key"
+            
+            # 模拟 switch_to_real 行为（OAuth2）
+            config = load_temp_config()
+            config["javis_real_api"]["auth_type"] = "oauth2"
+            config["javis_real_api"]["oauth_client_id"] = "oauth-client"
+            config["javis_real_api"]["oauth_client_secret"] = "oauth-secret"
+            with open(temp_config_path, "w") as f:
+                yaml_mod.dump(config, f)
+            
+            cfg_after_oauth = load_temp_config()
+            assert cfg_after_oauth["javis_real_api"]["auth_type"] == "oauth2"
+            
+            # ---- Step 5: reset_real_client 切换后重置 ----
+            # 重置模块级单例，确保下次 get_real_client 创建新实例
+            reset_real_client()
+            
+            # 验证单例已被重置（内部状态为 None）
+            import src.real_api.client as client_mod
+            assert client_mod._real_client is None
+            
+        finally:
+            os.unlink(temp_config_path)
     
     def test_auth_provider_switch(self):
         """测试认证提供者切换"""

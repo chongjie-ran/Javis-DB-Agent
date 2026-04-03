@@ -479,6 +479,18 @@ class TestChatStream:
         from src.main import app
         return TestClient(app)
 
+    @pytest.fixture(autouse=True)
+    def mock_ollama(self):
+        """Mock Ollama client to prevent real LLM calls in streaming tests"""
+        from unittest.mock import patch, AsyncMock, MagicMock
+        mock_response = MagicMock()
+        mock_response.content = "mocked response"
+        mock_response.metadata = {"agent": "orchestrator"}
+
+        with patch("src.agents.orchestrator.OrchestratorAgent.handle_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = mock_response
+            yield
+
     def test_chat_stream_endpoint_exists(self, client):
         """流式对话端点存在"""
         # 先登录获取token

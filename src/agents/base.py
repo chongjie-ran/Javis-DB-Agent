@@ -3,8 +3,11 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional
 from dataclasses import dataclass, field
 import time
+import logging
 
 from src.llm.ollama_client import get_ollama_client, OllamaClient
+
+logger = logging.getLogger(__name__)
 from src.gateway.tool_registry import get_tool_registry, ToolRegistry
 from src.gateway.policy_engine import get_policy_engine, PolicyEngine, PolicyContext, PolicyResult
 from src.gateway.audit import get_audit_logger, AuditLogger, AuditAction
@@ -34,8 +37,8 @@ class BaseAgent(ABC):
     max_iterations: int = 5
     timeout_seconds: int = 60
     
-    def __init__(self):
-        self._llm = get_ollama_client()
+    def __init__(self, llm_provider=None):
+        self._llm = llm_provider or get_ollama_client()
         self._registry = get_tool_registry()
         self._policy = get_policy_engine()
         self._audit = get_audit_logger()
@@ -76,9 +79,13 @@ class BaseAgent(ABC):
             )
     
     async def think(self, prompt: str, system: Optional[str] = None) -> str:
-        """LLM推理"""
+        """LLM推理（异常时优雅降级，返回结构化错误信息）"""
         sys_prompt = system or self._build_system_prompt()
-        return await self._llm.complete(prompt, system=sys_prompt)
+        try:
+            return await self._llm.complete(prompt, system=sys_prompt)
+        except Exception as e:
+            logger.warning(f"LLM调用失败，Agent={self.__class__.__name__}, error={e}")
+            return f"[LLM调用失败] {type(e).__name__}: {str(e)[:200]}"
     
     async def think_stream(self, prompt: str, system: Optional[str] = None):
         """流式LLM推理"""

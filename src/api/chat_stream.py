@@ -91,11 +91,11 @@ async def _stream_chat(request: ChatRequest, user_info: dict):
             context["pg_connector"] = None
 
         try:
-            from src.db.mysql_adapter import MySQLAdapter
-            context["mysql_connector"] = MySQLAdapter(
+            from src.db.mysql_adapter import MySQLConnector
+            context["mysql_connector"] = MySQLConnector(
                 host="127.0.0.1",
                 port=3306,
-                user="root",
+                username="root",
                 password="root",
             )
         except Exception as e:
@@ -143,6 +143,7 @@ async def _stream_chat(request: ChatRequest, user_info: dict):
         # 记录到会话
         session.add_message("user", request.message)
         session.add_message("assistant", full_content)
+        session_mgr.save_session(session)
 
         # 发送完成信号
         yield f"event: done\ndata: {json.dumps({'content': full_content, 'agent': response.metadata.get('agent', active_agent_name)}, ensure_ascii=False)}\n\n"

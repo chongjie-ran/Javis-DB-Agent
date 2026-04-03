@@ -262,27 +262,30 @@ class TestDependencyPropagator:
         ]
         return p
 
-    def test_load_dependencies(self, propagator, mock_dependency_repo):
+    @pytest.mark.asyncio
+    async def test_load_dependencies(self, propagator, mock_dependency_repo):
         """Test loading dependencies from cache"""
-        deps = propagator.load_dependencies()
+        deps = await propagator.load_dependencies()
         
         assert len(deps) == 4
         # Cache should already be set from fixture
         assert propagator._dependencies_cache is not None
 
-    def test_get_dependency_graph(self, propagator):
+    @pytest.mark.asyncio
+    async def test_get_dependency_graph(self, propagator):
         """Test getting dependency graph"""
-        propagator.load_dependencies()
-        graph = propagator.get_dependency_graph()
+        await propagator.load_dependencies()
+        graph = await propagator.get_dependency_graph()
         
         assert "nodes" in graph
         assert "edges" in graph
         assert len(graph["nodes"]) > 0
         assert len(graph["edges"]) > 0
 
-    def test_propagate_alert_basic(self, propagator):
+    @pytest.mark.asyncio
+    async def test_propagate_alert_basic(self, propagator):
         """Test basic alert propagation"""
-        propagator.load_dependencies()
+        await propagator.load_dependencies()
         
         alert = AlertNode(
             alert_id="ALT-001",
@@ -294,7 +297,7 @@ class TestDependencyPropagator:
             message="CPU使用率超过90%"
         )
         
-        propagated = propagator.propagate_alert(alert, depth=3)
+        propagated = await propagator.propagate_alert(alert, depth=3)
         
         # Should propagate to DB.Connection (depends_on with weight 0.9)
         assert len(propagated) >= 1
@@ -304,9 +307,10 @@ class TestDependencyPropagator:
                 assert p.root_cause_probability > 0
                 assert p.root_cause_probability <= 1.0
 
-    def test_propagate_alert_with_depth_limit(self, propagator):
+    @pytest.mark.asyncio
+    async def test_propagate_alert_with_depth_limit(self, propagator):
         """Test alert propagation respects depth"""
-        propagator.load_dependencies()
+        await propagator.load_dependencies()
         
         alert = AlertNode(
             alert_id="ALT-001",
@@ -319,15 +323,16 @@ class TestDependencyPropagator:
         )
         
         # depth=1 should only propagate one level
-        propagated_depth1 = propagator.propagate_alert(alert, depth=1)
+        propagated_depth1 = await propagator.propagate_alert(alert, depth=1)
         # depth=3 should propagate deeper
-        propagated_depth3 = propagator.propagate_alert(alert, depth=3)
+        propagated_depth3 = await propagator.propagate_alert(alert, depth=3)
         
         assert len(propagated_depth3) >= len(propagated_depth1)
 
-    def test_propagate_alert_weight_accumulation(self, propagator):
+    @pytest.mark.asyncio
+    async def test_propagate_alert_weight_accumulation(self, propagator):
         """Test weight accumulation in propagation"""
-        propagator.load_dependencies()
+        await propagator.load_dependencies()
         
         # Create alert that chains: OS.CPU -> DB.Connection -> DB.Query
         alert = AlertNode(
@@ -340,7 +345,7 @@ class TestDependencyPropagator:
             message="CPU使用率超过90%"
         )
         
-        propagated = propagator.propagate_alert(alert, depth=3)
+        propagated = await propagator.propagate_alert(alert, depth=3)
         
         # Find DB.Query in propagated (should have lower probability due to chain)
         db_query_alert = next((p for p in propagated if p.alert_type == "DB.Query"), None)
@@ -350,9 +355,10 @@ class TestDependencyPropagator:
             # DB.Query should have lower probability than DB.Connection (chain effect)
             assert db_query_alert.root_cause_probability < db_conn_alert.root_cause_probability
 
-    def test_find_root_cause_single_alert(self, propagator):
+    @pytest.mark.asyncio
+    async def test_find_root_cause_single_alert(self, propagator):
         """Test finding root cause with single alert"""
-        propagator.load_dependencies()
+        await propagator.load_dependencies()
         
         alerts = [
             AlertNode(
@@ -367,14 +373,15 @@ class TestDependencyPropagator:
             )
         ]
         
-        root_cause = propagator.find_root_cause(alerts)
+        root_cause = await propagator.find_root_cause(alerts)
         
         assert root_cause is not None
         assert root_cause.alert_type == "OS.CPU"
 
-    def test_find_root_cause_multiple_alerts(self, propagator):
+    @pytest.mark.asyncio
+    async def test_find_root_cause_multiple_alerts(self, propagator):
         """Test finding root cause with multiple alerts"""
-        propagator.load_dependencies()
+        await propagator.load_dependencies()
         
         alerts = [
             AlertNode(
@@ -409,15 +416,16 @@ class TestDependencyPropagator:
             )
         ]
         
-        root_cause = propagator.find_root_cause(alerts)
+        root_cause = await propagator.find_root_cause(alerts)
         
         assert root_cause is not None
         # Root cause should be OS.CPU (highest probability in this chain)
         assert root_cause.alert_type == "OS.CPU"
 
-    def test_find_root_cause_no_chain(self, propagator):
+    @pytest.mark.asyncio
+    async def test_find_root_cause_no_chain(self, propagator):
         """Test finding root cause when alerts don't form a chain"""
-        propagator.load_dependencies()
+        await propagator.load_dependencies()
         
         # Two unrelated alerts
         alerts = [
@@ -443,13 +451,14 @@ class TestDependencyPropagator:
             )
         ]
         
-        root_cause = propagator.find_root_cause(alerts)
+        root_cause = await propagator.find_root_cause(alerts)
         
         # Should return the one with highest root_cause_probability
         assert root_cause.alert_type == "OS.Memory"
         assert root_cause.root_cause_probability == 0.8
 
-    def test_propagate_alert_empty_graph(self, propagator):
+    @pytest.mark.asyncio
+    async def test_propagate_alert_empty_graph(self, propagator):
         """Test propagation when no dependencies loaded"""
         # Don't load dependencies
         alert = AlertNode(
@@ -462,7 +471,7 @@ class TestDependencyPropagator:
             message="测试"
         )
         
-        propagated = propagator.propagate_alert(alert, depth=3)
+        propagated = await propagator.propagate_alert(alert, depth=3)
         
         # Should return empty list (no dependencies to propagate to)
         assert len(propagated) == 0
