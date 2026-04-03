@@ -215,7 +215,14 @@ class TestOllamaConnection:
 
     @pytest.mark.asyncio
     async def test_ollama_root_cause_json(self):
-        """测试Ollama根因分析JSON输出"""
+        """测试Ollama根因分析JSON输出（需要真实Ollama服务）"""
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as http:
+                resp = await http.get("http://localhost:11434/api/tags")
+        except Exception:
+            pytest.skip("Ollama service not available at http://localhost:11434")
+
         from src.llm.ollama_client import OllamaClient
         client = OllamaClient()
         response = await client.complete(
@@ -474,7 +481,9 @@ class TestConfigModeSwitch:
         from src.config import get_settings
         settings = get_settings()
         assert settings.ollama_base_url == "http://localhost:11434"
-        assert settings.ollama_model == "glm4:latest"
+        # 模型默认值来自 src/config.py: ollama_model: str = "qwen3.5:35b"
+        assert settings.ollama_model == "qwen3.5:35b", \
+            f"Expected default model 'qwen3.5:35b', got '{settings.ollama_model}'"
 
     @pytest.fixture
     def temp_config(self):
@@ -482,7 +491,7 @@ class TestConfigModeSwitch:
         temp_config_file = os.path.join(temp_dir, "config.yaml")
         cfg = {
             "javis_api": {"use_mock": True},
-            "ollama": {"base_url": "http://localhost:11434", "model": "glm4:latest"},
+            "ollama": {"base_url": "http://localhost:11434", "model": "qwen3.5:35b"},
         }
         with open(temp_config_file, "w") as f:
             yaml.dump(cfg, f)
@@ -497,7 +506,7 @@ def temp_config():
     temp_config_file = os.path.join(temp_dir, "config.yaml")
     cfg = {
         "javis_api": {"use_mock": True},
-        "ollama": {"base_url": "http://localhost:11434", "model": "glm4:latest"},
+        "ollama": {"base_url": "http://localhost:11434", "model": "qwen3.5:35b"},
     }
     with open(temp_config_file, "w") as f:
         yaml.dump(cfg, f)
