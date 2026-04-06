@@ -18,6 +18,7 @@ from datetime import datetime
 
 import pytest
 from unittest.mock import patch, AsyncMock
+from tests.round23.conftest import MYSQL_AVAILABLE, POSTGRES_AVAILABLE  # noqa: F401
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
 
@@ -26,6 +27,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../..", "src"))
 # REAL PostgreSQL TESTS — DirectPostgresConnector → asyncpg
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="PostgreSQL not available")
 class TestPGRealConnection:
     """PG-Real: 真实 PostgreSQL 连接测试"""
 
@@ -121,6 +123,7 @@ class TestPGRealConnection:
         print(f"  PG Version: {ver[:60]}")
 
 
+@pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="PostgreSQL not available")
 class TestPGRealOnboarding:
     """PG-Real-Onboard: PostgreSQL 发现与纳管（真实）"""
 
@@ -163,6 +166,7 @@ class TestPGRealOnboarding:
         assert conn.db_type == DBType.POSTGRES
 
 
+@pytest.mark.skipif(not POSTGRES_AVAILABLE, reason="PostgreSQL not available")
 class TestPGRealSchemaAndAnalysis:
     """PG-Real-Schema: Schema 捕获与 SQL 分析"""
 
@@ -244,6 +248,7 @@ class TestPGRealSchemaAndAnalysis:
 # REAL MySQL TESTS — pymysql direct connection
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@pytest.mark.skipif(not MYSQL_AVAILABLE, reason="MySQL not available")
 class TestMySQLRealConnection:
     """MySQL-Real: 真实 MySQL 连接测试"""
 
@@ -352,6 +357,7 @@ class TestMySQLRealConnection:
             assert isinstance(result, (list, tuple))
 
 
+@pytest.mark.skipif(not MYSQL_AVAILABLE, reason="MySQL not available")
 class TestMySQLRealOnboarding:
     """MySQL-Real-Onboard: MySQL 发现与纳管（真实）"""
 
@@ -403,6 +409,7 @@ class TestMySQLRealOnboarding:
 # E2E TESTS WITH REAL DATA
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@pytest.mark.skipif(not (MYSQL_AVAILABLE and POSTGRES_AVAILABLE), reason="MySQL or PostgreSQL not available")
 class TestE2ERealScenarios:
     """E2E-Real: 基于真实数据库的端到端场景测试"""
 
@@ -543,6 +550,7 @@ class TestE2ERealScenarios:
         await conn.close()
 
 
+@pytest.mark.skipif(not MYSQL_AVAILABLE, reason="MySQL not available")
 class TestMySQLRealScenarios:
     """MySQL-Real-Scenarios: MySQL 真实场景测试"""
 
@@ -628,6 +636,7 @@ class TestMySQLRealScenarios:
 # REGRESSION TESTS (SQL Guard, ApprovalGate) — Real DB Context
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@pytest.mark.skipif(not (MYSQL_AVAILABLE and POSTGRES_AVAILABLE), reason="MySQL or PostgreSQL not available")
 class TestRegressionRealDB:
     """REG-Real: 回归测试（真实数据库上下文）"""
 
@@ -780,6 +789,7 @@ class TestRegressionRealDB:
 # 辅助: pytest 参数化
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@pytest.mark.skipif(not MYSQL_AVAILABLE, reason="MySQL not available")
 def test_summary_all_databases_accessible():
     """Summary: 验证两个数据库都可访问"""
     import pymysql
