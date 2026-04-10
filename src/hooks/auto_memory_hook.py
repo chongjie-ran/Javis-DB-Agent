@@ -16,6 +16,7 @@ def get_auto_memory() -> AutoMemory:
     if _auto_memory is None:
         import os
         workspace = os.environ.get("DATA_DIR", "data") + "/memory"
+        mm = MemoryManager(workspace)
         _auto_memory = AutoMemory(mm)
     return _auto_memory
 

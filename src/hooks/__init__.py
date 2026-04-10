@@ -24,6 +24,7 @@ from .hook_events import AgentHookEvent
 from .hook_context import AgentHookContext
 from .auto_verification_hook import AutoVerificationHook
 from .auto_memory_hook import AutoMemoryHook
+from .self_justification_guard import SelfJustificationGuard
 
 __all__ = [
     "AgentHook",
@@ -33,5 +34,6 @@ __all__ = [
     "AgentHookEvent",
     "AgentHookContext",
     "AutoVerificationHook",
+    "SelfJustificationGuard",
     "AutoMemoryHook",
 ]
