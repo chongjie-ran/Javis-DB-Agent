@@ -276,7 +276,6 @@ async def health():
     mem_ok = True
     mem_percent = 0
     try:
-        import psutil as _psutil
         mem = _psutil.virtual_memory()
         mem_percent = mem.percent
         mem_ok = mem_percent < 90
@@ -373,7 +372,6 @@ async def metrics_summary(request: Request):
     except Exception:
         pass
     try:
-        from src.gateway.policy_engine import get_policy_engine
         pe = get_policy_engine()
         m.set_policy_version(pe.get_version())
     except Exception:
@@ -387,7 +385,6 @@ async def metrics_summary(request: Request):
 @router.get("/policies/version")
 async def get_policy_version():
     """获取当前策略版本"""
-    from src.gateway.policy_engine import get_policy_engine
     pe = get_policy_engine()
     return APIResponse(data={
         "version": pe.get_version(),
@@ -402,7 +399,6 @@ async def update_policy_config(l4_required: bool = True, l5_dual_required: bool 
     
     配置变更会自动记录到审计日志并增加版本号
     """
-    from src.gateway.policy_engine import get_policy_engine
     from src.gateway.audit import get_audit_logger, AuditAction
     pe = get_policy_engine()
     
