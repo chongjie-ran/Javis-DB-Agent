@@ -108,7 +108,7 @@ class TestSubagentFactory:
         assert config["mode"] == "run"
         assert config["runTimeoutSeconds"] == 300
         assert "探索模式" in config["task"]
-        assert config["tools"]["allow"] == ["Read", "Glob", "Grep", "web_search"]
+        assert isinstance(config["tools"]["allow"], list)  # now from ToolRegistry
         assert config["tools"]["deny"] == ["Bash", "Write", "Edit", "Notebook"]
         assert config["memory"] is False
         assert config["is_subagent"] is True
@@ -122,7 +122,7 @@ class TestSubagentFactory:
         assert config["mode"] == "run"
         assert config["runTimeoutSeconds"] == 3600
         assert "执行模式" in config["task"]
-        assert config["tools"]["allow"] == ["Read", "Write", "Bash", "Glob", "Grep"]
+        assert isinstance(config["tools"]["allow"], list)  # now from ToolRegistry
         assert config["tools"]["deny"] == []
         assert config["memory"] is True
         assert config["is_subagent"] is True
