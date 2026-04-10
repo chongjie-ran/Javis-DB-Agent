@@ -38,7 +38,6 @@ class PlanSpec(SubagentSpec):
         analysis_depth_instruction = self._get_depth_instruction()
         output_format_instruction = self._get_format_instruction()
 
-        report_format = self._get_report_format()
         return f"""【规划模式 - 只读分析】
 任务：{self.task}
 分析范围：{target_scope_str}
@@ -51,14 +50,7 @@ class PlanSpec(SubagentSpec):
 
 {output_format_instruction}
 
-{report_format}"""
-
-    def _get_report_format(self) -> str:
-        """根据output_format返回对应的报告模板"""
-        formats = {
-            "brief": """探索报告（简要，纯文本，500 字以内）：
-请用2-3段简洁的段落总结：关键发现、主要结构、建议行动。不要使用Markdown标题或列表。""",
-            "structured": """探索报告格式：
+探索报告格式：
 ## 1. 发现总结
 （用2-3句话总结关键发现）
 
@@ -73,40 +65,8 @@ class PlanSpec(SubagentSpec):
 （如有）
 
 ## 5. 建议行动
-基于分析，建议的下一步行动（供主Agent参考）""",
-            "markdown": """探索报告格式（完整 Markdown）：
-
-# 探索报告
-
-## 📋 执行摘要
-（2-3段话总结核心发现）
-
-## 🏗️ 代码结构
-### 关键文件
-（列出相关文件路径）
-
-### 核心组件
-（描述关键类/函数及其关系）
-
-## 💡 关键洞察
-
-### 洞察1
-[详细说明]
-
-### 洞察2
-[详细说明]
-
-## ⚠️ 潜在问题
-（如有安全问题、性能问题等）
-
-## 🎯 建议行动
-1. [具体行动建议]
-2. [具体行动建议]
-
-## 📎 参考资料
-（如有代码片段或链接）""",
-        }
-        return formats.get(self.output_format, formats["structured"])
+基于分析，建议的下一步行动（供主Agent参考）
+"""
 
     def _get_depth_instruction(self) -> str:
         depths = {
@@ -118,9 +78,9 @@ class PlanSpec(SubagentSpec):
 
     def _get_format_instruction(self) -> str:
         formats = {
-            "brief": "输出格式：简要（纯文本，500 字以内）",
-            "structured": "输出格式：结构化（Markdown段落，1000 字以内）",
-            "markdown": "输出格式：完整 Markdown（标题+列表+代码块，可更长）",
+            "brief": "输出格式：简要（纯文本，500字以内）",
+            "structured": "输出格式：结构化（Markdown段落，1000字以内）",
+            "markdown": "输出格式：完整Markdown（标题+列表+代码块，可更长）",
         }
         return formats.get(self.output_format, formats["structured"])
 

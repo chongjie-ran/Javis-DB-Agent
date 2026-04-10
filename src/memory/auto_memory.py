@@ -86,7 +86,7 @@ class AutoMemory:
         never_remember_patterns = [
             r'^\s*def\s+\w+\s*\(',      # 函数定义（行首）
             r'^\s*class\s+\w+\s*[:(]',   # 类定义
-            r'^\s*import\s+',              # 导入语句
+            r'^\s*(import\s+\S+|from\s+\S+\s+import\b)',              # 导入语句
             r'git\s+(commit|push|pull|merge|checkout|branch)\s+',  # Git操作
             r'^\s*print\s*\(',             # print调试
             r'logger\.(debug|info|warning|error)\s*\(',  # 日志
@@ -97,7 +97,7 @@ class AutoMemory:
                 return False
 
         # 长度检查：太短的不值得记
-        if len(content) < 10:
+        if len(content) < 3:  # Minimum meaningful content length
             return False
 
         return True
@@ -145,12 +145,17 @@ class AutoMemory:
                 content += f"\n原因: {corr.reason}"
 
             # 写入记忆
+            import asyncio
             record = MemoryRecord(
                 memory_type=mem_type,
                 content=content,
                 tags=["auto-memory", "correction"],
             )
-            self.memory_manager.save(record)
+            asyncio.run(self.memory_manager.save(
+                content=content,
+                memory_type=mem_type,
+                tags=["auto-memory", "correction"],
+            ))
             count += 1
 
         # 清空会话记录
@@ -170,7 +175,7 @@ class AutoMemory:
             List[str]: 相关记忆列表
         """
         # 搜索相关记忆
-        results = self.memory_manager.search(context, limit=limit * 2)
+        results = self.memory_manager.search(context)[:limit * 2]
 
         learnings = []
         for record in results:
