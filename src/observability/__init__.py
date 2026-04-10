@@ -24,6 +24,12 @@ from .observability_manager import (
     ObservabilityManager,
     get_observability_manager,
 )
+from .metrics import (
+    TokenBudgetTracker,
+    HookMetricsCollector,
+    get_token_tracker,
+    get_hook_metrics,
+)
 
 __all__ = [
     # Tracer
@@ -41,6 +47,10 @@ __all__ = [
     "StructuredLogger",
     "AgentDecisionLog",
     "HookEventLog",
+    "TokenBudgetTracker",
+    "HookMetricsCollector",
+    "get_token_tracker",
+    "get_hook_metrics",
     "get_structured_logger",
     # Manager
     "ObservabilityManager",

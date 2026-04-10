@@ -298,3 +298,304 @@ def get_tool_metrics() -> ToolMetricsCollector:
     if _tool_metrics is None:
         _tool_metrics = ToolMetricsCollector()
     return _tool_metrics
+
+
+# ── Token 预算追踪器 (V3.2 P1) ───────────────────────────────────────────────
+
+@dataclass
+class TokenBudgetAlert:
+    """Token预算告警"""
+    session_id: str
+    threshold_percent: float  # 触发阈值 (e.g. 80.0)
+    budget: int
+    used: int
+    remaining: int
+    severity: str  # "warning" | "critical"
+    timestamp: float
+
+
+class TokenBudgetTracker:
+    """
+    Token消耗追踪器
+
+    功能:
+    - per-session token消耗记录（input/output/total）
+    - Token预算告警（支持多会话并发）
+    - Prometheus格式导出
+    """
+
+    DEFAULT_BUDGET = 100_000  # 默认预算 100k tokens
+
+    def __init__(self, default_budget: int = DEFAULT_BUDGET):
+        self._default_budget = default_budget
+        self._lock = threading.Lock()
+        # session_id -> {input, output, total, budget, warnings_sent}
+        self._sessions: dict[str, dict] = defaultdict(
+            lambda: {"input": 0, "output": 0, "total": 0, "budget": default_budget, "warnings_sent": set()}
+        )
+        self._alerts: list[TokenBudgetAlert] = []
+        self._total_input = SimpleCounter()
+        self._total_output = SimpleCounter()
+
+    def set_budget(self, session_id: str, budget: int) -> None:
+        """设置会话token预算"""
+        with self._lock:
+            self._sessions[session_id]["budget"] = budget
+
+    def record_tokens(self, session_id: str, input_tokens: int = 0,
+                      output_tokens: int = 0) -> list[TokenBudgetAlert]:
+        """
+        记录token消耗，返回触发的告警列表
+
+        Returns:
+            list of TokenBudgetAlert if thresholds crossed
+        """
+        alerts = []
+        thresholds = [50.0, 80.0, 90.0, 100.0]
+
+        with self._lock:
+            sess = self._sessions[session_id]
+            sess["input"] += input_tokens
+            sess["output"] += output_tokens
+            sess["total"] += input_tokens + output_tokens
+
+            self._total_input.inc(input_tokens)
+            self._total_output.inc(output_tokens)
+
+            used = sess["total"]
+            budget = sess["budget"]
+            pct = (used / budget * 100) if budget > 0 else 0
+
+            for threshold in thresholds:
+                if pct >= threshold and threshold not in sess["warnings_sent"]:
+                    severity = "critical" if threshold >= 90 else "warning"
+                    alert = TokenBudgetAlert(
+                        session_id=session_id,
+                        threshold_percent=threshold,
+                        budget=budget,
+                        used=used,
+                        remaining=max(0, budget - used),
+                        severity=severity,
+                        timestamp=time.time(),
+                    )
+                    alerts.append(alert)
+                    self._alerts.append(alert)
+                    sess["warnings_sent"].add(threshold)
+
+        return alerts
+
+    def get_session(self, session_id: str) -> dict:
+        """获取会话token使用情况"""
+        with self._lock:
+            sess = self._sessions[session_id]
+            budget = sess["budget"]
+            total = sess["total"]
+            return {
+                "session_id": session_id,
+                "input_tokens": sess["input"],
+                "output_tokens": sess["output"],
+                "total_tokens": total,
+                "budget": budget,
+                "remaining": max(0, budget - total),
+                "usage_percent": round((total / budget * 100), 2) if budget > 0 else 0,
+            }
+
+    def get_all_sessions(self) -> list[dict]:
+        """获取所有会话使用情况"""
+        with self._lock:
+            return [self.get_session(sid) for sid in self._sessions]
+
+    def get_recent_alerts(self, since: float = 0) -> list[dict]:
+        """获取最近的告警"""
+        return [
+            {
+                "session_id": a.session_id,
+                "threshold_percent": a.threshold_percent,
+                "budget": a.budget,
+                "used": a.used,
+                "severity": a.severity,
+                "timestamp": a.timestamp,
+            }
+            for a in self._alerts
+            if a.timestamp >= since
+        ]
+
+    def reset_session(self, session_id: str) -> None:
+        """重置会话计数器"""
+        with self._lock:
+            self._sessions.pop(session_id, None)
+
+    def render_prometheus(self) -> str:
+        lines = []
+        lines.append("# HELP tokens_total_input Total input tokens")
+        lines.append("# TYPE tokens_total_input counter")
+        lines.append(f"tokens_total_input {self._total_input.get()}")
+
+        lines.append("# HELP tokens_total_output Total output tokens")
+        lines.append("# TYPE tokens_total_output counter")
+        lines.append(f"tokens_total_output {self._total_output.get()}")
+
+        with self._lock:
+            for sid, sess in sorted(self._sessions.items()):
+                labels = f'session_id="{sid}"'
+                lines.append(f'{{# HELP session_tokens_total Session token usage')
+                lines.append(f"# TYPE session_tokens_total gauge")
+                lines.append(f'session_tokens_total{{{labels},type="input"}} {sess["input"]}')
+                lines.append(f'session_tokens_total{{{labels},type="output"}} {sess["output"]}')
+                lines.append(f'session_tokens_total{{{labels},type="total"}} {sess["total"]}')
+                pct = (sess["total"] / sess["budget"] * 100) if sess["budget"] > 0 else 0
+                lines.append(f'session_tokens_usage_percent{{{labels}}} {pct:.2f}')
+
+        return "\n".join(lines) + "\n"
+
+
+# ── Hook 执行耗时追踪器 (V3.2 P1) ────────────────────────────────────────────
+
+class HookMetricsCollector:
+    """
+    Hook 执行耗时收集器
+
+    指标:
+    - hook_duration_seconds: 按 hook_name + event 的直方图
+    - hook_invocations_total: 调用次数
+    - hook_errors_total: 错误次数
+    """
+
+    def __init__(self):
+        self._histograms: dict[str, SimpleHistogram] = defaultdict(SimpleHistogram)
+        self._counters: dict[str, SimpleCounter] = defaultdict(SimpleCounter)
+        self._errors: dict[str, SimpleCounter] = defaultdict(SimpleCounter)
+        self._lock = threading.Lock()
+
+    def record(self, hook_name: str, event: str, duration_seconds: float,
+               error: bool = False) -> None:
+        """记录一次Hook执行"""
+        key = f"{hook_name}.{event}"
+        with self._lock:
+            self._histograms[key].observe(duration_seconds)
+            self._counters[key].inc()
+            if error:
+                self._errors[key].inc()
+
+    def get_stats(self, hook_name: Optional[str] = None,
+                  event: Optional[str] = None) -> dict:
+        """获取Hook执行统计"""
+        with self._lock:
+            result = {}
+            for key, hist in self._histograms.items():
+                if hook_name and event:
+                    if key == f"{hook_name}.{event}":
+                        result[key] = hist.get_stats()
+                elif hook_name:
+                    if key.startswith(f"{hook_name}."):
+                        result[key] = hist.get_stats()
+                else:
+                    result[key] = hist.get_stats()
+            return result
+
+    def get_summary(self) -> list[dict]:
+        """获取所有Hook指标摘要"""
+        with self._lock:
+            summary = []
+            for key in sorted(self._histograms.keys()):
+                stats = self._histograms[key].get_stats()
+                summary.append({
+                    "hook_event": key,
+                    "calls": self._counters[key].get(),
+                    "errors": self._errors[key].get(),
+                    "avg_ms": round((stats["sum"] / stats["count"] * 1000), 3) if stats["count"] > 0 else 0,
+                    "p50_ms": self._p50(key),
+                    "p95_ms": self._p95(key),
+                    "p99_ms": self._p99(key),
+                })
+            return summary
+
+    def _p50(self, key: str) -> float:
+        """估算p50（秒）"""
+        hist = self._histograms[key]
+        with self._lock:
+            total = hist.count
+            if total == 0:
+                return 0
+            cumsum = 0
+            for le, count in sorted(hist.buckets.items()):
+                cumsum += count
+                if cumsum >= total * 0.50:
+                    return le * 1000
+        return 0
+
+    def _p95(self, key: str) -> float:
+        hist = self._histograms[key]
+        with self._lock:
+            total = hist.count
+            if total == 0:
+                return 0
+            cumsum = 0
+            for le, count in sorted(hist.buckets.items()):
+                cumsum += count
+                if cumsum >= total * 0.95:
+                    return le * 1000
+        return 0
+
+    def _p99(self, key: str) -> float:
+        hist = self._histograms[key]
+        with self._lock:
+            total = hist.count
+            if total == 0:
+                return 0
+            cumsum = 0
+            for le, count in sorted(hist.buckets.items()):
+                cumsum += count
+                if cumsum >= total * 0.99:
+                    return le * 1000
+        return 0
+
+    def reset(self) -> None:
+        with self._lock:
+            self._histograms.clear()
+            self._counters.clear()
+            self._errors.clear()
+
+    def render_prometheus(self) -> str:
+        lines = []
+        lines.append("# HELP hook_duration_seconds Hook execution duration in seconds")
+        lines.append("# TYPE hook_duration_seconds histogram")
+        with self._lock:
+            for key, hist in sorted(self._histograms.items()):
+                parts = key.rsplit(".", 1)
+                hook_name, event = parts[0], parts[1] if len(parts) > 1 else ""
+                labels = f'hook_name="{hook_name}",event="{event}"'
+                stats = hist.get_stats()
+                for le, count in sorted(hist.buckets.items()):
+                    lines.append(f'hook_duration_seconds_bucket{{{labels},le="{le}"}} {count}')
+                lines.append(f'hook_duration_seconds_count{{{labels}}} {stats["count"]}')
+                lines.append(f'hook_duration_seconds_sum{{{labels}}} {stats["sum"]:.6f}')
+
+            lines.append("# HELP hook_invocations_total Total hook invocations")
+            lines.append("# TYPE hook_invocations_total counter")
+            for key, counter in sorted(self._counters.items()):
+                parts = key.rsplit(".", 1)
+                hook_name, event = parts[0], parts[1] if len(parts) > 1 else ""
+                lines.append(f'hook_invocations_total{{hook_name="{hook_name}",event="{event}"}} {counter.get()}')
+
+        return "\n".join(lines) + "\n"
+
+
+# ── 全局单例 ─────────────────────────────────────────────────────────────────
+
+_token_tracker: Optional[TokenBudgetTracker] = None
+_hook_metrics: Optional[HookMetricsCollector] = None
+
+
+def get_token_tracker() -> TokenBudgetTracker:
+    global _token_tracker
+    if _token_tracker is None:
+        _token_tracker = TokenBudgetTracker()
+    return _token_tracker
+
+
+def get_hook_metrics() -> HookMetricsCollector:
+    global _hook_metrics
+    if _hook_metrics is None:
+        _hook_metrics = HookMetricsCollector()
+    return _hook_metrics

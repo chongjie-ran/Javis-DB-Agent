@@ -2,6 +2,7 @@
 
 from typing import Optional
 import logging
+import time
 
 from .hook import AgentHook
 from .hook_context import AgentHookContext
