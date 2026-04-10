@@ -68,6 +68,7 @@ class AgentRunner:
         hooks: list[AgentHook] | None = None,
         max_iterations: int = 10,
         timeout: int = 3600,
+        stream: bool = False,
     ):
         """
         初始化AgentRunner
@@ -94,6 +95,70 @@ class AgentRunner:
     # ─────────────────────────────────────────────────────────────────
     # 公开API
     # ─────────────────────────────────────────────────────────────────
+
+    async def run_and_stream(self, spec: AgentRunSpec) -> AsyncIterator[tuple[AgentHookContext, str]]:
+        """流式执行：每次on_stream yield (context, chunk)"""
+        start_time = time.time()
+        context = self._create_context(spec, iteration=0)
+
+        try:
+            context = await self._call_hook('on_start', context)
+        except Exception as e:
+            logger.warning(f'[AgentRunner] on_start hook failed: {e}')
+            context.error = e
+            context.add_warning(f'on_start hook error: {e}')
+
+        while not spec.is_complete() and context.iteration < spec.max_iterations:
+            context.iteration += 1
+            try:
+                context = await self._call_hook('before_iteration', context)
+                if context.blocked:
+                    logger.info(f'[AgentRunner] Iteration blocked by hook: {context.block_reason}')
+                    break
+
+                context = await self._call_hook('before_execute_tools', context)
+                if context.blocked:
+                    break
+
+                tool_results = await self._execute_tools(context)
+                context.tool_results = tool_results
+                context = await self._call_hook('after_execute_tools', context)
+
+                context = await self._call_hook('before_llm', context)
+
+                # 流式LLM
+                response = await self._llm_loop(context)
+                if hasattr(response, '__anext__'):
+                    async for chunk in response:
+                        context = await self._call_hook('on_stream', context, chunk)
+                        context.llm_response += chunk
+                        yield context, chunk
+                else:
+                    context.llm_response = response
+                    context = await self._call_hook('on_stream', context, response)
+                    yield context, response
+
+                context = await self._call_hook('after_llm', context)
+                context = await self._call_hook('after_iteration', context)
+                if context.blocked:
+                    break
+            except Exception as e:
+                logger.error(f'[AgentRunner] Iteration {context.iteration} error: {e}', exc_info=True)
+                context.error = e
+                context = await self._call_hook('on_error', context, e)
+                if context.blocked:
+                    break
+
+        duration_ms = int((time.time() - start_time) * 1000)
+        context.token_count = self._tokens_used
+
+        try:
+            context = await self._call_hook('on_complete', context)
+        except Exception as e:
+            context.add_warning(f'on_complete hook error: {e}')
+
+        # Yield final marker
+        yield context, ''
 
     async def run(self, spec: AgentRunSpec) -> RunResult:
         """
@@ -324,27 +389,12 @@ class AgentRunner:
         return results
 
     async def _llm_loop(self, context: AgentHookContext) -> str | AsyncIterator[str]:
-        """
-        LLM调用循环
-
-        构建Prompt并调用LLM，返回响应内容。
-
-        Args:
-            context: Hook上下文
-
-        Returns:
-            LLM响应（非流式返回字符串，流式返回AsyncIterator）
-        """
-        # 构建Prompt
         prompt = self._build_prompt(context)
-
-        # 估计token（简化估算：按字符数/4）
         self._tokens_used += len(prompt) // 4
-
         try:
-            # 调用LLM
-            response = await self.llm_client.complete(prompt)
-            return response
+            if self._stream and hasattr(self.llm_client, "complete_stream"):
+                return await self.llm_client.complete_stream(prompt)
+            return await self.llm_client.complete(prompt)
         except Exception as e:
             logger.error(f"[AgentRunner] LLM call failed: {e}")
             return f"[LLM调用失败] {type(e).__name__}: {str(e)}"

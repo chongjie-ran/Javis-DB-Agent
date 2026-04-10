@@ -17,7 +17,6 @@ from .run_result import RunResult
 from .instruction_validator import (
     InstructionSelfContainValidator,
     InstructionNotSelfContainedError,
-    SelfJustificationGuard,
     TokenMonitorHook,
 )
 
@@ -42,7 +41,6 @@ __all__ = [
     "RunResult",
     "InstructionSelfContainValidator",
     "InstructionNotSelfContainedError",
-    "SelfJustificationGuard",
     "TokenMonitorHook",
     # Agent基类
     "BaseAgent",

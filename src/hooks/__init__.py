@@ -23,6 +23,7 @@ from .composite_hook import CompositeHook, get_composite_hook, reset_composite_h
 from .hook_events import AgentHookEvent
 from .hook_context import AgentHookContext
 from .auto_verification_hook import AutoVerificationHook
+from .auto_memory_hook import AutoMemoryHook
 
 __all__ = [
     "AgentHook",
@@ -32,4 +33,5 @@ __all__ = [
     "AgentHookEvent",
     "AgentHookContext",
     "AutoVerificationHook",
+    "AutoMemoryHook",
 ]

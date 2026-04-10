@@ -43,6 +43,8 @@ async def _stream_text(text: str, delay: float = 0.015):
 
 async def _stream_chat(request: ChatRequest, user_info: dict):
     """生成流式聊天气泡的SSE响应"""
+    from src.api.routes import get_agent_runner
+    from src.agents.agent_run_spec import AgentRunSpec
     from src.agents.orchestrator import OrchestratorAgent
     from src.agents.diagnostic import DiagnosticAgent
     from src.agents.risk import RiskAgent
@@ -105,7 +107,8 @@ async def _stream_chat(request: ChatRequest, user_info: dict):
         # 兼容旧字段名（postgres_tools.py 用 db_connector）
         context["db_connector"] = context.get("pg_connector")
 
-        # 根据选择的Agent路由到对应的Agent
+        # AgentRunner流式执行（V3.2迁移）
+        # 注意：专用Agent(diagnostic/risk等)暂时仍走原路径，流式先支持orchestrator
         agent_map = {
             "diagnostic": DiagnosticAgent(),
             "risk": RiskAgent(),
@@ -113,30 +116,53 @@ async def _stream_chat(request: ChatRequest, user_info: dict):
             "inspector": InspectorAgent(),
             "reporter": ReporterAgent(),
         }
-        
-        # 调用Agent（非流式，但返回完整结果）
-        active_agent_name = "orchestrator"
+
+        active_agent_name = "agent_runner"
         if requested_agent and requested_agent in agent_map:
-            # 直接调用指定的Agent
+            # 专用Agent仍走原路径（非流式）
             active_agent = agent_map[requested_agent]
             active_agent_name = requested_agent
             if hasattr(active_agent, 'handle_chat'):
                 response = await active_agent.handle_chat(request.message, context)
             else:
-                # Agent没有handle_chat方法，使用编排Agent
                 orch = OrchestratorAgent()
                 response = await orch.handle_chat(request.message, context)
                 active_agent_name = "orchestrator"
+            full_content = response.content
+            thinking_done = True
         else:
-            # 使用编排Agent（默认智能路由）
-            orch = OrchestratorAgent()
-            response = await orch.handle_chat(request.message, context)
+            # 默认路径：AgentRunner流式执行
+            thinking_done = False
+            runner = get_agent_runner()
+            # 通过改变runner实例支持流式（临时方案：重新实例化带stream=True）
+            from src.agents.agent_runner import AgentRunner
+            from src.hooks import get_composite_hook
+            from src.gateway.tool_registry import get_tool_registry
+            from src.llm.ollama_client import get_ollama_client
+            llm = get_ollama_client()
+            registry = get_tool_registry()
+            tool_objs = [registry.get_tool(t['name']) for t in registry.list_tools(enabled_only=True) if registry.get_tool(t['name'])]
+            tool_objs = [t for t in tool_objs if t]
+            from src.hooks.composite_hook import CompositeHook
+            hooks = get_composite_hook().list_hooks()
+            streaming_runner = AgentRunner(llm_client=llm, tools=tool_objs, hooks=hooks, max_iterations=10, stream=True)
+            spec = AgentRunSpec(goal=request.message, context=context, max_iterations=10)
+
+            # 流式迭代
+            async for ctx, chunk in streaming_runner.run_and_stream(spec):
+                if not thinking_done:
+                    yield f"event: thinking\ndata: {json.dumps({'thinking': False}, ensure_ascii=False)}\n\n"
+                    thinking_done = True
+                if chunk:
+                    data = json.dumps({'content': chunk}, ensure_ascii=False)
+                    yield f"event: chunk\ndata: {data}\n\n"
+            # 获取最终结果
+            full_content = ctx.llm_response if ctx else ''
+            context = ctx
 
         # thinking结束
-        yield f"event: thinking\ndata: {json.dumps({'thinking': False}, ensure_ascii=False)}\n\n"
-
-        # 流式发送响应文本（打字机效果）
-        full_content = response.content
+        if not thinking_done:
+            yield f"event: thinking\ndata: {json.dumps({'thinking': False}, ensure_ascii=False)}\n\n"
         async for chunk in _stream_text(full_content):
             yield f"event: chunk\ndata: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
 

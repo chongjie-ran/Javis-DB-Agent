@@ -19,6 +19,7 @@ from src.real_api.routers.knowledge import router as knowledge_router
 from src.api.dependency_routes import router as dependency_router, init_dependency_routes
 from src.api.knowledge_routes.evolution_routes import router as evolution_router
 from src.api.approval_routes import router as approval_router
+from src.api.spawn_routes import router as spawn_router
 from src.api.discovery_api import router as discovery_router
 from src.api.metrics import setup_metrics_middleware, get_metrics
 from src.gateway.session import get_session_manager
@@ -31,6 +32,11 @@ from src.tools.analysis_tools import register_analysis_tools
 from src.tools.action_tools import register_action_tools
 from src.tools.backup_tools import register_backup_tools
 from src.tools.performance_tools import register_performance_tools
+from src.hooks import get_composite_hook, AgentHook
+from src.hooks.auto_verification_hook import AutoVerificationHook
+from src.hooks.auto_memory_hook import AutoMemoryHook
+from src.hooks.self_justification_guard import SelfJustificationGuard
+
 
 # 配置日志
 structlog.configure(
@@ -52,6 +58,12 @@ async def lifespan(app: FastAPI):
     # 初始化组件
     session_mgr = get_session_manager()
     registry = get_tool_registry()
+    # 初始化Hook注册表 (V3.2 P0)
+    hook_registry = get_composite_hook()
+    hook_registry.register(AutoVerificationHook())    # priority=50
+    hook_registry.register(AutoMemoryHook())          # priority=50
+    hook_registry.register(SelfJustificationGuard()) # priority=50
+    logger.info("hooks.registered", count=len(hook_registry.list_hooks()))
     policy = get_policy_engine()
     audit = get_audit_logger()
 
@@ -138,6 +150,7 @@ def create_app() -> FastAPI:
     app.include_router(evolution_router)
     app.include_router(approval_router)
     app.include_router(discovery_router)
+    app.include_router(spawn_router)
     app.state.approval_gate = approval_gate
 
     # 设置指标中间件
