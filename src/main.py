@@ -32,6 +32,7 @@ from src.tools.analysis_tools import register_analysis_tools
 from src.tools.action_tools import register_action_tools
 from src.tools.backup_tools import register_backup_tools
 from src.tools.performance_tools import register_performance_tools
+from src.tools.subagent_tool import SubagentTool
 from src.hooks import get_composite_hook, AgentHook
 from src.hooks.auto_verification_hook import AutoVerificationHook
 from src.hooks.auto_memory_hook import AutoMemoryHook
@@ -73,6 +74,8 @@ async def lifespan(app: FastAPI):
     register_action_tools(registry)
     register_backup_tools(registry)
     register_performance_tools(registry)
+    registry.register(SubagentTool())
+    logger.info("subagent_tool.registered")
 
     # 更新指标初始状态
     metrics = get_metrics()
