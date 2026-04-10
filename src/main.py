@@ -33,6 +33,7 @@ from src.tools.action_tools import register_action_tools
 from src.tools.backup_tools import register_backup_tools
 from src.tools.performance_tools import register_performance_tools
 from src.tools.subagent_tool import SubagentTool
+from src.mcp import get_mcp_server
 from src.hooks import get_composite_hook, AgentHook
 from src.hooks.auto_verification_hook import AutoVerificationHook
 from src.hooks.auto_memory_hook import AutoMemoryHook
@@ -76,6 +77,10 @@ async def lifespan(app: FastAPI):
     register_performance_tools(registry)
     registry.register(SubagentTool())
     logger.info("subagent_tool.registered")
+    # MCP Server初始化 (V3.2 P1)
+    mcp_server = get_mcp_server()
+    mcp_server.sync_from_registry(registry)
+    logger.info("mcp_server.initialized", tools=len(mcp_server.get_tool_schemas()))
 
     # 更新指标初始状态
     metrics = get_metrics()
