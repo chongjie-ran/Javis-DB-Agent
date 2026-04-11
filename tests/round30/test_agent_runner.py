@@ -29,9 +29,9 @@ from src.agents.run_result import RunResult
 from src.agents.instruction_validator import (
     InstructionSelfContainValidator,
     InstructionNotSelfContainedError,
-    SelfJustificationGuard,
     TokenMonitorHook,
 )
+from src.hooks.self_justification_guard import SelfJustificationGuard
 from src.hooks.hook import AgentHook
 from src.hooks.hook_context import AgentHookContext
 from src.hooks.hook_events import AgentHookEvent

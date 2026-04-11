@@ -88,3 +88,52 @@
 | 时间 | 事件 | 结果 |
 |------|------|------|
 | 2026-04-10 15:25 | 悟通已spawn，正在执行P0任务 | 运行中 |
+
+## 执行日志 (续)
+
+| 时间 | 事件 | 结果 |
+|------|------|------|
+| 2026-04-10 15:25 | 悟通开始P0开发 | 清理routes.py重复import |
+| 2026-04-10 15:37 | P0-1 /chat/stream迁移 | ✅ AgentRunner流式执行 |
+| 2026-04-10 15:46 | P0-2/3 Hook+AutoMemory | ✅ lifespan初始化+on_complete触发 |
+| 2026-04-10 15:48 | P0-4 SubagentTool注册 | ✅ 注册到ToolRegistry |
+| 2026-04-10 15:49 | P0-5 重复代码清理 | ✅ SelfJustificationGuard唯一定义 |
+| 2026-04-10 15:50 | P0-6 端到端测试 | ✅ 85/85 passed |
+
+### P0 完成总结
+- Git commits: d6cf25f, 480bbcd, 4cffef6, 19d42c0, 0f69686, 1b2a1bd
+- 测试结果: 85 passed
+- 状态: **P0全部完成 ✅**
+
+## P1 完成
+
+| 任务 | 状态 | 提交 |
+|------|------|------|
+| MCP Server + Client | ✅ | df5384e |
+| Token追踪 + Hook耗时 | ✅ | 2332378 |
+
+## P2 完成
+
+| 任务 | 状态 | 提交 |
+|------|------|------|
+| 上下文压缩 | ✅ | dae693d |
+| 多Agent协作 | ✅ | 0e02f8b |
+
+## V3.2 完整测试结果
+
+| 测试集 | 结果 |
+|--------|------|
+| round33 (V3.1集成) | ✅ |
+| round32 (AutoMemory等) | ✅ |
+| integration | ✅ |
+| unit | 486/488 passed (2 pre-existing failures) |
+
+## 最终提交记录
+
+```
+f75d4da (V3.1) → d6cf25f → 480bbcd → 4cffef6 → 19d42c0 → 0f69686 → 1b2a1bd → df5384e → 2332378 → dae693d → 0e02f8b (V3.2)
+```
+
+## 状态
+
+**V3.2 P0/P1/P2全部完成 ✅**

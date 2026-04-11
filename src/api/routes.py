@@ -11,6 +11,7 @@ from src.api.schemas import (
     HealthResponse,
 )
 from src.agents.orchestrator import OrchestratorAgent
+from src.agents import AgentRunner
 from src.gateway.session import get_session_manager
 from src.gateway.tool_registry import get_tool_registry
 from src.llm.ollama_client import get_ollama_client
@@ -24,6 +25,7 @@ _ENDPOINT_TIMEOUT = 30.0
 
 # 全局Agent实例
 _orchestrator: OrchestratorAgent = None
+_agent_runner: AgentRunner = None
 
 
 def get_orchestrator() -> OrchestratorAgent:
@@ -31,6 +33,21 @@ def get_orchestrator() -> OrchestratorAgent:
     if _orchestrator is None:
         _orchestrator = OrchestratorAgent()
     return _orchestrator
+
+
+def get_agent_runner() -> AgentRunner:
+    global _agent_runner
+    if _agent_runner is None:
+        from src.hooks import get_composite_hook
+        from src.gateway.tool_registry import get_tool_registry
+        from src.llm.ollama_client import get_ollama_client
+        llm = get_ollama_client()
+        registry = get_tool_registry()
+        tool_objs = [registry.get_tool(t['name']) for t in registry.list_tools(enabled_only=True) if registry.get_tool(t['name'])]
+        tool_objs = [t for t in tool_objs if t]
+        hooks = get_composite_hook().list_hooks()
+        _agent_runner = AgentRunner(llm_client=llm, tools=tool_objs, hooks=hooks, max_iterations=10)
+    return _agent_runner
 
 
 # ============ 对话接口 ============
