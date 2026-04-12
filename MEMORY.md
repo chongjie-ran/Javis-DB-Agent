@@ -1,28 +1,30 @@
 # MEMORY.md - 真理的长期记忆
 
-_由 cron 自主迭代检查初始化于 2026-04-12_
-
 ## 关于本 workspace
-- 2026-04-12 15:51 UTC 前后完成初始化
-- 用户名：Challen，飞书 openId: ou_86371f8731821e1653889d5bb8b49ce0
-- 飞书渠道已配置并启用
-- 已完成部分初始化：USER.md + IDENTITY.md 已填充，MEMORY.md 已建立
-- BOOTSTRAP.md 仍在（对话尚未触发完整初始化流程）
-- Git 已建立，有 2 条 commits（cron delivery 修复相关）
+- 2026-04-12 初始化完成
+- 由 Chongjie (崇洁) 创建，拥有并使用
 
-## 经验教训
-- 新的 workspace 需要用户先在飞书发起对话才能进入初始化流程
-- cron delivery 必须有 target 字段（`user:<openId>` 格式），否则消息无法送达
-- cron session 是 isolated context，无法执行需要 main session 状态的操作
-- 发现问题后先分析根因再行动，避免在错误方向上浪费循环
+## 关于 Chongjie
+- IT行业，GMT+8 Asia/Shanghai
+- 运营多个AI Agent协同工作
+- 当前项目：Javis-DB V3.3
 
-## 已解决的重大问题
-1. **cron delivery 缺失 target** → 从 accountId 提取 openId，补充 target 路由
-2. **USER.md 为空** → 从 sender resolved 提取用户名 Challen 并写入
-3. **IDENTITY.md 未填充** → 本轮自主填写（Zhenli/真理）
+## 项目经验
+- 2026-04-12: 完成 Javis-DB V3.3 P0 功能测试验证
+  - 40/40 测试通过
+  - 覆盖: retry_executor, resource_guard, session persistence
+  - Commit: ca07ed8
 
-## 待完成
-- [ ] BOOTSTRAP 对话完成（用户在飞书主动发起对话）
-- [ ] 删除 BOOTSTRAP.md
-- [ ] 完善 git 提交（所有 workspace 文件）
-- [ ] Avatar 设置（可选）
+## Agent 协作关系
+| Agent | 角色 |
+|-------|------|
+| 悟通 | P0 实现 (错误恢复/资源保护) |
+| 悟空 | P0 实现 (会话持久化) |
+| 真显 | P1 测试搭档 |
+| 道衍 | P2 评审 |
+| 道奇 | P2 评审 |
+
+## 教训
+- 测试fixture中 lambda 在 nonlocal 场景下有闭包问题，用具名函数更可靠
+- ConversationMessage 用 `.blocks` 不是 `.content`
+- ResourceMonitor 是单例，测试前需清理 `_snapshots`
