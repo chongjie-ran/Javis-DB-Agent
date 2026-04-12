@@ -106,3 +106,115 @@ class TestMCPClient:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class FailingTool(BaseTool):
+    """会失败的测试工具"""
+    definition = ToolDefinition(
+        name="failing_tool",
+        description="总是抛出异常的工具",
+        category="test",
+        risk_level=RiskLevel.L1_READ,
+        params=[
+            ToolParam(name="msg", type="string", description="错误消息", required=False, default="fail"),
+        ],
+    )
+
+    async def execute(self, params: dict, context: dict) -> ToolResult:
+        raise RuntimeError(params.get("msg", "intentional failure"))
+
+
+class SlowTool(BaseTool):
+    """执行很慢的工具"""
+    definition = ToolDefinition(
+        name="slow_tool",
+        description="故意延迟的工具",
+        category="test",
+        risk_level=RiskLevel.L1_READ,
+        params=[
+            ToolParam(name="delay", type="int", description="延迟秒数", required=False, default=5),
+        ],
+    )
+
+    async def execute(self, params: dict, context: dict) -> ToolResult:
+        import asyncio
+        delay = params.get("delay", 5)
+        await asyncio.sleep(delay)
+        return ToolResult(success=True, data={"slept": delay})
+
+
+class TestMCPAdvanced:
+    """MCP高级测试 (MCP-004/005/009/010/011)"""
+
+    def test_mcp_004_empty_tool_list(self):
+        """MCP-004: 空工具注册时返回空列表"""
+        server = MCPServer()
+        result = server.list_tools()
+        assert result.tools == []
+        resp = server.handle_request("tools/list")
+        assert resp["result"]["tools"] == []
+
+    def test_mcp_005_duplicate_tool_name(self):
+        """MCP-005: 重复工具名 - 覆盖行为"""
+        server = MCPServer()
+
+        class ToolV1(BaseTool):
+            definition = ToolDefinition(name="same_name", description="版本1", category="test", risk_level=RiskLevel.L1_READ, params=[])
+
+            async def execute(self, params: dict, context: dict) -> ToolResult:
+                return ToolResult(success=True, data={"version": 1})
+
+        class ToolV2(BaseTool):
+            definition = ToolDefinition(name="same_name", description="版本2", category="test", risk_level=RiskLevel.L1_READ, params=[])
+
+            async def execute(self, params: dict, context: dict) -> ToolResult:
+                return ToolResult(success=True, data={"version": 2})
+
+        server.register_tool(ToolV1())
+        server.register_tool(ToolV2())  # 覆盖
+        result = server.list_tools()
+        assert len(result.tools) == 1
+        # 后注册的覆盖前面的
+        assert "[test] 版本2" in result.tools[0].description
+
+    @pytest.mark.asyncio
+    async def test_mcp_009_wrong_param_type(self):
+        """MCP-009: 参数类型错误 - 服务器接受任意类型，静默传递"""
+        server = MCPServer()
+        server.register_tool(DummyTool())
+        # DummyTool的id参数期望string，但传入int
+        # 当前server行为：静默传递不验证，is_error仍为False
+        resp = await server.call_tool("dummy_query", {"id": 12345, "limit": "not_a_number"})
+        # 验证：错误情况下is_error仍为False（无验证机制）
+        # 期望未来版本有类型验证
+        assert resp.is_error is False
+        # 返回结果包含原始参数
+        assert "12345" in resp.content[0]["text"]
+
+    @pytest.mark.asyncio
+    async def test_mcp_010_tool_execution_timeout(self):
+        """MCP-010: 工具执行超时"""
+        server = MCPServer()
+        server.register_tool(SlowTool())
+        import asyncio
+        try:
+            # 设置极短超时来触发TimeoutError
+            resp = await asyncio.wait_for(
+                server.call_tool("slow_tool", {"delay": 10}),
+                timeout=0.1
+            )
+            # 不应该到达这里
+            assert False, "Should have timed out"
+        except asyncio.TimeoutError:
+            pass  # 预期行为
+
+    @pytest.mark.asyncio
+    async def test_mcp_011_tool_exception(self):
+        """MCP-011: 工具抛出异常"""
+        server = MCPServer()
+        server.register_tool(FailingTool())
+        resp = await server.call_tool("failing_tool", {"msg": "test error"})
+        assert resp.is_error is True
+        # 错误信息应包含异常内容
+        content_text = resp.content[0]["text"] if isinstance(resp.content[0], dict) else str(resp.content[0])
+        assert "test error" in content_text or "RuntimeError" in content_text
