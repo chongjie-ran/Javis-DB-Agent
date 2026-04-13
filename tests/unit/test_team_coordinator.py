@@ -241,7 +241,6 @@ def test_get_pending_tasks():
     assert id2 in pending
 
 
-@pytest.mark.skip(reason="get_team_summary内部调用get_pending_tasks导致死锁(threading.Lock非可重入) - 代码bug")
 def test_get_team_summary():
     """补充: get_team_summary返回团队摘要"""
     coord = get_team_coordinator("test-summary-unique-%d" % id(object()))

@@ -370,7 +370,10 @@ class AgentTeamCoordinator:
                 "total_tasks": total,
                 "by_status": dict(by_status),
                 "by_role": dict(by_role),
-                "pending": self.get_pending_tasks(),
+                "pending": [
+                    tid for tid, td in self._tasks.items()
+                    if td.status in ("pending", "running")
+                ],
             }
 
 
