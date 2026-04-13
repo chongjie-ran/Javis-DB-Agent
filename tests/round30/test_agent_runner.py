@@ -407,12 +407,13 @@ class TestSelfJustificationGuard:
         guard = SelfJustificationGuard()
         ctx = AgentHookContext(
             event=AgentHookEvent.after_iteration,
-            llm_response="任务已完成！分析完成！全部搞定！",
+            llm_response="大概没问题，任务完成了",
             tool_results=[],
         )
         result = guard.after_iteration(ctx)
+        # "大概没问题" signal triggers validation_request + warning (SJG-01/02 fix)
         assert len(result.warnings) > 0
-        assert "自我合理化" in result.warnings[0]
+        assert "触发防护" in result.warnings[0]
 
     def test_guard_skip_verification(self):
         """SJG-03: 跳过验证"""
@@ -424,12 +425,10 @@ class TestSelfJustificationGuard:
             tool_results=[],
         )
         result = guard.after_iteration(ctx)
+        # "先跳过" signal triggers justification_request + warning (SJG-01/02 fix)
         assert len(result.warnings) > 0
+        assert "触发防护" in result.warnings[0]
 
-
-# ============================================================================
-# SECTION 6: AgentRunner 测试
-# ============================================================================
 
 class TestAgentRunner:
     """AgentRunner测试"""
