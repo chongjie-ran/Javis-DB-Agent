@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 # 项目根目录 - Javis-DB-Agent
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-assert PROJECT_ROOT.name == "Javis-DB-Agent", f"Expected Javis-DB-Agent, got {PROJECT_ROOT}"
+assert PROJECT_ROOT.name in ("Javis-DB-Agent", "zhenli"), f"Expected project root name to be Javis-DB-Agent or zhenli, got {PROJECT_ROOT}"
 sys.path.insert(0, str(PROJECT_ROOT))
 
 
