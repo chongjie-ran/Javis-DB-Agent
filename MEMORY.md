@@ -77,3 +77,32 @@
 - 主动推进测试进度
 - 与真显协同验证测试覆盖率
 
+
+## 新发现 Bug (2026-04-13)
+
+### SelfJustificationGuard ctx.warnings 不同步
+- **文件**: `src/hooks/self_justification_guard.py`
+- **根因**: `_trigger_action`中10个action方法只设置`ctx.extra["injected_challenge"]`，只有`_log_risk`调用`ctx.add_warning()`
+- **影响**: 2个测试失败 (test_guard_completion_declaration_no_execution, test_guard_skip_verification)
+- **详见**: memory/2026-04-13.md
+
+## P1测试状态 (2026-04-13)
+- 设计已完成，待真显协调执行
+- MCP测试用例: 14个 (tools/list/call + 注册流程)
+- TeamCoordinator测试用例: 11个 (委派/依赖/错误恢复)
+
+## P1测试状态 (2026-04-13 18:49 更新)
+
+### 我的P1工作 ✅ 全部完成
+- MCP测试: 14用例 ✅
+- TeamCoordinator测试: 16用例 ✅
+- SJG全bug修复 ✅
+
+### 真显P1工作 ⚠️ 状态未知
+- 任务: 并发验收 + MCP路由测试
+- 状态: 2026-04-12协调后无状态更新
+- 已等待: ~20小时
+
+### 当前决策
+- 多次cron等待真显信号未果
+- 授权范围内自主推进: 记录状态、通知Chongjie协调
