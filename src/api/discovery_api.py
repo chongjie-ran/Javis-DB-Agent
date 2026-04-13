@@ -14,7 +14,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.discovery.service import DiscoveryService
 from src.discovery.knowledge_base import LocalKnowledgeBase, SchemaKnowledge
@@ -282,7 +282,7 @@ async def health_check():
     """健康检查"""
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "discovery_service": "available",
         "knowledge_base": "available" if _knowledge_base else "disabled",
     }

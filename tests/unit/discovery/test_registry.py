@@ -6,7 +6,7 @@ import pytest
 import tempfile
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.discovery.registry import LocalRegistry, ManagedInstance
 from src.discovery.scanner import DBType
@@ -52,7 +52,7 @@ class TestLocalRegistry:
             version_minor=3,
             edition="",
             status="discovered",
-            discovered_at=datetime.utcnow().isoformat(),
+            discovered_at=datetime.now(timezone.utc).isoformat(),
         )
 
         instance_id = registry.register(instance)
@@ -70,7 +70,7 @@ class TestLocalRegistry:
             version_minor=2,
             edition="",
             status="discovered",
-            discovered_at=datetime.utcnow().isoformat(),
+            discovered_at=datetime.now(timezone.utc).isoformat(),
         )
         registry.register(instance1)
 
@@ -84,7 +84,7 @@ class TestLocalRegistry:
             version_minor=3,
             edition="",
             status="onboarded",
-            discovered_at=datetime.utcnow().isoformat(),
+            discovered_at=datetime.now(timezone.utc).isoformat(),
         )
         instance_id = registry.register(instance2)
 
@@ -106,7 +106,7 @@ class TestLocalRegistry:
                 version_minor=3,
                 edition="",
                 status="discovered",
-                discovered_at=datetime.utcnow().isoformat(),
+                discovered_at=datetime.now(timezone.utc).isoformat(),
             )
             registry.register(instance)
 
@@ -125,7 +125,7 @@ class TestLocalRegistry:
             version_minor=3,
             edition="",
             status="discovered",
-            discovered_at=datetime.utcnow().isoformat(),
+            discovered_at=datetime.now(timezone.utc).isoformat(),
         )
         registry.register(instance1)
 
@@ -139,7 +139,7 @@ class TestLocalRegistry:
             version_minor=3,
             edition="",
             status="onboarded",
-            discovered_at=datetime.utcnow().isoformat(),
+            discovered_at=datetime.now(timezone.utc).isoformat(),
         )
         registry.register(instance2)
 
@@ -159,7 +159,7 @@ class TestLocalRegistry:
             version_minor=3,
             edition="",
             status="discovered",
-            discovered_at=datetime.utcnow().isoformat(),
+            discovered_at=datetime.now(timezone.utc).isoformat(),
         )
         registry.register(instance)
 
@@ -184,7 +184,7 @@ class TestLocalRegistry:
             version_minor=3,
             edition="",
             status="discovered",
-            discovered_at=datetime.utcnow().isoformat(),
+            discovered_at=datetime.now(timezone.utc).isoformat(),
         )
         registry.register(instance)
 
@@ -204,7 +204,7 @@ class TestLocalRegistry:
             version_minor=3,
             edition="",
             status="discovered",
-            discovered_at=datetime.utcnow().isoformat(),
+            discovered_at=datetime.now(timezone.utc).isoformat(),
         )
         registry.register(instance)
 
@@ -231,7 +231,7 @@ class TestLocalRegistry:
             version_minor=3,
             edition="",
             status="onboarded",
-            discovered_at=datetime.utcnow().isoformat(),
+            discovered_at=datetime.now(timezone.utc).isoformat(),
         )
         registry.register(instance)
 
@@ -253,7 +253,7 @@ class TestLocalRegistry:
             version_minor=3,
             edition="",
             status="onboarded",
-            discovered_at=datetime.utcnow().isoformat(),
+            discovered_at=datetime.now(timezone.utc).isoformat(),
         )
         registry.register(instance)
 
@@ -276,7 +276,7 @@ class TestLocalRegistry:
                 version_minor=3,
                 edition="",
                 status="onboarded" if i < 2 else "discovered",
-                discovered_at=datetime.utcnow().isoformat(),
+                discovered_at=datetime.now(timezone.utc).isoformat(),
             )
             registry.register(instance)
 
@@ -310,7 +310,7 @@ class TestLocalRegistry:
             version_minor=3,
             edition="",
             status="discovered",
-            discovered_at=datetime.utcnow().isoformat(),
+            discovered_at=datetime.now(timezone.utc).isoformat(),
         )
         registry.register(instance)
 

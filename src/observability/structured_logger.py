@@ -6,7 +6,7 @@ import logging
 import time
 import threading
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Any
 
 
@@ -117,7 +117,7 @@ class StructuredLogger:
             self._logger.addHandler(handler)
 
     def _now_iso(self) -> str:
-        return datetime.utcnow().isoformat() + "Z"
+        return datetime.now(timezone.utc).isoformat() + "Z"
 
     def _base_fields(self) -> dict:
         return {

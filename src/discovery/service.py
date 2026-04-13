@@ -9,7 +9,7 @@ import asyncio
 import uuid
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Callable
 
 from .scanner import DatabaseScanner, DiscoveredInstance
@@ -103,7 +103,7 @@ class DiscoveryService:
             OnboardingResult: 纳管结果详情
         """
         session_id = str(uuid.uuid4())
-        started_at = datetime.utcnow().isoformat()
+        started_at = datetime.now(timezone.utc).isoformat()
         result = OnboardingResult(session_id=session_id, started_at=started_at)
 
         try:
@@ -121,7 +121,7 @@ class DiscoveryService:
                     instances_found=0,
                     instances_new=0,
                 )
-                result.finished_at = datetime.utcnow().isoformat()
+                result.finished_at = datetime.now(timezone.utc).isoformat()
                 return result
 
             # Step 2: 识别
@@ -138,7 +138,7 @@ class DiscoveryService:
                     instances_new=0,
                     error_message="Failed to identify instances",
                 )
-                result.finished_at = datetime.utcnow().isoformat()
+                result.finished_at = datetime.now(timezone.utc).isoformat()
                 return result
 
             # Step 3: 注册
@@ -194,7 +194,7 @@ class DiscoveryService:
                 error_message=str(e),
             )
 
-        result.finished_at = datetime.utcnow().isoformat()
+        result.finished_at = datetime.now(timezone.utc).isoformat()
         return result
 
     async def discover_only(self) -> List[DiscoveredInstance]:
@@ -349,7 +349,7 @@ class DiscoveryService:
                     tables=all_tables,
                     indexes=[],
                     version=managed.version,
-                    captured_at=datetime.utcnow().isoformat(),
+                    captured_at=datetime.now(timezone.utc).isoformat(),
                 ))
 
                 self.kb.add_config(ConfigKnowledge(
@@ -357,7 +357,7 @@ class DiscoveryService:
                     db_type="postgresql",
                     version=managed.version,
                     parameters={p["name"]: str(p["setting"]) for p in params},
-                    captured_at=datetime.utcnow().isoformat(),
+                    captured_at=datetime.now(timezone.utc).isoformat(),
                 ))
             finally:
                 await conn.close()
@@ -456,7 +456,7 @@ class DiscoveryService:
                             tables=all_tables,
                             indexes=[],
                             version=managed.version,
-                            captured_at=datetime.utcnow().isoformat(),
+                            captured_at=datetime.now(timezone.utc).isoformat(),
                         ))
                     
                     # 写入配置知识库
@@ -465,7 +465,7 @@ class DiscoveryService:
                         db_type=managed.db_type,
                         version=managed.version,
                         parameters={p["Variable_name"]: str(p["Value"]) for p in params},
-                        captured_at=datetime.utcnow().isoformat(),
+                        captured_at=datetime.now(timezone.utc).isoformat(),
                     ))
             finally:
                 conn.close()
