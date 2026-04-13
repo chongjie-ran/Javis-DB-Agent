@@ -228,6 +228,9 @@ class SelfJustificationGuard(AgentHook):
             self._inject_valgrind_request(ctx)
         elif action == "fix_immediately":
             self._inject_fix_immediately_request(signal, ctx)
+        # 统一同步warning (排除log_risk，它有自己的warning)
+        if ctx.extra.get("injected_challenge") and action != "log_risk":
+            ctx.add_warning(f"[SelfJustificationGuard] 触发防护: {action}")
 
     def _inject_validation_request(self, ctx: "AgentHookContext") -> None:
         """注入验证请求"""
@@ -280,12 +283,12 @@ class SelfJustificationGuard(AgentHook):
 
     def _log_risk(self, signal: str, ctx: "AgentHookContext") -> None:
         """记录风险（不阻止执行）"""
-        ctx.add_warning(f"[SelfJustificationGuard] 风险信号: '{signal}'")
         ctx.extra["injected_challenge"] = {
             "type": "risk_log",
             "message": f"检测到风险信号: '{signal}'。请注意此决策的潜在风险。",
             "severity": "medium"
         }
+        ctx.add_warning(f"[SelfJustificationGuard] 风险信号: '{signal}'")
 
     def _inject_testing_plan_request(self, ctx: "AgentHookContext") -> None:
         """注入测试计划请求（开发者特有）"""
