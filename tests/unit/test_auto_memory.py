@@ -26,7 +26,7 @@ class MockMemoryManager:
                 self.tags = tags
         self.saved.append(SavedRecord(content, memory_type, tags or []))
 
-    def search(self, query, limit=10):
+    def search(self, keyword, case_sensitive=False):
         return []
 
 

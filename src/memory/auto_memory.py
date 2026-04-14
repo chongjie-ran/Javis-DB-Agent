@@ -132,8 +132,8 @@ class AutoMemory:
 
         count = 0
         for corr in self._session_corrections:
-            # 过滤
-            if not self.should_remember(corr.correction):
+            # 过滤：检查original_action和correction，任一有效即保留
+            if not self.should_remember(corr.correction) and not self.should_remember(corr.original_action):
                 continue
 
             # 确定类型
