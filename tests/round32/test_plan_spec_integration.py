@@ -14,8 +14,7 @@ PlanSpec 集成测试 - V3.1 P1功能
     cd ~/.openclaw/workspace/Javis-DB-Agent
     python3 -m pytest tests/round32/test_plan_spec_integration.py -v --tb=short
 
-已知 Bug:
-- output_format 配置未正确反映在指令中（_get_format_instruction 未被调用）
+已知 Bug: 无 (_get_format_instruction 已正确调用并反映在指令中)
 """
 
 import pytest
