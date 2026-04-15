@@ -49,11 +49,24 @@ class RetryExecutor:
         self.circuit_breaker_timeout = circuit_breaker_timeout
         self.retryable_exceptions = retryable_exceptions
         
-        # 熔断器状态
+        # 熔断器状态（线程安全属性）
         self._circuit_state = "closed"  # closed | open | half_open
         self._failure_count = 0
         self._last_failure_time: Optional[float] = None
-        self._circuit_lock = threading.Lock()
+        self._lock = threading.Lock()
+    
+    # --- B1修复: 线程安全状态属性 ---
+    @property
+    def _circuit_state_value(self) -> str:
+        """线程安全的熔断器状态读取"""
+        with self._lock:
+            return self._circuit_state
+    
+    @_circuit_state_value.setter
+    def _circuit_state_value(self, value: str) -> None:
+        """线程安全的熔断器状态写入"""
+        with self._lock:
+            self._circuit_state = value
     
     def _get_delay(self, attempt: int) -> float:
         """计算指数退避延迟"""
@@ -67,7 +80,7 @@ class RetryExecutor:
     
     def _check_circuit(self) -> None:
         """检查熔断器状态"""
-        with self._circuit_lock:
+        with self._lock:
             if self._circuit_state == "open":
                 if self._last_failure_time is not None:
                     elapsed = time.monotonic() - self._last_failure_time
@@ -83,13 +96,13 @@ class RetryExecutor:
     
     def _record_success(self) -> None:
         """记录成功，关闭熔断器"""
-        with self._circuit_lock:
+        with self._lock:
             self._failure_count = 0
             self._circuit_state = "closed"
     
     def _record_failure(self) -> None:
         """记录失败，可能打开熔断器"""
-        with self._circuit_lock:
+        with self._lock:
             self._failure_count += 1
             self._last_failure_time = time.monotonic()
             if self._circuit_state == "half_open":
@@ -99,7 +112,7 @@ class RetryExecutor:
     
     def get_circuit_state(self) -> str:
         """返回熔断器状态: 'closed' | 'open' | 'half_open'"""
-        with self._circuit_lock:
+        with self._lock:
             # 检查超时后自动转换
             if self._circuit_state == "open" and self._last_failure_time is not None:
                 elapsed = time.monotonic() - self._last_failure_time

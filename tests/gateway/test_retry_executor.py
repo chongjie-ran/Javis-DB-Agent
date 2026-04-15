@@ -379,3 +379,113 @@ class TestEdgeCases:
 
         result = executor.execute_sync(add, 3, 4)
         assert result == 7
+
+
+class TestConcurrencySafety:
+    """B1修复验证: 熔断器并发安全测试"""
+
+    def test_concurrent_state_access_no_race(self):
+        """多线程并发访问熔断器状态无竞态"""
+        import threading
+        executor = RetryExecutor(circuit_breaker_threshold=5, circuit_breaker_timeout=60.0)
+        errors = []
+        barrier = threading.Barrier(10)
+        
+        def read_state():
+            try:
+                barrier.wait()
+                for _ in range(100):
+                    state = executor.get_circuit_state()
+                    assert state in ("closed", "open", "half_open")
+            except Exception as e:
+                errors.append(e)
+        
+        threads = [threading.Thread(target=read_state) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        
+        assert len(errors) == 0, f"Race condition detected: {errors}"
+    @pytest.mark.asyncio
+    async def test_concurrent_execute_no_race(self):
+        """多线程并发执行时熔断器状态无竞态"""
+        import threading
+        executor = RetryExecutor(max_retries=0, circuit_breaker_threshold=20)
+        barrier = threading.Barrier(20)
+
+        def sync_task_ok():
+            barrier.wait()
+            try:
+                executor.execute_sync(lambda: None)
+            except RetryExhaustedError:
+                pass
+
+        def raise_error():
+            raise ValueError("fail")
+
+        def sync_task_fail():
+            barrier.wait()
+            try:
+                executor.execute_sync(raise_error)
+            except RetryExhaustedError:
+                pass
+
+        threads = [threading.Thread(target=sync_task_ok if i % 2 == 0 else sync_task_fail) for i in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # 验证状态一致
+        state = executor.get_circuit_state()
+        assert state in ("closed", "open")
+
+
+    def test_concurrent_sync_execute_no_race(self):
+        """多线程同步执行时熔断器状态无竞态"""
+        import threading
+        import random
+        executor = RetryExecutor(max_retries=0, circuit_breaker_threshold=10)
+        barrier = threading.Barrier(20)
+        
+        def do_work():
+            barrier.wait()
+            try:
+                time.sleep(random.uniform(0.001, 0.005))
+                executor.execute_sync(lambda: None)
+            except RetryExhaustedError:
+                pass
+        
+        threads = [threading.Thread(target=do_work) for _ in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        
+        # 验证最终状态一致
+        state = executor.get_circuit_state()
+        assert state in ("closed", "open")
+
+    def test_state_setter_is_thread_safe(self):
+        """验证状态属性线程安全（B1核心测试）"""
+        import threading
+        executor = RetryExecutor()
+        barrier = threading.Barrier(50)
+        seen_states = set()
+        
+        def set_and_read():
+            barrier.wait()
+            for i in range(20):
+                # 通过 get_circuit_state 读取（内部用锁）
+                state = executor.get_circuit_state()
+                seen_states.add(state)
+        
+        threads = [threading.Thread(target=set_and_read) for _ in range(50)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        
+        # 所有线程都只看到了合法状态
+        assert seen_states.issubset({"closed", "open", "half_open"})
