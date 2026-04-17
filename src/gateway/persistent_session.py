@@ -24,9 +24,13 @@ class Message:
     tool_call_id: Optional[str] = None
     timestamp: float = field(default_factory=time.time)
     
+    def __post_init__(self):
+        # Bug-1 fix: message_id 只生成一次，保证幂等性
+        object.__setattr__(self, '_message_id', str(uuid.uuid4()))
+    
     def to_dict(self) -> dict:
         return {
-            "message_id": str(uuid.uuid4()),
+            "message_id": self._message_id,
             "role": self.role,
             "content": self.content,
             "tool_calls": json.dumps(self.tool_calls) if self.tool_calls else "",
