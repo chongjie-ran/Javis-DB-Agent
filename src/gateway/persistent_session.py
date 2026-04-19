@@ -337,7 +337,10 @@ class PersistentSessionManager:
                         if db_updated_at < session.updated_at:
                             # DB 中会话已过期，从缓存和 DB 删除
                             self._cache.pop(session_id, None)
-                            self._user_sessions[session.user_id].remove(session_id)
+                            try:
+                                self._user_sessions[session.user_id].remove(session_id)
+                            except ValueError:
+                                pass  # 并发清理已删除，忽略即可
                             conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
                             conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
                             conn.commit()
@@ -346,7 +349,10 @@ class PersistentSessionManager:
             else:
                 # 缓存已过期，从缓存和数据库删除
                 self._cache.pop(session_id, None)
-                self._user_sessions[session.user_id].remove(session_id)
+                try:
+                    self._user_sessions[session.user_id].remove(session_id)
+                except ValueError:
+                    pass  # 并发清理已删除，忽略即可
                 # 直接从数据库删除，不调用 delete_session（避免不必要的缓存操作）
                 with self._get_conn() as conn:
                     conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
