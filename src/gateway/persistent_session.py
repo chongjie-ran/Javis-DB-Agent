@@ -23,10 +23,12 @@ class Message:
     tool_calls: list[dict] = field(default_factory=list)
     tool_call_id: Optional[str] = None
     timestamp: float = field(default_factory=time.time)
+    _message_id: Optional[str] = field(default=None, repr=False)
     
     def __post_init__(self):
         # Bug-1 fix: message_id 只生成一次，保证幂等性
-        object.__setattr__(self, '_message_id', str(uuid.uuid4()))
+        if self._message_id is None:
+            object.__setattr__(self, '_message_id', str(uuid.uuid4()))
     
     def to_dict(self) -> dict:
         return {
@@ -53,6 +55,7 @@ class Message:
             tool_calls=tool_calls,
             tool_call_id=data.get("tool_call_id") or None,
             timestamp=data["timestamp"],
+            _message_id=data.get("message_id") or None,
         )
 
 
@@ -437,7 +440,10 @@ class PersistentSessionManager:
             
             # 从缓存删除
             if session:
-                self._user_sessions[session.user_id].remove(session_id)
+                try:
+                    self._user_sessions[session.user_id].remove(session_id)
+                except ValueError:
+                    pass  # session already removed
             self._cache.pop(session_id, None)
             
             return True
@@ -609,7 +615,10 @@ class PersistentSessionManager:
                 for row in rows:
                     self._cache.pop(row["session_id"], None)
                     if row["session_id"] in self._user_sessions[row["user_id"]]:
-                        self._user_sessions[row["user_id"]].remove(row["session_id"])
+                        try:
+                            self._user_sessions[row["user_id"]].remove(row["session_id"])
+                        except ValueError:
+                            pass  # 并发清理已删除，忽略即可
         
         # 限制总会话数
         while len(self._cache) > self.max_sessions:
