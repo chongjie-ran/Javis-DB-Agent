@@ -1,0 +1,25 @@
+{
+  "lastChecks": {
+    "email": null,
+    "calendar": null,
+    "weather": null
+  },
+  "lastHeartbeat": "2026-04-17T07:33:00+08:00",
+  "repo": {
+    "head": "5470dd8",
+    "origin": "ef8d45c",
+    "behind": 42,
+    "status": "V3.0落后V3.3约42commits"
+  },
+  "testStatus": {
+    "unit": "347 passed EXIT:0",
+    "duration": "9.5s",
+    "skips": 9,
+    "skipReason": "vector_store网络依赖"
+  },
+  "zhenxian": {
+    "lastActive": "2026-04-16T23:43:00+08:00",
+    "lastResult": "223+43+50 all passed",
+    "gapHours": 7.8
+  }
+}

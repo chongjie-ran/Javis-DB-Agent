@@ -106,3 +106,12 @@
 ### 当前决策
 - 多次cron等待真显信号未果
 - 授权范围内自主推进: 记录状态、通知Chongjie协调
+
+## 2026-04-16 重要: 真显归队 + V3.3实测完成
+- 真显在信号缺失5天+后于今日13:35重新活跃
+- 186项V3.3 P0测试全通过(V3.3 P0专项/资源守卫/会话管理/运行时/Bash执行器/文件操作)
+- 我的Repo仍停留在V3.0 (5470dd8)，落后origin/main (ef8d45c, V3.3) 42 commits
+- 建议Chongjie尽快同步: `git pull origin main`
+- 6个Bug(SJG-01/02/03, AM-02/03, BUG-PlanSpec, round9环境断言)均已修复
+- 5个P1/P2实现任务(FallbackSummaryError/per-agent配额/Cron告警/maxDelayMs/maxTokensPerRun)待分配
+- V3.3大规模代码清理: TeamCoordinator/MCP/AutoMemory/PlanSpec/ResourceGuard等模块已删除

@@ -1,6 +1,6 @@
 """高风险工具集 - 第二轮迭代新增"""
 import time
-from typing import Any
+from typing import Any, Optional
 from src.tools.base import BaseTool, ToolDefinition, ToolParam, RiskLevel, ToolResult
 
 
