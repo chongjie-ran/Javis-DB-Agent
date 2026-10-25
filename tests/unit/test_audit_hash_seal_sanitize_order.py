@@ -977,3 +977,52 @@ def test_cap_trail_order_invariant_keeps_sensitive_original_hash():
     values = trail["values"]
     assert "params.password" in values, sorted(values)
     assert values["params.password"]["original_bytes"] == 9000
+
+def test_strict_layer_does_not_block_business_hostname():
+    # 主机名形态的普通业务值必须放行 (真显 1510 函之后实测的残留触发面)
+    # 69b4847 只排除了路径与 URL (二者都含斜杠) ⟹ 不含斜杠的主机名当时仍被拦
+    import os
+    import tempfile
+
+    from src.gateway.audit import AuditAction, AuditLogger
+
+    for value in (
+        "prod-database-01.internal.company.com",
+        "db01.internal",
+        "cache-01.svc.cluster.local",
+    ):
+        tmp = tempfile.mkdtemp()
+        path = os.path.join(tmp, "audit.jsonl")
+        logger = AuditLogger(log_file=path, auto_load=False)
+        logger.log_action(
+            AuditAction.TOOL_CALL, user_id="u", tool_name="t",
+            params={"host": value}, result="ok", metadata={},
+        )
+        assert os.path.getsize(path) > 0, value
+
+
+def test_strict_layer_still_blocks_credential_like_values_after_hostname_rule():
+    # 主机名排除不得放宽成漏拦真凭据: 仍须被拦的形态逐条钉住
+    import os
+    import tempfile
+
+    from src.gateway.audit import AuditAction, AuditLogger
+
+    for value in (
+        "AKIAIOSFODNN7EXAMPLEKEY",   # 大写混合 ⟹ 主机名规则要求无大写 ⟹ 不放过
+        "a1b2c3d4e5f6a7b8c9d0e1f2",   # 无点 ⟹ 非主机名
+        "correct.horse.battery.stapleX",  # 末段含大写 ⟹ 不算域名后缀 ⟹ 不放过
+        "x1.y2.z3.a4.b5.c6.d7.e8.f9.g0.h1.i2.j3.k4.l5.m6.n7.o8.p9.q0.r1.s2.t3.u4.v5",  # 末段纯数字非 TLD ⟹ 不放过
+    ):
+        tmp = tempfile.mkdtemp()
+        path = os.path.join(tmp, "audit.jsonl")
+        logger = AuditLogger(log_file=path, auto_load=False)
+        blocked = False
+        try:
+            logger.log_action(
+                AuditAction.TOOL_CALL, user_id="u", tool_name="t",
+                params={"host": value}, result="ok", metadata={},
+            )
+        except ValueError:
+            blocked = True
+        assert blocked, ("该值应被强制层拦下, 却被当成主机名放过: " + value)

@@ -199,6 +199,8 @@ def _looks_like_credential(value: Any) -> bool:
         return False
     if _looks_like_path(s):
         return False
+    if _looks_like_hostname(s):
+        return False
     return True
 
 
@@ -220,6 +222,45 @@ def _looks_like_path(s: str) -> bool:
     if s.startswith("/"):
         return True
     return "." in s.rsplit("/", 1)[-1]
+
+
+_HOSTNAME_LABEL_RE = re.compile(r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$")
+_HOSTNAME_TLD_RE = re.compile(r"^[A-Za-z]{2,24}$")
+
+
+def _looks_like_hostname(s: str) -> bool:
+    """值是否「像主机名」—— 强制层的业务值排除 (DEF-2026-1009 触发面收窄)。
+
+    真显 1510 函之后实测: 形如 prod-database-01.internal.company.com 的**普通业务值**
+    仍被判成「像凭据」⟹ 强制层拦下 ⟹ 业务调用当场中断。
+    (69b4847 只排除了路径与 URL, 二者都含斜杠; 主机名不含斜杠 ⟹ 漏网。)
+
+    条件 (全满足):
+      * 含点, 总长 <= 253 (DNS 上限), 无空白;
+      * **不含大写字母** (配置里的主机名通常小写; 而真凭据几乎总有大小写混合);
+      * 每段都是合法 DNS label (1-63 字符, 字母数字与连字符, 不以连字符开头/结尾);
+      * 末段是**纯字母** 2-24 位 (像域名后缀);
+      * 或全部段都是数字 (点分十进制 ⟹ IP 形态)。
+
+    为何要求末段纯字母: 否则 correct.horse.battery.staple 这类**小写点分口令**
+    会被当主机名放过 ⟹ 漏拦。故末段须像域名后缀而非随机词。
+
+    代价 (明确承认): 末段恰是 2-24 位纯字母的小写点分口令会被放过 ⟹ 这正是
+    _looks_like_credential docstring 承诺的「宁可漏拦不可误拦现有业务数据」的取舍。
+    """
+    if "." not in s or len(s) > 253:
+        return False
+    if any(c.isupper() for c in s):
+        return False
+    labels = s.split(".")
+    if len(labels) < 2:
+        return False
+    if all(lab.isdigit() for lab in labels):
+        return True  # 点分十进制 (IP 形态)
+    for lab in labels:
+        if len(lab) > 63 or not _HOSTNAME_LABEL_RE.match(lab):
+            return False
+    return bool(_HOSTNAME_TLD_RE.match(labels[-1]))
 
 
 def _strict_unregistered_credentials(log: "AuditLog") -> list[str]:
