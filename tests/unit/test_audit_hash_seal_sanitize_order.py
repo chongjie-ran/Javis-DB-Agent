@@ -298,6 +298,39 @@ KNOWN_PREFIX_GAPS = [
     "passworddb",   # 敏感词在段首
 ]
 
+# --- 前缀类探针语料 (真理 1215 §五(2) / 1330 §四 的 P0: 前缀类明文落盘 + 守卫盲区) ---
+# 事实基础 (悟通 2026-10-25 实测 src.gateway.audit 的 _SENSITIVE_KEYS / _is_sensitive_key):
+#   本语料 11 个键, 当前**全部不被新实现脱敏**;
+#   其中 10 个是「旧子串实现会脱敏、新实现不脱敏」= 净新增明文暴露;
+#   另 1 个 (keyvalue) 旧新都不脱敏 (旧实现的敏感词表里也没有 key 子串)。
+#   ⟹ 10 - 2(已登记在 KNOWN_PREFIX_GAPS) = **8 条未登记暴露** ⟹ 真理 1330 函报的「8 个键明文落盘」对上。
+#   ⟹ 「已登记 2 条」**不等于**「只剩 2 条」⟹ 本组把暴露面在册且条数写死 (见下面钉死断言)。
+KNOWN_PREFIX_CLASS_PROBE = [
+    "passworddb",    # 已登记于 KNOWN_PREFIX_GAPS
+    "tokenvalue",    # 已登记于 KNOWN_PREFIX_GAPS
+    "secretkey",
+    "keyvalue",      # 旧新都不脱敏 (见 KNOWN_PREFIX_CLASS_INERT)
+    "passwdvalue",
+    "credentialid",
+    "tokentype",
+    "secretstore",
+    "authmethod",
+    "pincode",
+    "saltvalue",
+]
+
+# 未登记的暴露面 (8 条) —— SC 裁定「前缀/内嵌类是否纳入」前, 这 8 条是**已知未修**的 P0。
+# 归属与放行归 SC (业务键名全量登记表), 本组只负责让暴露面**可数、可复现、可发现**。
+KNOWN_PREFIX_CLASS_UNREGISTERED = [
+    "secretkey", "passwdvalue", "credentialid", "tokentype",
+    "secretstore", "authmethod", "pincode", "saltvalue",
+]
+
+# 旧新都不命中的键 (不构成泄漏), 但仍要在册 ⟹ 否则会被误读成「已登记却漏了」。
+KNOWN_PREFIX_CLASS_INERT = [
+    "keyvalue",
+]
+
 
 @pytest.mark.parametrize("key", KNOWN_PREFIX_GAPS)
 def test_known_prefix_gap_is_tracked_not_silent(key):
@@ -327,16 +360,82 @@ def test_new_matcher_never_redacts_less_than_old_substring_matcher():
     corpus = sorted(
         set(MUST_REDACT) | set(MUST_NOT_REDACT)
         | set(SENSITIVE_SUFFIX_VARIANTS) | set(NORMALIZE_SAFE_WORDS)
-        | set(KNOWN_PREFIX_GAPS)
+        | set(KNOWN_PREFIX_GAPS) | set(KNOWN_PREFIX_CLASS_PROBE)
     )
     # 允许清单 = 已登记的误伤类 (13 条) + 已登记的前缀缺口 (待 SC 裁)
-    allow = set(MUST_NOT_REDACT) | set(KNOWN_PREFIX_GAPS)
+    # 前缀类 11 条全部在册 (已登记 2 + 未登记 8 + 旧新都不命中 1) ⟹ 进入语料作用域但**不**被误判为新回归;
+    # 该类的「有无变化」由下面的钉死断言负责 (条数与构成写死), 职责不重叠。
+    allow = (set(MUST_NOT_REDACT) | set(KNOWN_PREFIX_GAPS)
+            | set(KNOWN_PREFIX_CLASS_PROBE))
     leaks = [
         k for k in corpus
         if old_impl(k) and not _is_sensitive_key(k) and k not in allow
     ]
     assert not leaks, (
         f"新实现比旧实现脱敏得少 (明文落盘回归): {leaks}"
+    )
+
+
+@pytest.mark.parametrize("key", KNOWN_PREFIX_CLASS_PROBE)
+def test_prefix_class_probe_is_registered(key):
+    """前缀类探针语料必须**在册** (真理 1215 §五(2): 12 条原始语料不入库 ⟹ 别人无法复现结论)。
+
+    本断言把「已登记 2 条」与「暴露面 11 条」分开 ⟹ 杜绝「只登记 2 条 == 只剩 2 条」的误读。
+    """
+    registered = (set(KNOWN_PREFIX_GAPS) | set(KNOWN_PREFIX_CLASS_UNREGISTERED)
+                 | set(KNOWN_PREFIX_CLASS_INERT))
+    assert key in registered, (
+        f"前缀类探针键 {key!r} 未登记 ⟹ 守卫对它无盲区保护, 别人无法复现该结论。"
+        "请补进 KNOWN_PREFIX_GAPS (已裁定放行) / KNOWN_PREFIX_CLASS_UNREGISTERED (已知未修)"
+        " / KNOWN_PREFIX_CLASS_INERT (旧新都不命中)"
+    )
+
+
+@pytest.mark.parametrize("key", KNOWN_PREFIX_CLASS_UNREGISTERED)
+def test_prefix_class_unregistered_gap_is_still_open(key):
+    """未登记的前缀类暴露**必须仍然是「未脱敏」** ⟹ 任何变化当场可见。
+
+    两种变化都会红, 且含义不同:
+      - 变**成脱敏** ⟹ SC 已裁定纳入 ⟹ 该条应移出本组、移入 MUST_REDACT (本断言提示)
+      - 仍不脱敏但**结构变了** (如旧实现不再命中) ⟹ 暴露面构成变化 ⟹ 需重测并更新条数
+    """
+    from src.gateway.audit import _is_sensitive_key
+    assert not _is_sensitive_key(key), (
+        f"前缀类键 {key!r} 现在被脱敏了 ⟹ SC 已裁定前缀类纳入, 请把它移出"
+        " KNOWN_PREFIX_CLASS_UNREGISTERED 并移入 MUST_REDACT, 同步放开差集守卫"
+    )
+
+
+def test_prefix_class_exposure_surface_is_pinned():
+    """前缀类暴露面**条数与构成写死** ⟹ 任何变更当场可见 (增=新暴露, 减=已裁定/已修)。
+
+    这是真理 1215 §五(2) 要的「让这一类今后任何变更都被当场抓住」: 语料在库 + 条数钉死。
+    """
+    from src.gateway.audit import _SENSITIVE_KEYS, _is_sensitive_key
+
+    def old_impl(k: str) -> bool:
+        return any(sk in k.lower() for sk in _SENSITIVE_KEYS)
+
+    probe = set(KNOWN_PREFIX_CLASS_PROBE)
+    not_redacted = {k for k in probe if not _is_sensitive_key(k)}
+    divergence = {k for k in probe if old_impl(k) and not _is_sensitive_key(k)}
+    assert not_redacted == probe, (
+        f"前缀类探针的脱敏状态变了: 不再脱敏的少了 {sorted(probe - not_redacted)}"
+    )
+    assert len(divergence) == 10, (
+        f"前缀类「旧脱敏/新不脱敏」的条数变了: {len(divergence)} (期望 10) "
+        f"实际 {sorted(divergence)}"
+    )
+    unregistered = divergence - set(KNOWN_PREFIX_GAPS)
+    assert unregistered == set(KNOWN_PREFIX_CLASS_UNREGISTERED), (
+        f"未登记暴露面构成变了: 实际 {sorted(unregistered)}"
+    )
+    assert len(unregistered) == 8, (
+        f"未登记暴露面条数变了: {len(unregistered)} (期望 8)"
+    )
+    inert = probe - divergence - set(KNOWN_PREFIX_GAPS)
+    assert inert == set(KNOWN_PREFIX_CLASS_INERT), (
+        f"旧新都不命中的键构成变了: 实际 {sorted(inert)}"
     )
 
 
