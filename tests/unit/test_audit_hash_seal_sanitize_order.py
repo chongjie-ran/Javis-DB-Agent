@@ -968,6 +968,12 @@ def test_cap_trail_order_invariant_keeps_sensitive_original_hash():
     #   盘上掩码从 ***b7b> 变成 ***AAAA (脱敏的是原值而非截断值)
     #   tests/unit 601 -> 3 failures
     # => 正确的不变式是: cap 先于 sanitize => 敏感键的原值长度/散列仍被留痕
+    #
+    # ★ 顺序哨兵只有**两条** (真显 1525 函实测的 M1 敏感性对照):
+    #   顺序敏感 (M1 下必红): 本用例 + test_cap_trail_kept_bytes_on_disk_false_for_sensitive_key
+    #   顺序免疫 (M1 下仍绿): test_cap_trail_declares_pre_sanitize_stage (只断言 stage 字段存在)
+    #                        test_cap_trail_kept_bytes_on_disk_true_for_plain_key (只管非敏感键)
+    # ⟹ 别以为 4 条 trail 用例都在守顺序 ⟹ 真正咬住顺序的是上面标出的两条。
     import os
     import tempfile
     tmp = tempfile.mkdtemp()
