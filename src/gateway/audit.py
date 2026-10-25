@@ -348,6 +348,65 @@ def _looks_like_prose_identifier(s: str) -> bool:
     return len(words) * 2 >= len(parts)
 
 
+# --- 值内嵌凭据片段 (真理 1945/1950 函 P0 回归) ---------------------------------
+# 强制层的「路径 / URL 排除」曾把**含凭据的路径**整串放过 ⟹ 强制层放行 +
+# 脱敏层按键名脱敏 (file_path 不是敏感键) ⟹ 凭据**明文落盘**。
+#   旧实现 (e23fd8a): 无路径排除 ⟹ file_path 含凭据 → 被拦 → 明文落盘 = 否
+#   我的 69b4847: 加路径/URL 排除 ⟹ file_path 含凭据 → 放行 → 明文落盘 = 是 (**回归**)
+# 治本 (真理建议 1): 在**脱敏层**按「值内片段」遮 ⟹ 与键名无关 ⟹ 路径里的 token 也会被遮,
+# 而普通路径 (无凭据前缀) 不受影响 ⟹ 可追溯性保留 (路径其余部分仍在)。
+_CREDENTIAL_FRAGMENT_PREFIXES = (
+    "sk-ant-", "sk-proj-", "sk-sso-", "sk-",
+    "ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_",
+    "glpat-", "xoxb-", "xoxp-", "xoxa-", "xoxr-", "xoxs-",
+    "npm_", "dop_v1_", "shpat_", "hf_", "r8_", "lsv2_", "mact_",
+    "AKIA", "ASIA", "AIza", "ya29.", "SG.", "hvs.", "sq0csp-", "pypi-",
+)
+_CREDENTIAL_FRAGMENT_BOUNDARY = set("/\\?&#=:;, \t\n\r\"'<>()[]{}|")
+_CREDENTIAL_FRAGMENT_TAIL = set(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-~.…"
+)
+
+
+def _mask_credential_fragments(text: str) -> str:
+    """把值**内嵌**的凭据片段替换为掩码 —— 只遮片段, 其余原样保留。
+
+    背景 (真理 1945/1950 函 P0, 我独立复现成立):
+      强制层把「整串像路径/URL」判为非凭据 ⟹ 但**凭据可藏在路径里** ⟹
+      强制层放行 + 脱敏层按键名 ⟹ 明文落盘 (file_path / path / url 三个键都复现)。
+
+    判据: 值内出现**已知凭据前缀**的 token (sk- / ghp_ / AKIA / AIza / glpat- ...),
+      且该前缀前是分隔符或串首 (token 边界) ⟹ 避免 "disk-space" 之类误命中;
+      片段 = 前缀 + 其后的 token 字符 ⟹ 遮成 "***" + 末 4 位 (与敏感键同款掩码风格)。
+
+    取舍: 只认**前缀** ⟹ 不误伤普通业务值 (无前缀的长串/散文本一律不动);
+      但也意味着「无前缀的裸 token 嵌在路径里」不在本函数射程 ⟹
+      那种仍由强制层按整串判据处理 (见 _looks_like_credential)。
+    """
+    if not isinstance(text, str) or not text:
+        return text
+    out = text
+    for pref in _CREDENTIAL_FRAGMENT_PREFIXES:
+        start = 0
+        while True:
+            i = out.find(pref, start)
+            if i < 0:
+                break
+            if i > 0 and out[i - 1] not in _CREDENTIAL_FRAGMENT_BOUNDARY:
+                start = i + len(pref)
+                continue
+            j = i + len(pref)
+            while j < len(out) and out[j] in _CREDENTIAL_FRAGMENT_TAIL:
+                j += 1
+            frag = out[i:j]
+            if len(frag) <= len(pref):
+                start = j
+                continue
+            repl = "***" + frag[-4:]
+            out = out[:i] + repl + out[j:]
+            start = i + len(repl)
+    return out
+
 def _sanitize_nested(value: Any, key: Any) -> Any:
     """按 key 判定脱敏, 并对 dict/list **递归下钻** (DEF-2026-1007)。
 
@@ -373,6 +432,18 @@ def _sanitize_nested(value: Any, key: Any) -> Any:
         return {k: _sanitize_nested(v, k) for k, v in value.items()}
     if isinstance(value, list):
         return [_sanitize_nested(v, key) for v in value]
+    if isinstance(value, str):
+        # ★ 值内嵌凭据片段 (真理 1945/1950 函 P0 回归) ⟹ **与键名无关**地遮片段:
+        #   file_path / path / url 这类非敏感键里的 token 也会被遮, 而普通路径不动。
+        #
+        # ⚠️ 边界 (不可越界): **整串本身像凭据的值不遮** ⟹ 那种仍交给强制层按
+        #   原语义拦。理由: 强制层在 seal() 内调用, 而 seal 在 sanitize **之后** ⟹
+        #   若连整串凭据也遮, 强制层就再也看不到它 ⟹ 等于替 SC 预裁
+        #   「审计该不该打断业务」(缺口1) ⟹ 那是 SC 的裁定权, 不是实现细节。
+        #   本函数只处理「整串不像凭据、但内嵌片段像凭据」那一类 ⟹ 强制层触发面不变。
+        if not _looks_like_credential(value):
+            return _mask_credential_fragments(value)
+        return value
     return value
 
 

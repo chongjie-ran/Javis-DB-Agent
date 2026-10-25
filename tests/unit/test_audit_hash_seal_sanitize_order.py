@@ -1097,3 +1097,78 @@ def test_strict_layer_still_blocks_credential_like_values_after_hostname_rule():
         except ValueError:
             blocked = True
         assert blocked, ("该值应被强制层拦下, 却被当成主机名放过: " + value)
+
+def test_credential_fragment_inside_path_value_is_masked_on_disk():
+    """★ 路径/URL 排除**不得**开出明文泄漏 (真理 1945/1950 函 P0 回归; 我独立复现)。
+
+    回归: 悟通 69b4847 给 _looks_like_credential 加了「排除路径/URL」 ⟹
+    整串像路径的值被判非凭据 ⟹ 强制层放行; 而脱敏层只按键名脱敏 ⟹
+    file_path / path / url 这些**非敏感键**里的 token 原样落盘 ⟹ 明文泄漏。
+    旧实现 (e23fd8a) 无路径排除 ⟹ 该值被强制层拦 ⟹ 落盘无明文。
+
+    治本: 脱敏层按**值内片段**遮 ⟹ 落盘不含明文, 且路径其余部分保留 (可追溯性不丢)。
+    ⟹ 真理 1945 函的要求: 落盘不得出现明文, 且别用「整体豁免」收口。
+    """
+    import json
+    import os
+    import tempfile
+    from src.gateway.audit import AuditAction, AuditLogger
+
+    secret = "sk-LIV…xxxx"
+    for key, value in (
+        ("file_path", "/Users/u/.aws/credentials/" + secret),
+        ("path", "/tmp/" + secret + "/out.txt"),
+        ("url", "https://api.example.com/v1/key/" + secret),
+    ):
+        tmp = tempfile.mkdtemp()
+        path = os.path.join(tmp, "audit.jsonl")
+        logger = AuditLogger(log_file=path, auto_load=False, strict=True)
+        logger.log_action(
+            AuditAction.AGENT_INVOKE,
+            user_id="u",
+            tool_name="t",
+            params={key: value},
+            result="ok",
+        )
+        body = open(path, encoding="utf-8").read()
+        assert secret not in body, f"{key}: 凭据片段明文落盘 ⟹ {body[:240]}"
+        rec = json.loads(body.strip().splitlines()[-1])
+        landed = rec["params"][key]
+        assert landed != value, f"{key}: 值完全未被处理"
+        # 可追溯性: 只遮片段, 路径结构必须保留 (禁止「整体豁免」收口)
+        assert landed.count("/") == value.count("/"), f"{key}: 路径结构被破坏 ⟹ {landed}"
+
+
+def test_whole_string_credential_value_is_still_blocked_by_strict_layer():
+    """★ 片段遮罩**不得**越界成「替 SC 预裁审计语义」(缺口1 归 SC 裁)。
+
+    强制层在 seal() 内调用, 而 seal 在 sanitize **之后** ⟹ 若脱敏层连**整串**像凭据的
+    值也遮掉, 强制层就再也看不到它 ⟹ 审计不再打断业务 ⟹ 那是 SC 的裁定权, 不是实现细节。
+    ⟹ 本用例钉死: 整串凭据仍由强制层拦 (ValueError), 不被脱敏层静默遮掉。
+    """
+    from src.gateway.audit import AuditAction, AuditLog
+
+    log = AuditLog(
+        action=AuditAction.AGENT_INVOKE,
+        params={"file_path": "sk-ABCDEFGHIJKLMNOPQRSTUVWXYZ012345"},
+    )
+    try:
+        log.seal("0" * 64, strict=True)
+    except ValueError:
+        return
+    raise AssertionError("整串像凭据的值必须仍由强制层拦截 (不得被脱敏层静默遮掉)")
+
+
+def test_plain_business_path_value_is_not_masked():
+    """★ 片段遮罩不得误伤普通业务值 (可追溯性不能丢)。"""
+    from src.gateway.audit import _mask_credential_fragments
+
+    for value in (
+        "/opt/app/mysql/mysql-5/config-reference.md",
+        "data/audit.jsonl",
+        "https://example.com/path?q=1",
+        "plain business note",
+        "db.internal.corp.local",
+        "references/mysql/mysql-5/mgr/config-reference.md",
+    ):
+        assert _mask_credential_fragments(value) == value, f"普通业务值被误遮 ⟹ {value}"
