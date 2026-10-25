@@ -331,6 +331,22 @@ KNOWN_PREFIX_CLASS_INERT = [
     "keyvalue",
 ]
 
+# --- 段尾规则专属语料 (真理 1440 函 MUT-I) ---
+# 段尾规则抓的键**旧子串实现不脱敏**(myapikey: 旧=False 新=True) ⟹ 落在差集守卫的
+# **定义域之外**, 差集守卫永远看不见它 ⟹ 必须有专属断言守着这一层。
+# 语料: ① 每个敏感词的「尾部形态」= my + 词段拼接 (系统生成 ⟹ 类不封闭)
+#       ② 真理 1440 函手挑的多词段形态 (db+password / auth+token ...)
+SEGMENT_TAIL_VARIANTS = [
+    # 系统生成: 每个敏感词一条 (段尾规则专抓这一形态)
+    "myaccesstoken", "myapikey", "myauth", "myauthorization", "mybearer",
+    "mycardnumber", "myclientsecret", "mycredential", "mycreditcard", "mycvv",
+    "myoauthclientsecret", "mypassword", "mypasswd", "mypin", "myprivatekey",
+    "myrefreshtoken", "mysalt", "mysecret", "myssn", "mytoken",
+    # 真理 1440 函手挑的多词段形态
+    "dbpassword", "userauth", "xpassword", "dbcredentials",
+    "myauthtoken", "authtoken2", "userpassword",
+]
+
 
 @pytest.mark.parametrize("key", KNOWN_PREFIX_GAPS)
 def test_known_prefix_gap_is_tracked_not_silent(key):
@@ -361,6 +377,7 @@ def test_new_matcher_never_redacts_less_than_old_substring_matcher():
         set(MUST_REDACT) | set(MUST_NOT_REDACT)
         | set(SENSITIVE_SUFFIX_VARIANTS) | set(NORMALIZE_SAFE_WORDS)
         | set(KNOWN_PREFIX_GAPS) | set(KNOWN_PREFIX_CLASS_PROBE)
+        | set(SEGMENT_TAIL_VARIANTS)
     )
     # 允许清单 = 已登记的误伤类 (13 条) + 已登记的前缀缺口 (待 SC 裁)
     # 前缀类 11 条全部在册 (已登记 2 + 未登记 8 + 旧新都不命中 1) ⟹ 进入语料作用域但**不**被误判为新回归;
@@ -438,6 +455,42 @@ def test_prefix_class_exposure_surface_is_pinned():
         f"旧新都不命中的键构成变了: 实际 {sorted(inert)}"
     )
 
+
+@pytest.mark.parametrize("key", SEGMENT_TAIL_VARIANTS)
+def test_segment_tail_variants_are_still_masked(key):
+    """段尾形态键必须仍被脱敏 ⟹ 段尾规则被削弱/删除时当场红。
+
+    这一层是**差集守卫的定义域之外**的: 差集守卫的 leak 定义是
+    old_impl(k) and not _is_sensitive_key(k) (旧脱敏/新不脱敏 = 回归),
+    而段尾规则抓的键**旧实现本就不脱敏** ⟹ 差集守卫永远看不见它们。
+    ⟹ 真理 1440 函 MUT-I: 删掉段尾规则整层, 套件仍全绿, 而 myapikey 明文落盘。
+    本断言给该层单独建语料, 让整层被删时逐条指明失守。
+    """
+    from src.gateway.audit import _sanitize_value
+    out = _sanitize_value("SUPERSECRET1234", key)
+    assert out != "SUPERSECRET1234", (
+        f"段尾形态键 {key!r} 未被脱敏 ⟹ 段尾规则被削弱/删除 (MUT-I)"
+    )
+
+
+def test_segment_tail_corpus_covers_every_sensitive_word():
+    """段尾层语料必须**随敏感词表同步** ⟹ 新增敏感词而未加尾部样本, 当场红。
+
+    真理 1440 §3.4: 探针是**样本**不是类 (1050 条合成候选里探针只覆盖 9 条)。
+    ⟹ 正解不是手挑更多探针, 而是按「层」建语料 ⟹ 这里保证语料对每个敏感词都有覆盖。
+    """
+    from src.gateway.audit import _SENSITIVE_KEYS, _key_segments
+    missing = []
+    for sk in _SENSITIVE_KEYS:
+        pat = _key_segments(sk)
+        if not pat:
+            continue
+        tf = "my" + "".join(pat)
+        if tf not in SEGMENT_TAIL_VARIANTS:
+            missing.append((sk, tf))
+    assert not missing, (
+        f"段尾层语料落后于敏感词表: 缺 {missing} ⟹ 补进 SEGMENT_TAIL_VARIANTS"
+    )
 
 @pytest.mark.parametrize("key", MUST_REDACT)
 def test_sensitive_key_must_be_redacted(key):
