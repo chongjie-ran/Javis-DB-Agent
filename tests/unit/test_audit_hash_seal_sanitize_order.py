@@ -246,6 +246,100 @@ def test_tampering_is_still_detected_after_fix():
     assert idx == 0, f"篡改点索引应为 0，实际 {idx}"
 
 
+# --- P2 收尾: 段内归一 (DEF-2026-1006) ---
+#
+# 词段整段匹配消除了 author/spinning/secretary 的误伤, 但把 11 条**原本会被
+# 子串实现脱敏**的键变成了明文落盘 —— 那是净新增泄漏, 不是「语义收窄」。
+# 段内归一（去尾部数字 + 复数 s）把它们拉回脱敏, 同时不动 author 这类误伤。
+
+SENSITIVE_SUFFIX_VARIANTS = [
+    "password2", "passwords", "tokens", "secrets", "credentials",
+    "api_keys", "access_tokens", "auths", "client_secrets",
+    "private_keys", "credit_cards",
+]
+
+# 段内归一会扩大脱敏面 ⟹ 必须锁住「不新增误伤」(真理 1440 函的 29 条风险词)
+NORMALIZE_SAFE_WORDS = [
+    "status", "process", "address", "business", "analysis", "access", "class",
+    "bonus", "gas", "args", "opts", "flags", "metrics", "series", "alias",
+    "bias", "basis", "hints", "lens", "tips", "notes", "docs", "tools",
+    "books", "cars", "keys", "cards", "creds", "creds2",
+]
+
+
+@pytest.mark.parametrize("key", SENSITIVE_SUFFIX_VARIANTS)
+def test_sensitive_key_suffix_variants_are_still_masked(key):
+    """段内归一后, 「敏感词+数字/复数」的键仍必须脱敏 (防 P2 收尾引入新泄漏)."""
+    from src.gateway.audit import _sanitize_value
+
+    out = _sanitize_value("SECRETVALUE1234", key)
+    assert out != "SECRETVALUE1234", f"敏感键 {key!r} 未脱敏 ⟹ 明文落盘"
+
+
+@pytest.mark.parametrize("key", NORMALIZE_SAFE_WORDS)
+def test_normalization_does_not_add_false_positives(key):
+    """段内归一不得把正常业务键误伤 (归一化扩大了脱敏面, 需锁住)."""
+    from src.gateway.audit import _sanitize_value
+
+    out = _sanitize_value("BENIGNVALUE123", key)
+    assert out == "BENIGNVALUE123", f"字段名 {key!r} 被误脱敏 ⟹ 业务数据损坏"
+
+
+# ★ 已知边界（待 SC 裁）: 「敏感词**严格位于段首/内嵌**」的键当前**不脱敏**。
+#
+# 这与 author/spinning/secretary **同类** —— 段首前缀无法与业务词区分
+# (author 的敏感词 "auth" 正是段首前缀). 旧子串实现会脱敏它们 (旧实现更安全),
+# 但会同时误伤 author 类 ⟹ **两类需求直接冲突**, 需业务键名全量才能判定.
+#
+# **显式在册** ⟹ 不是静默放过: 本表即 SC 的待裁清单.
+# 将来若补上前缀/内嵌规则, 从此表移除 + 放开差集守卫即可.
+KNOWN_PREFIX_GAPS = [
+    "tokenvalue",   # 敏感词在段首
+    "passworddb",   # 敏感词在段首
+]
+
+
+@pytest.mark.parametrize("key", KNOWN_PREFIX_GAPS)
+def test_known_prefix_gap_is_tracked_not_silent(key):
+    """已知边界显式在册: 这类键当前不脱敏, 待 SC 裁（不静默放过）."""
+    from src.gateway.audit import _sanitize_value
+
+    out = _sanitize_value("SECRETVALUE1234", key)
+    assert out == "SECRETVALUE1234", (
+        f"{key!r} 现已脱敏 ⟹ 前缀/内嵌规则已生效 ⟹ "
+        f"请从 KNOWN_PREFIX_GAPS 移除并同步放开差集守卫"
+    )
+
+
+def test_new_matcher_never_redacts_less_than_old_substring_matcher():
+    """★ 差集守卫 (真理 1440 函的教训: 修「误伤类」缺陷必须同时做新旧实现差集比对).
+
+    旧实现 = 子串包含; 新实现 = 词段整段匹配 + 段内归一.
+    本断言: 除**已登记**的误伤类 (allow-list = MUST_NOT_REDACT 那 13 条, 经确认属正常
+    业务字段) 外, **新实现脱敏的键集必须是旧实现的超集** ⟹ 任何
+    「旧会脱敏、新不脱敏」的回归都当场红, 而不是静默变成明文落盘。
+    """
+    from src.gateway.audit import _SENSITIVE_KEYS, _is_sensitive_key
+
+    def old_impl(k: str) -> bool:
+        return any(sk in k.lower() for sk in _SENSITIVE_KEYS)
+
+    corpus = sorted(
+        set(MUST_REDACT) | set(MUST_NOT_REDACT)
+        | set(SENSITIVE_SUFFIX_VARIANTS) | set(NORMALIZE_SAFE_WORDS)
+        | set(KNOWN_PREFIX_GAPS)
+    )
+    # 允许清单 = 已登记的误伤类 (13 条) + 已登记的前缀缺口 (待 SC 裁)
+    allow = set(MUST_NOT_REDACT) | set(KNOWN_PREFIX_GAPS)
+    leaks = [
+        k for k in corpus
+        if old_impl(k) and not _is_sensitive_key(k) and k not in allow
+    ]
+    assert not leaks, (
+        f"新实现比旧实现脱敏得少 (明文落盘回归): {leaks}"
+    )
+
+
 @pytest.mark.parametrize("key", MUST_REDACT)
 def test_sensitive_key_must_be_redacted(key):
     """敏感键必须脱敏（防修复时削弱脱敏能力）。"""

@@ -82,6 +82,26 @@ def _key_segments(key: str) -> list[str]:
     return [x.lower() for x in s.split() if x]
 
 
+def _norm_segment(seg: str) -> str:
+    """段内归一：剥离尾部数字与复数 s（password2 -> password, tokens -> token）。
+
+    DEF-2026-1006 P2 收尾：词段整段匹配消除了 `author`/`spinning`/`secretary` 的误伤，
+    但把下面 11 条**原本会被子串实现脱敏**的键变成了明文落盘 —— 那是**净新增泄漏**，
+    不是「语义收窄」：
+
+        password2 passwords tokens secrets credentials api_keys
+        access_tokens auths client_secrets private_keys credit_cards
+
+    段内归一让「敏感词 + 数字/复数」回到脱敏，同时不动 author 这类误伤。
+    """
+    out = seg
+    while out and out[-1].isdigit():
+        out = out[:-1]
+    if len(out) > 1 and out.endswith("s"):
+        out = out[:-1]
+    return out
+
+
 def _is_sensitive_key(key: str) -> bool:
     """判定键名是否敏感（DEF-2026-1006 P2）。
 
@@ -92,17 +112,36 @@ def _is_sensitive_key(key: str) -> bool:
         ⟹ 正常业务字段被误脱敏 = **业务数据损坏**（比漏脱敏更隐蔽）；
       * 子串包含 ⟹ camelCase 的 `apiKey` / `privateKey`（无分隔符）**漏脱敏**。
     词段整段匹配同时消除误伤与漏脱敏。
+
+    判定同时看**原始词段**与**段内归一后的词段**（`_norm_segment`），
+    以覆盖「敏感词 + 数字/复数」形态（password2 / tokens / api_keys ...）——
+    否则 P2 的收尾会引入新的明文泄漏。
     """
     cand = _key_segments(key)
     if not cand:
         return False
+    variants = [cand, [_norm_segment(c) for c in cand]]
     for sensitive_key in _SENSITIVE_KEYS:
         pat = _key_segments(sensitive_key)
         if not pat:
             continue
-        for i in range(len(cand) - len(pat) + 1):
-            if cand[i:i + len(pat)] == pat:
-                return True
+        for v in variants:
+            if not v:
+                continue
+            for i in range(len(v) - len(pat) + 1):
+                if v[i:i + len(pat)] == pat:
+                    return True
+        # 段尾形态: 敏感词出现在某一段的**尾部** (dbpassword / mytoken / userauth /
+        # xpassword / dbcredentials ...)。
+        # ⟹ 这一层**不重建** author/spinning/secretary 那一类误伤: 那三者的敏感词是
+        #    **段首前缀**而非段尾 (author[-4:]="thor" != "auth")。
+        #    代价: 「敏感词严格位于段首」形态 (passworddb / tokenvalue) 仍不脱敏 ——
+        #    与 author 同类, 属**前缀/内嵌**类, 需业务键名全量才能判定, 留待 SC 裁。
+        joined = "".join(pat)
+        for v in variants:
+            for seg in v:
+                if len(seg) > len(joined) and seg.endswith(joined):
+                    return True
     return False
 
 
