@@ -436,6 +436,18 @@ def _cap_record(log: "AuditLog") -> dict:
             })
             size = _record_size(log)
     trail["record_bytes_after_cap"] = size
+    # ★ 留痕语义声明 (DEF-2026-1008, 真理 1510 函 §五 实测):
+    #   下面的数字描述的是**脱敏前**的中间态。对**敏感键**, cap 保留的头部随后
+    #   被 sanitize 整个掩码覆盖 ⟹ 盘上既无完整值、也无截断值。
+    #   老字段名 (kept_bytes / record_bytes_after_cap) 没把这层语义说出来 ⟹
+    #   读的人会以为「3986 字节被保留在盘上」(实际 kept_bytes 是脱敏前的口径)。
+    #   故显式声明阶段, 并由 _annotate_cap_trail 给每个叶子标 kept_bytes_on_disk。
+    trail["stage"] = "pre_sanitize"
+    trail["stage_note"] = (
+        "本留痕的数字描述 sanitize **之前**的状态; 对敏感键, 被保留的头部随后被掩码覆盖, "
+        "盘上无此副本 —— 逐叶子的 kept_bytes_on_disk 给出真值; "
+        "original_bytes / sha256 仅供长度与原值散列核对。"
+    )
     return trail
 
 
@@ -519,6 +531,73 @@ def _normalize_json_keys(value: Any) -> Any:
         # tuple 落盘后即为 list ⟹ 内存侧也转成 list，保证与重载对象同形态
         return [_normalize_json_keys(v) for v in value]
     return value
+
+
+def _walk_cap_leaves(trail_info: Any, value: Any, out: list) -> None:
+    """并行遍历 (留痕 info 树, 脱敏后的值树) ⟹ 产出 (叶子 info, 叶子落盘值)。
+
+    留痕 info 与原值同形 (dict→dict, list→{index: info}), 故可同步下钻。
+    """
+    if isinstance(trail_info, dict) and "kept_bytes" in trail_info:
+        out.append((trail_info, value))
+        return
+    if isinstance(trail_info, dict) and isinstance(value, dict):
+        for k, sub in trail_info.items():
+            if k in value:
+                _walk_cap_leaves(sub, value[k], out)
+        return
+    if isinstance(trail_info, dict) and isinstance(value, (list, tuple)):
+        for k, sub in trail_info.items():
+            try:
+                idx = int(k)
+            except (TypeError, ValueError):
+                continue
+            if 0 <= idx < len(value):
+                _walk_cap_leaves(sub, value[idx], out)
+
+
+def _annotate_cap_trail(log: "AuditLog") -> None:
+    """标注 cap 留痕每个叶子的 kept_bytes_on_disk (DEF-2026-1008)。
+
+    kept_bytes 的口径是**脱敏前**的 (cap 保留的头部字节数)。对敏感键, 该头部随后
+    被 sanitize 整个掩码覆盖 ⟹ 盘上并无此副本 ⟹ 旧字段名会误导读者。
+
+    判定不靠猜: 未被改写的落盘值必然等于「头部 + 截断标记」, 其长度恰为
+    kept_bytes + len(marker); 敏感键的落盘值是掩码 (7 B), 长度对不上 ⟹ 头部不在盘上。
+    """
+    trail = (getattr(log, "metadata", None) or {}).get("_audit_cap")
+    if not isinstance(trail, dict):
+        return
+    values = trail.get("values")
+    if not isinstance(values, dict):
+        return
+    leaves: list = []
+    for prefix, getter in (
+        ("params.", lambda k: (getattr(log, "params", None) or {}).get(k)),
+        ("metadata.", lambda k: (getattr(log, "metadata", None) or {}).get(k)),
+    ):
+        for key, info in values.items():
+            if not key.startswith(prefix):
+                continue
+            base = key[len(prefix):]
+            landed = getter(base)
+            if landed is None:
+                landed = getter({"true": True, "false": False, "null": None}.get(base))
+            _walk_cap_leaves(info, landed, leaves)
+    for field_name in ("error_message", "result"):
+        info = values.get(field_name)
+        if isinstance(info, dict) and "kept_bytes" in info:
+            leaves.append((info, getattr(log, field_name, None)))
+    for info, landed in leaves:
+        kept = info.get("kept_bytes")
+        original_bytes = info.get("original_bytes")
+        digest = info.get("sha256")
+        on_disk = False
+        if isinstance(landed, str) and isinstance(kept, int) and isinstance(original_bytes, int) and isinstance(digest, str):
+            marker = f" ... <truncated, original_bytes={original_bytes}, sha256={digest}>"
+            expected = kept + len(marker.encode("utf-8"))
+            on_disk = len(landed.encode("utf-8")) == expected
+        info["kept_bytes_on_disk"] = bool(on_disk)
 
 
 def _sanitize_audit_log_inplace(log: "AuditLog") -> None:
@@ -680,6 +759,9 @@ class AuditLogger:
         #   掩成 "***xxxx"（7 B）根本不触发封顶 ⟹ DEF-2026-1005 的
         #   original_bytes 留痕被静默摧毁（且测试不一定报错）。
         _sanitize_audit_log_inplace(log)
+        # ★ 留痕的 on-disk 真值标注 (DEF-2026-1008): 必须**在** sanitize **之后**、
+        #   seal **之前** ⟹ 此时才知道每个值最终落盘成什么样。
+        _annotate_cap_trail(log)
         log.seal(prev_hash, strict=self.strict)
         self._logs.append(log)
         self._persist(log)

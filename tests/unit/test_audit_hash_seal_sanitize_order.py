@@ -894,3 +894,86 @@ def test_strict_layer_still_blocks_base64_like_value_containing_slash():
         assert "file_path" in str(exc), str(exc)
     else:
         raise AssertionError("无 padding 的 base64 值未被拦 ⟹ 漏拦真凭据")
+
+# ==== DEF-2026-1008: cap 留痕语义自明 (真理 1510 函 5(2)) ====
+
+
+def _write_record_with_long_values(path):
+    # 落一条含长值的记录: 1 个敏感键 (password) + 1 个普通键 (note)
+    import json
+    from src.gateway.audit import AuditAction, AuditLogger
+    logger = AuditLogger(log_file=path, auto_load=False)
+    logger.log_action(
+        AuditAction.TOOL_CALL,
+        user_id="u",
+        tool_name="t",
+        params={"password": "A" * 9000, "note": "B" * 9000},
+    )
+    with open(path, encoding="utf-8") as f:
+        return json.loads(f.read().strip())
+
+
+def test_cap_trail_declares_pre_sanitize_stage():
+    # 留痕必须自报: 我描述的是脱敏前状态
+    # 真理 1510 函 5(2): kept_bytes=3986 但盘上并无这 3986 字节
+    # => 读者会误以为被保留的头部还在盘上 => 阶段语义必须写出来
+    import os
+    import tempfile
+    tmp = tempfile.mkdtemp()
+    path = os.path.join(tmp, "audit.jsonl")
+    rec = _write_record_with_long_values(path)
+    trail = rec["metadata"]["_audit_cap"]
+    assert trail["stage"] == "pre_sanitize", trail.get("stage")
+    assert "盘上无此副本" in trail.get("stage_note", ""), trail.get("stage_note")
+
+
+def test_cap_trail_kept_bytes_on_disk_false_for_sensitive_key():
+    # 敏感键: kept_bytes 是脱敏前口径 => 头部并不在盘上 => 必须显式给真值
+    import hashlib
+    import os
+    import tempfile
+    tmp = tempfile.mkdtemp()
+    path = os.path.join(tmp, "audit.jsonl")
+    rec = _write_record_with_long_values(path)
+    trail = rec["metadata"]["_audit_cap"]
+    info = trail["values"]["params.password"]
+    assert info["original_bytes"] == 9000, info
+    assert info["sha256"] == hashlib.sha256(("A" * 9000).encode()).hexdigest(), info
+    assert info["kept_bytes_on_disk"] is False, info
+    pw = rec["params"]["password"]
+    assert pw.startswith("***") and len(pw) == 7, pw
+    assert ("A" * 9000) not in str(rec)
+
+
+def test_cap_trail_kept_bytes_on_disk_true_for_plain_key():
+    # 非敏感键: 截断头部确实在盘上 => kept_bytes_on_disk 必须为 True
+    # 这是对照组 => 防止该标记恒为 False 而失去意义
+    import os
+    import tempfile
+    tmp = tempfile.mkdtemp()
+    path = os.path.join(tmp, "audit.jsonl")
+    rec = _write_record_with_long_values(path)
+    trail = rec["metadata"]["_audit_cap"]
+    info = trail["values"]["params.note"]
+    assert info["kept_bytes_on_disk"] is True, info
+    landed = rec["params"]["note"]
+    assert len(landed.encode("utf-8")) > info["kept_bytes"], landed[:80]
+
+
+def test_cap_trail_order_invariant_keeps_sensitive_original_hash():
+    # 顺序不变式 (cap 必须先于 sanitize) 的具名守卫
+    # 真理 1510 函 1 结论「1ec5809 让留痕顺序无关」=> 我实测不成立:
+    # 交换 cap/sanitize 两行 (逐字符回读确认注入成功) 后:
+    #   敏感键的留痕条目整个消失 (原值长度与散列一并丢失)
+    #   盘上掩码从 ***b7b> 变成 ***AAAA (脱敏的是原值而非截断值)
+    #   tests/unit 601 -> 3 failures
+    # => 正确的不变式是: cap 先于 sanitize => 敏感键的原值长度/散列仍被留痕
+    import os
+    import tempfile
+    tmp = tempfile.mkdtemp()
+    path = os.path.join(tmp, "audit.jsonl")
+    rec = _write_record_with_long_values(path)
+    trail = rec["metadata"]["_audit_cap"]
+    values = trail["values"]
+    assert "params.password" in values, sorted(values)
+    assert values["params.password"]["original_bytes"] == 9000
