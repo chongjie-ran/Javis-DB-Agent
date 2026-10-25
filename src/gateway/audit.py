@@ -208,6 +208,34 @@ def _strict_unregistered_credentials(log: "AuditLog") -> list[str]:
                 out.append(f"{section}.{k}")
     return out
 
+def _sanitize_nested(value: Any, key: Any) -> Any:
+    """按 key 判定脱敏, 并对 dict/list **递归下钻** (DEF-2026-1007)。
+
+    DEF-2026-1007: 脱敏只作用于第一层 ⟹ params 形如 {cfg: {api_key: <明文>}} 时,
+    嵌套层的敏感键**明文落盘** (同一密钥放顶层则正确脱敏 ⟹ 问题只在嵌套层)。
+
+    三档方案 (悟通 2026-10-25 11:40 实测):
+      ① 现状 (不递归)         : 嵌套层明文泄漏, 且 _audit_cap 留痕完好
+      ② 朴素递归             : 嵌套层修好, 但**摧毁 _audit_cap 留痕**
+                                (metadata._audit_cap.values 的键形如 params.api_key,
+                                 词段匹配命中 ⟹ 整条留痕被掩码)
+      ③ 递归 + **显式排除 _audit_cap 子树** : 两者兼得  ⟹ 本函数即此档
+
+    _audit_cap 的排除是**显式**的: 它是封顶留痕 (机器可读), 不是业务字段,
+    必须原样保留 ⟹ 否则 DEF-2026-1005 的 original_bytes / sha256 留痕会被静默摧毁。
+    """
+    # 显式排除: _audit_cap 子树**不脱敏、不递归** (它是留痕, 不是业务数据)
+    if isinstance(key, str) and key == "_audit_cap":
+        return value
+    if _is_sensitive_key(key):
+        return _sanitize_value(value, key)
+    if isinstance(value, dict):
+        return {k: _sanitize_nested(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_nested(v, key) for v in value]
+    return value
+
+
 def _sanitize_value(value: Any, key: str) -> Any:
     """对单个值进行脱敏（如果key是敏感字段）
 
@@ -361,15 +389,15 @@ def _sanitize_audit_record(record: dict) -> dict:
     """
     record = copy.deepcopy(record)
     
-    # 脱敏params
+    # 脱敏params (递归, DEF-2026-1007)
     if "params" in record and isinstance(record["params"], dict):
         for key, value in record["params"].items():
-            record["params"][key] = _sanitize_value(value, key)
+            record["params"][key] = _sanitize_nested(value, key)
     
-    # 脱敏metadata
+    # 脱敏metadata (递归, DEF-2026-1007; _audit_cap 子树由 _sanitize_nested 显式排除)
     if "metadata" in record and isinstance(record["metadata"], dict):
         for key, value in record["metadata"].items():
-            record["metadata"][key] = _sanitize_value(value, key)
+            record["metadata"][key] = _sanitize_nested(value, key)
     
     # 脱敏IP
     if "ip_address" in record and record["ip_address"]:

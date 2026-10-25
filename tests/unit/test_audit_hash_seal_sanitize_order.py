@@ -602,6 +602,62 @@ def test_strict_layer_enabled_by_default_but_can_be_disabled():
     log2.seal("0" * 64, strict=False)  # 不应抛异常
     assert log2.hash != "", "显式关闭时路径应正常密封"
 
+def test_nested_sensitive_key_is_masked_end_to_end():
+    """DEF-2026-1007: 嵌套层敏感键必须脱敏 (端到端读落盘字节).
+
+    真理 1345 函独立实测: params 形如 {cfg: {api_key: <假密钥>}} 落盘行**含明文**;
+    同一密钥放顶层 params 则正确脱敏 ⟹ 问题只在嵌套层 (脱敏只作用于第一层)。
+    """
+    import json
+    from src.gateway.audit import _sanitize_audit_record
+
+    secret = "SUPERSECRET1234"
+    record = {
+        "action": "tool.call",
+        "params": {"cfg": {"api_key": secret, "note": "plain"}, "api_key": secret},
+        "metadata": {},
+    }
+    sanitized = _sanitize_audit_record(record)
+    blob = json.dumps(sanitized, ensure_ascii=False)
+    assert secret not in blob, "嵌套层 api_key 明文落盘 (DEF-2026-1007 未修)"
+    # 对照组: 顶层必须已脱敏 (证明不是「全都不脱敏」)
+    assert sanitized["params"]["api_key"] != secret, "顶层 api_key 应脱敏"
+    # 嵌套层的普通业务值不应被误伤
+    assert sanitized["params"]["cfg"]["note"] == "plain", "普通业务值被误脱敏"
+
+
+def test_audit_cap_trail_survives_recursive_sanitize():
+    """★ DEF-2026-1007 留痕反例: _audit_cap 子树必须**原样保留**。
+
+    这是第三档方案的关键: 朴素递归会把 metadata._audit_cap.values 的键
+    (形如 params.api_key) 当成敏感键 ⟹ 整条封顶留痕被掩码 ⟹ DEF-2026-1005 的
+    original_bytes / sha256 留痕被静默摧毁。
+    ⟹ 递归时必须**显式排除** _audit_cap 子树。
+    """
+    from src.gateway.audit import _sanitize_audit_record
+
+    trail = {
+        "values": {"params.api_key": {"original_bytes": 20, "sha256": "deadbeef"}},
+        "dropped_keys": [],
+    }
+    record = {"params": {}, "metadata": {"_audit_cap": trail}}
+    sanitized = _sanitize_audit_record(record)
+    assert sanitized["metadata"]["_audit_cap"] == trail, (
+        "_audit_cap 留痕被递归脱敏摧毁 (DEF-2026-1005 留痕失效)"
+    )
+
+
+def test_nested_audit_cap_trail_also_survives():
+    """留痕反例的加强版: _audit_cap 出现在**嵌套**层也必须原样保留。"""
+    from src.gateway.audit import _sanitize_audit_record
+
+    trail = {"values": {"params.token": {"original_bytes": 9, "sha256": "cafe"}}, "dropped_keys": []}
+    record = {"params": {"cfg": {"_audit_cap": trail}}, "metadata": {}}
+    sanitized = _sanitize_audit_record(record)
+    assert sanitized["params"]["cfg"]["_audit_cap"] == trail, (
+        "嵌套层的 _audit_cap 留痕被递归摧毁"
+    )
+
 @pytest.mark.parametrize("key", MUST_REDACT)
 def test_sensitive_key_must_be_redacted(key):
     """敏感键必须脱敏（防修复时削弱脱敏能力）。"""
