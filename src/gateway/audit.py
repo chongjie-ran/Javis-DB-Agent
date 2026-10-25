@@ -163,6 +163,9 @@ def _is_sensitive_key(key: str) -> bool:
 # ⚠️ 启用前必须先证明「不会误拦现有全部业务键」(SC 硬前提):
 #         拿现有全量审计日志回放, strict=True 下必须 0 拦截。
 _CREDENTIAL_VALUE_RE = re.compile(r"^[A-Za-z0-9+/=_\-\.]{20,}$")
+# URL / 路径的形状 (供 _looks_like_credential 排除, 见该函数 docstring)
+_URL_LIKE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.\-]*://")
+_PATH_LIKE_RE = re.compile(r"^/?(?:[A-Za-z0-9_.\-]+/)+[A-Za-z0-9_.\-]*$")
 
 
 def _looks_like_credential(value: Any) -> bool:
@@ -186,7 +189,37 @@ def _looks_like_credential(value: Any) -> bool:
         return False
     if not (has_digit or has_upper or has_symbol):
         return False
+    # ★ 落实 docstring 承诺的「排除: 路径 / URL」。
+    #   缺这一步 ⟹ 普通业务路径 (如 references/mysql/mysql-5/mgr/config-reference.md)
+    #   会被判成「像凭据」⟹ 强制层误拦 ⟹ 业务调用当场中断
+    #   (真显 DEF-2026-1009 报的「已有未登记键 + 普通业务值即触发」正是这一类)。
+    #   路径判据: 斜杠分隔的路径段, 且不含 base64 的 "=" / "+" padding
+    #   (含 padding 的仍判像凭据, 避免漏拦真凭据)。
+    if _URL_LIKE_RE.match(s):
+        return False
+    if _looks_like_path(s):
+        return False
     return True
+
+
+def _looks_like_path(s: str) -> bool:
+    """值是否「像路径」—— 强制层的路径排除判据 (见 _looks_like_credential)。
+
+    条件 (全满足):
+      * 形状是斜杠分隔的路径段 (可选前导 /, 段内只允许字母数字 . _ -);
+      * **不含** base64 的 "=" / "+" padding (那更像凭据, 不当路径);
+      * 且要么是**绝对路径** (以 / 开头), 要么末段**带扩展名** (含 .)。
+
+    为什么末段必须有扩展名或路径必须绝对: 否则 "abcd/efghijklmnopqrstuv" 这种
+    **无 padding 的 base64 凭据**会被误当路径放过 ⟹ 漏拦真凭据。
+    """
+    if "/" not in s or "=" in s or "+" in s:
+        return False
+    if not _PATH_LIKE_RE.match(s):
+        return False
+    if s.startswith("/"):
+        return True
+    return "." in s.rsplit("/", 1)[-1]
 
 
 def _strict_unregistered_credentials(log: "AuditLog") -> list[str]:
@@ -202,11 +235,39 @@ def _strict_unregistered_credentials(log: "AuditLog") -> list[str]:
             continue
         for key, value in data.items():
             k = _json_key(key)
+            if k == "_audit_cap":
+                continue  # 封顶留痕不是业务数据 ⟹ 整棵子树跳过
             if _is_sensitive_key(k):
                 continue  # 已登记 ⟹ 已被脱敏 ⟹ 放行
-            if _looks_like_credential(value):
-                out.append(f"{section}.{k}")
+            _strict_scan_value(f"{section}.{k}", value, out)
     return out
+
+
+def _strict_scan_value(path: str, value: Any, out: list[str]) -> None:
+    """递归扫描嵌套层的强制层违例 (真理 1510 函缺口 2)。
+
+    缺口 2: 脱敏在 e23fd8a 之后是**递归**的, 但强制层只查顶层 ⟹
+    嵌套层的「未登记键 + 明文值 + 值像凭据」既不脱敏、也不被拦 ⟹ 明文落盘。
+    ⟹ 与 e23fd8a 的递归脱敏**不对称**: 嵌套已知键被脱敏了, 嵌套未知键却两头落空。
+
+    显式排除 _audit_cap: 它的 values 里存着 sha256 (64 位十六进制) ⟹ 形似凭据 ⟹
+    不排除就会把**每一条**封顶留痕都判成违例 ⟹ 强制层恒真 ⟹ 业务全断。
+    """
+    if isinstance(value, dict):
+        for key, sub in value.items():
+            k = _json_key(key)
+            if k == "_audit_cap":
+                continue
+            if _is_sensitive_key(k):
+                continue  # 已登记 ⟹ 已被脱敏 ⟹ 放行
+            _strict_scan_value(f"{path}.{k}", sub, out)
+        return
+    if isinstance(value, list):
+        for item in value:
+            _strict_scan_value(path, item, out)
+        return
+    if _looks_like_credential(value):
+        out.append(path)
 
 def _sanitize_nested(value: Any, key: Any) -> Any:
     """按 key 判定脱敏, 并对 dict/list **递归下钻** (DEF-2026-1007)。

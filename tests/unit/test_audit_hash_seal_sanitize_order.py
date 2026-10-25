@@ -797,3 +797,100 @@ def test_cap_trail_key_matches_persisted_key(key):
     derived = sorted(k.split(".", 1)[1] for k in trail)
     persisted = sorted(rec["params"].keys())
     assert derived == persisted, "cap trail key mismatch"
+
+
+# ==== DEF-2026-1010: 强制层递归下钻 + 路径/URL 排除 (真理 1510 函缺口 2) ====
+
+
+def _cred_like(prefix: str) -> str:
+    """构造一个「像凭据」的值: 长度/字符集/大小写+数字 全部满足 _looks_like_credential。
+
+    刻意用拼接而非字面量, 避免长随机串在日志/截图里被误当真实凭据。
+    """
+    return prefix + "A1b2C3d4E5f6G7h8"
+
+
+def test_strict_layer_blocks_nested_unregistered_credential():
+    """★ 缺口 2: 嵌套层的「未登记键 + 明文值 + 值像凭据」必须被强制层拦。
+
+    真理 1510 函: 强制层只遍历顶层 ⟹ 嵌套的未知键既不脱敏、也不被拦 ⟹ 明文落盘,
+    与 e23fd8a 的递归脱敏**不对称**。
+    """
+    from src.gateway.audit import AuditLog, AuditAction
+
+    log = AuditLog(
+        action=AuditAction.TOOL_CALL,
+        params={"cfg": {"secretkey": _cred_like("AKIA")}},
+    )
+    try:
+        log.seal("0" * 64, strict=True)
+    except ValueError as exc:
+        assert "cfg.secretkey" in str(exc), str(exc)
+    else:
+        raise AssertionError("嵌套层未登记凭据未被强制层拦 ⟹ 明文落盘")
+    assert log.hash == "", "被拦截的记录不应产生哈希"
+    assert log.prev_hash == "", "被拦截的记录不应绑定前驱哈希"
+
+
+def test_strict_layer_does_not_flag_audit_cap_trail():
+    """★ 封顶留痕的 sha256 (64 位十六进制) 形似凭据 ⟹ 强制层必须跳过 _audit_cap 子树。
+
+    不跳过 ⟹ 每一条封顶留痕都成违例 ⟹ 强制层恒真 ⟹ 业务调用全断。
+    """
+    import json
+    import os
+    import tempfile
+
+    from src.gateway.audit import AuditAction, AuditLogger
+
+    tmp = tempfile.mkdtemp()
+    path = os.path.join(tmp, "audit.jsonl")
+    logger = AuditLogger(log_file=path, auto_load=False)
+    logger.log_action(
+        AuditAction.TOOL_CALL, user_id="u", tool_name="t", params={"api_key": "X" * 9000}
+    )
+    rec = json.loads([ln for ln in open(path, encoding="utf-8") if ln.strip()][0])
+    assert rec["metadata"].get("_audit_cap"), "本用例前提: 产生了封顶留痕"
+    # 落盘成功 ⟹ 强制层没把留痕里的 sha256 当成违例
+    assert rec.get("hash"), "记录应正常密封并落盘"
+
+
+def test_strict_layer_does_not_block_business_paths_or_urls():
+    """★ docstring 承诺的「排除: 路径 / URL」必须真的排除。
+
+    缺这一步 ⟹ 普通业务路径 (references/.../config-reference.md) 被当成凭据 ⟹
+    强制层误拦 ⟹ 业务调用当场中断 (真显 DEF-2026-1009 报的触发面正是这一类)。
+    """
+    from src.gateway.audit import AuditLog, AuditAction
+
+    for value in (
+        "references/mysql/mysql-5/mgr/config-reference.md",
+        "data/audit.jsonl",
+        "/usr/local/bin/tool/--flag",
+        "https://example.com/path?q=1",
+    ):
+        log = AuditLog(
+            action=AuditAction.TOOL_CALL,
+            params={"file_path": value},
+        )
+        log.seal("0" * 64, strict=True)  # 不应抛异常
+        assert log.hash != "", f"普通业务值应正常密封: {value}"
+
+
+def test_strict_layer_still_blocks_base64_like_value_containing_slash():
+    """★ 路径排除不得放宽到漏拦真凭据: 无 padding 的 base64 (含 /) 仍须被拦。
+
+    ""abcd/efghijklmnopqrstuv" 既像路径又像 base64 ⟹ 末段无扩展名 ⟹ 判为凭据。
+    """
+    from src.gateway.audit import AuditLog, AuditAction
+
+    log = AuditLog(
+        action=AuditAction.TOOL_CALL,
+        params={"file_path": "abcd" + "/" + "efghijklmnopqrstuv"},
+    )
+    try:
+        log.seal("0" * 64, strict=True)
+    except ValueError as exc:
+        assert "file_path" in str(exc), str(exc)
+    else:
+        raise AssertionError("无 padding 的 base64 值未被拦 ⟹ 漏拦真凭据")
