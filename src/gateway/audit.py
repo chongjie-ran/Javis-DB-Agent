@@ -4,6 +4,7 @@ import time
 import uuid
 import hashlib
 import copy
+import re
 from typing import Optional, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field, asdict
@@ -66,17 +67,54 @@ _SENSITIVE_KEYS = frozenset({
 })
 
 
-def _sanitize_value(value: Any, key: str) -> Any:
-    """对单个值进行脱敏（如果key是敏感字段）"""
-    key_lower = key.lower()
+def _key_segments(key: str) -> list[str]:
+    """按键名分词（DEF-2026-1006 P2）。
+
+    分词边界：`_` / `-` / `.` 分隔符 + camelCase 大小写边界。
+    "api_key" -> ["api", "key"]；"apiKey" -> ["api", "key"]；
+    "x-api-key" -> ["x", "api", "key"]；"userPassword" -> ["user", "password"]。
+    """
+    s = re.sub(r"[_\-.]+", " ", key)
+    s = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", s)
+    return [x.lower() for x in s.split() if x]
+
+
+def _is_sensitive_key(key: str) -> bool:
+    """判定键名是否敏感（DEF-2026-1006 P2）。
+
+    敏感键的**词段序列**必须在候选键的词段序列中**连续**出现。
+
+    为什么不能用子串包含（这是本修复的核心）：
+      * 子串包含 ⟹ `author` 含 "auth"、`spinning` 含 "pin"、`secretary` 含 "secret"
+        ⟹ 正常业务字段被误脱敏 = **业务数据损坏**（比漏脱敏更隐蔽）；
+      * 子串包含 ⟹ camelCase 的 `apiKey` / `privateKey`（无分隔符）**漏脱敏**。
+    词段整段匹配同时消除误伤与漏脱敏。
+    """
+    cand = _key_segments(key)
+    if not cand:
+        return False
     for sensitive_key in _SENSITIVE_KEYS:
-        if sensitive_key in key_lower:
-            if isinstance(value, str):
-                if len(value) <= 4:
-                    return "***"
-                return "***" + value[-4:]
-            return "***REDACTED***"
-    return value
+        pat = _key_segments(sensitive_key)
+        if not pat:
+            continue
+        for i in range(len(cand) - len(pat) + 1):
+            if cand[i:i + len(pat)] == pat:
+                return True
+    return False
+
+
+def _sanitize_value(value: Any, key: str) -> Any:
+    """对单个值进行脱敏（如果key是敏感字段）
+
+    DEF-2026-1006(P2)：判据由子串包含改为词段整段匹配，见 `_is_sensitive_key`。
+    """
+    if not _is_sensitive_key(key):
+        return value
+    if isinstance(value, str):
+        if len(value) <= 4:
+            return "***"
+        return "***" + value[-4:]
+    return "***REDACTED***"
 
 
 def _sha256_hex(raw: bytes) -> str:
@@ -245,6 +283,27 @@ def _sanitize_audit_record(record: dict) -> dict:
     return record
 
 
+def _sanitize_audit_log_inplace(log: "AuditLog") -> None:
+    """就地脱敏 AuditLog 对象的四个来源字段（DEF-2026-1006 P1）。
+
+    背景：`log()` 原先的顺序是
+        seal(prev_hash)  →  _persist(log)
+    而 `_persist()` 内部才做脱敏且 `_sanitize_audit_record()` 首行是
+    `copy.deepcopy(record)` ⟹ **脱敏结果不回写到被 seal() 的对象** ⟹
+    「算哈希的输入」≠「落盘的内容」⟹ 未被篡改的记录被报「疑似篡改」。
+
+    本函数把脱敏**就地**写回 log 对象，使 log 成为**唯一的最终对象**：
+    `_logs` 内存链与落盘链持有同一份脱敏后的内容 ⟹ 链自洽。
+
+    幂等性：脱敏重复调用结果稳定（真理 4 轮实测），故 `_persist()` 内部的
+    二次脱敏是幂等空操作，可原样保留。
+    """
+    sanitized = _sanitize_audit_record(log.to_dict())
+    for field_name in ("params", "metadata", "ip_address", "error_message"):
+        if field_name in sanitized:
+            setattr(log, field_name, sanitized[field_name])
+
+
 @dataclass
 class AuditLog:
     """审计日志条目"""
@@ -358,6 +417,12 @@ class AuditLogger:
         prev_hash = self._logs[-1].hash if self._logs else GENESIS_HASH
         # DEF-2026-1005: 落盘前体积上限（截断 + 留痕），必须在 seal() 之前
         _cap_record(log)
+        # DEF-2026-1006: 先就地脱敏，再对**脱敏后**的字段密封 ⟹
+        #   「被哈希的内容 == 被落盘的内容」，内存链与落盘链不再分叉。
+        #   ⚠️ 顺序不可与 _cap_record 交换：cap 必须先于 sanitize，否则秘密先被
+        #   掩成 "***xxxx"（7 B）根本不触发封顶 ⟹ DEF-2026-1005 的
+        #   original_bytes 留痕被静默摧毁（且测试不一定报错）。
+        _sanitize_audit_log_inplace(log)
         log.seal(prev_hash)
         self._logs.append(log)
         self._persist(log)
