@@ -984,6 +984,55 @@ def test_cap_trail_order_invariant_keeps_sensitive_original_hash():
     assert "params.password" in values, sorted(values)
     assert values["params.password"]["original_bytes"] == 9000
 
+
+def test_strict_layer_does_not_block_english_snake_case_prose():
+    # 英文下划线分词的散文 (任务描述) 必须放行 —— 真显 1855 函 P0 放大项:
+    # base.py 行 62 (AGENT_INVOKE, metadata.goal) 位于 process() 的 try 块之前
+    # ⟹ 误拦会让**整个 agent 入口起不来**
+    import os
+    import tempfile
+
+    from src.gateway.audit import AuditAction, AuditLogger
+
+    for goal in (
+        "verify_audit_sanitization_behavior_20261025",
+        "refactor_the_audit_sanitizer_module",
+        "fix_the_bug_in_audit_sanitizer",
+    ):
+        tmp = tempfile.mkdtemp()
+        path = os.path.join(tmp, "audit.jsonl")
+        logger = AuditLogger(log_file=path, auto_load=False)
+        logger.log_action(
+            AuditAction.AGENT_INVOKE, user_id="u", tool_name="t",
+            metadata={"goal": goal}, result="ok",
+        )
+        assert os.path.getsize(path) > 0, goal
+
+
+def test_strict_layer_still_blocks_credential_like_values_after_prose_rule():
+    # 散文排除不得放宽成漏拦真凭据: 混合大小写 / base64url 形态仍须被拦
+    import os
+    import tempfile
+
+    from src.gateway.audit import AuditAction, AuditLogger
+
+    for value in (
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ012345",   # 混合大小写 ⟹ 不是散文
+        "a1b2_c3d4e5f6g7h8i9j0",             # 段以数字开头 ⟹ 不是散文
+        "a1b2c3d4e5f6g7h8i9j0k1l2",            # 无下划线 ⟹ 不是散文
+    ):
+        tmp = tempfile.mkdtemp()
+        path = os.path.join(tmp, "audit.jsonl")
+        logger = AuditLogger(log_file=path, auto_load=False)
+        blocked = False
+        try:
+            logger.log_action(
+                AuditAction.TOOL_CALL, user_id="u", tool_name="t",
+                params={"myapikeyz": value}, result="ok", metadata={},
+            )
+        except ValueError:
+            blocked = True
+        assert blocked, ("该值应被强制层拦下, 却被当成散文放过: " + value)
 def test_strict_layer_does_not_block_business_hostname():
     # 主机名形态的普通业务值必须放行 (真显 1510 函之后实测的残留触发面)
     # 69b4847 只排除了路径与 URL (二者都含斜杠) ⟹ 不含斜杠的主机名当时仍被拦

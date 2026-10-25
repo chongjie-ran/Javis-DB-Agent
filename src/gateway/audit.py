@@ -201,6 +201,8 @@ def _looks_like_credential(value: Any) -> bool:
         return False
     if _looks_like_hostname(s):
         return False
+    if _looks_like_prose_identifier(s):
+        return False
     return True
 
 
@@ -309,6 +311,42 @@ def _strict_scan_value(path: str, value: Any, out: list[str]) -> None:
         return
     if _looks_like_credential(value):
         out.append(path)
+
+def _looks_like_prose_identifier(s: str) -> bool:
+    """值是否「像英文散文标识」—— 强制层的散文排除 (DEF-2026-1009 触发面收窄)。
+
+    真理 1915/1920 函 (真显 1855 函转述) 的 P0 放大项: 真实的英文任务描述
+    (verify_audit_sanitization_behavior_20261025 / fix_the_bug_in_audit_sanitizer)
+    是**下划线分词的小写散文**, 不含空格 ⟹ 绕过了「含空格即非凭据」这条 ⟹
+    被判成像凭据 ⟹ 而 base.py 行 62 (AGENT_INVOKE, metadata.goal) 位于
+    process() 的 try 块**之前** ⟹ **整个 agent 入口起不来**。
+
+    本函数实现 _looks_like_credential docstring 早已声称的「排除: 散文」:
+    散文 = 用**下划线**代替空格分词的英文句子, 而非含空格的散文。
+
+    条件 (全满足):
+      * 至少 2 个下划线 (散文分词数 >= 3);
+      * 每段以**小写字母**开头 (排除 a1b2_c3d4 这类 base64url 形态);
+      * 至少一半的段是**纯字母**且长度 >= 3 (排除纯数字段主导的随机串)。
+
+    代价 (明确承认): 形如 xxxx_yyy_zzz 的**小写 base64url 真凭据**会被放过 ⟹
+    漏拦风险; 这是 docstring 承诺的「宁可漏拦不可误拦现有业务数据」的取舍。
+    真凭据仍被抓: 混合大小写 / 含 +/= / 无下划线的长串 (真显守卫里的
+    ABCDEFGHIJKLMNOPQRSTUVWXYZ012345 仍被拦)。
+    """
+    if s.count("_") < 2:
+        return False
+    parts = s.split("_")
+    if any(not p for p in parts):
+        return False
+    # 段以小写字母开头者占多数 (散文分词) ⟹ 排除 base64url 那种「每段都随机」形态
+    alpha_head = [p for p in parts if p[0].isalpha() and p[0].islower()]
+    if len(alpha_head) * 2 < len(parts):
+        return False
+    # 至少一半的段是纯字母且长度 >= 3 (像英文单词) ⟹ 排除纯数字段主导的随机串
+    words = [p for p in parts if p.isalpha() and len(p) >= 3]
+    return len(words) * 2 >= len(parts)
+
 
 def _sanitize_nested(value: Any, key: Any) -> Any:
     """按 key 判定脱敏, 并对 dict/list **递归下钻** (DEF-2026-1007)。
