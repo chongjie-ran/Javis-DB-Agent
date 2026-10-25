@@ -59,12 +59,23 @@ def _mask_ip(ip: str) -> str:
 
 
 # 敏感字段模式
+# ★ 业务键名全量登记表 (SC 2026-10-25 19:55 函 §二① 裁定, 真理 1330/1400 函实测支持)
+# 这批键是**段首前缀**形态 (敏感词在段首: auth|method / password|db / key|value ...),
+# 词段整段匹配结构上抓不到 ⟹ 由登记表显式登记。
+# 用**精确键名**登记 ⟹ 零误伤 (不像通用子串规则那样误伤 author/spinning/secretary/pinterest/saltwater)。
+# 归入 _SENSITIVE_KEYS ⟹ 段尾规则同时覆盖其前缀变体 (如 dbauthmethod),
+# 避免「旧实现脱敏、新实现不脱敏」的相对回归。
+_EXACT_SENSITIVE_KEYS = frozenset({
+    "authmethod", "credentialid", "keyvalue", "passwdvalue",
+    "passworddb", "pincode", "saltvalue", "secretstore",
+})
+
 _SENSITIVE_KEYS = frozenset({
     "password", "passwd", "secret", "token", "api_key", "api-key",
     "credential", "auth", "private_key", "access_token", "refresh_token",
     "bearer", "authorization", "ssn", "credit_card", "card_number",
     "cvv", "pin", "salt", "client_secret", "oauth_client_secret",
-})
+}) | _EXACT_SENSITIVE_KEYS
 
 
 def _key_segments(key: str) -> list[str]:
@@ -144,6 +155,58 @@ def _is_sensitive_key(key: str) -> bool:
                     return True
     return False
 
+
+# ★ 强制层 (SC 2026-10-25 19:55 函 §二②): strict=True 时, 落盘前若见
+#   「未登记的键 + 明文值 + 值像凭据」⟹ 直接拦截报错。
+#   目的: 将来出现第 9 个未知前缀类键时, 是「写不进去且报错」,
+#         而不是「静默明文落盘」。
+# ⚠️ 启用前必须先证明「不会误拦现有全部业务键」(SC 硬前提):
+#         拿现有全量审计日志回放, strict=True 下必须 0 拦截。
+_CREDENTIAL_VALUE_RE = re.compile(r"^[A-Za-z0-9+/=_\-\.]{20,}$")
+
+
+def _looks_like_credential(value: Any) -> bool:
+    """值是否「像凭据」—— 保守判据, 宁可漏拦不可误拦现有业务数据。
+
+    判据 (全满足才算像): 长串 + 无空白 + 字符集受限 + 含字母 + 含数字或大写或符号。
+    排除: 句子/含空格的散文、路径、URL、短值。
+    """
+    if not isinstance(value, str):
+        return False
+    s = value.strip()
+    if len(s) < 20 or len(s) > 4096:
+        return False
+    if not _CREDENTIAL_VALUE_RE.match(s):
+        return False
+    has_lower = any(c.islower() for c in s)
+    has_upper = any(c.isupper() for c in s)
+    has_digit = any(c.isdigit() for c in s)
+    has_symbol = any(c in "+/=_-." for c in s)
+    if not (has_lower or has_upper):
+        return False
+    if not (has_digit or has_upper or has_symbol):
+        return False
+    return True
+
+
+def _strict_unregistered_credentials(log: "AuditLog") -> list[str]:
+    """列出「未登记的键 + 明文值 + 值像凭据」的违例 (SC ② 强制层)。
+
+    「未登记」= 该键名不会被脱敏器识别 ⟹ 其值会**原样**落盘。
+    「明文值」= 脱敏后仍是完整可读串 (已脱敏的敏感键值是 "***xxxx", 长度短 ⟹ 不会命中)。
+    """
+    out: list[str] = []
+    for section in ("params", "metadata"):
+        data = getattr(log, section, None)
+        if not isinstance(data, dict):
+            continue
+        for key, value in data.items():
+            k = _json_key(key)
+            if _is_sensitive_key(k):
+                continue  # 已登记 ⟹ 已被脱敏 ⟹ 放行
+            if _looks_like_credential(value):
+                out.append(f"{section}.{k}")
+    return out
 
 def _sanitize_value(value: Any, key: str) -> Any:
     """对单个值进行脱敏（如果key是敏感字段）
@@ -436,8 +499,22 @@ class AuditLog:
         }, sort_keys=True, ensure_ascii=False)
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-    def seal(self, prev_hash: str):
-        """密封记录，绑定前驱哈希并计算自身哈希"""
+    def seal(self, prev_hash: str, strict: bool = False):
+        """密封记录，绑定前驱哈希并计算自身哈希
+
+        strict=True 时启用**强制层** (SC 2026-10-25 19:55 函 §二②):
+        落盘前若见「未登记的键 + 明文值 + 值像凭据」⟹ 直接拦截报错。
+        ⟹ 检查发生在 seal 内部 ⟹ 违例记录**不进链、不落盘** (内存链与落盘链都不含它)。
+        """
+        if strict:
+            violations = _strict_unregistered_credentials(self)
+            if violations:
+                raise ValueError(
+                    "审计落盘被强制层拦截 (strict=True): 检出「未登记的键 + 明文值 + 值像凭据」: "
+                    + ", ".join(violations[:10])
+                    + (" ..." if len(violations) > 10 else "")
+                    + " ⟹ 请把该键登记进 _SENSITIVE_KEYS (精确键名) 或改用非敏感字段名"
+                )
         self.prev_hash = prev_hash
         self.hash = self._compute_hash(prev_hash)
 
@@ -455,9 +532,11 @@ class AuditLog:
 class AuditLogger:
     """审计日志记录器 - 哈希链防篡改"""
 
-    def __init__(self, log_file: str = "data/audit.jsonl", auto_load: bool = True):
+    def __init__(self, log_file: str = "data/audit.jsonl", auto_load: bool = True, strict: bool = False):
         self._logs: list[AuditLog] = []
         self._log_file = log_file
+        # strict=True 启用 SC ② 强制层 (默认关闭; 启用前须先过全量日志回放 0 拦截证明)
+        self.strict = strict
         self._ensure_storage()
         if auto_load:
             self._load()
@@ -509,7 +588,7 @@ class AuditLogger:
         #   掩成 "***xxxx"（7 B）根本不触发封顶 ⟹ DEF-2026-1005 的
         #   original_bytes 留痕被静默摧毁（且测试不一定报错）。
         _sanitize_audit_log_inplace(log)
-        log.seal(prev_hash)
+        log.seal(prev_hash, strict=self.strict)
         self._logs.append(log)
         self._persist(log)
         return log.id

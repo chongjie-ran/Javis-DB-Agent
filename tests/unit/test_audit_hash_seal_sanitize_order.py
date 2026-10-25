@@ -293,42 +293,52 @@ def test_normalization_does_not_add_false_positives(key):
 #
 # **显式在册** ⟹ 不是静默放过: 本表即 SC 的待裁清单.
 # 将来若补上前缀/内嵌规则, 从此表移除 + 放开差集守卫即可.
+# 前缀类三类归属 (SC 2026-10-25 19:55 函 §二① 裁定「走业务键名全量登记表」之后):
+#   REGISTERED    = SC 裁定纳入登记表的 8 条 ⟹ **现已脱敏** (精确键名, 零误伤)
+#   GAPS          = 段首前缀、SC 尚未纳入 ⟹ 仍不脱敏 (已知边界, 待裁)
+#   UNREGISTERED  = 段首前缀、既未登记也未裁定 ⟹ 仍不脱敏 ⟹ 需 SC 裁定 (新暴露面)
+#
+# 探针语料 11 条 = REGISTERED 8 + GAPS 1 + UNREGISTERED 2
+# (探针是样本, 类不封闭 ⟹ 另有「段尾层语料随敏感词表同步」的断言守住整类)
+KNOWN_PREFIX_CLASS_REGISTERED = [
+    "authmethod", "credentialid", "keyvalue", "passwdvalue",
+    "passworddb", "pincode", "saltvalue", "secretstore",
+]
+
+# 已知边界显式在册: 这类键当前不脱敏, 待 SC 裁（不静默放过）。
 KNOWN_PREFIX_GAPS = [
-    "tokenvalue",   # 敏感词在段首
-    "passworddb",   # 敏感词在段首
+    "tokenvalue",   # 敏感词在段首；SC ① 登记表未纳入它 ⟹ 仍在册待裁
 ]
 
 # --- 前缀类探针语料 (真理 1215 §五(2) / 1330 §四 的 P0: 前缀类明文落盘 + 守卫盲区) ---
 # 事实基础 (悟通 2026-10-25 实测 src.gateway.audit 的 _SENSITIVE_KEYS / _is_sensitive_key):
-#   本语料 11 个键, 当前**全部不被新实现脱敏**;
+#   本语料 11 个键, ① 登记前**全部不被新实现脱敏**;
 #   其中 10 个是「旧子串实现会脱敏、新实现不脱敏」= 净新增明文暴露;
 #   另 1 个 (keyvalue) 旧新都不脱敏 (旧实现的敏感词表里也没有 key 子串)。
 #   ⟹ 10 - 2(已登记在 KNOWN_PREFIX_GAPS) = **8 条未登记暴露** ⟹ 真理 1330 函报的「8 个键明文落盘」对上。
 #   ⟹ 「已登记 2 条」**不等于**「只剩 2 条」⟹ 本组把暴露面在册且条数写死 (见下面钉死断言)。
 KNOWN_PREFIX_CLASS_PROBE = [
-    "passworddb",    # 已登记于 KNOWN_PREFIX_GAPS
-    "tokenvalue",    # 已登记于 KNOWN_PREFIX_GAPS
-    "secretkey",
-    "keyvalue",      # 旧新都不脱敏 (见 KNOWN_PREFIX_CLASS_INERT)
-    "passwdvalue",
-    "credentialid",
-    "tokentype",
-    "secretstore",
-    "authmethod",
-    "pincode",
-    "saltvalue",
+    "passworddb",    # 已登记 (REGISTERED)
+    "tokenvalue",    # 已登记 (GAPS: SC 未纳入, 待裁)
+    "secretkey",     # 未登记 (需 SC 裁定)
+    "keyvalue",      # 已登记 (REGISTERED; 旧实现也不命中 ⟹ 靠登记表才脱敏)
+    "passwdvalue",   # 已登记 (REGISTERED)
+    "credentialid",  # 已登记 (REGISTERED)
+    "tokentype",     # 未登记 (需 SC 裁定)
+    "secretstore",   # 已登记 (REGISTERED)
+    "authmethod",    # 已登记 (REGISTERED)
+    "pincode",       # 已登记 (REGISTERED)
+    "saltvalue",     # 已登记 (REGISTERED)
 ]
 
-# 未登记的暴露面 (8 条) —— SC 裁定「前缀/内嵌类是否纳入」前, 这 8 条是**已知未修**的 P0。
-# 归属与放行归 SC (业务键名全量登记表), 本组只负责让暴露面**可数、可复现、可发现**。
+# 仍未脱敏且尚未被 SC 裁定的暴露面 —— SC ① 只登记了 8 条, 探针里这 2 条**不在**其列。
+# ⟹ 需 SC 裁定: 是「真实业务键 ⟹ 放行」还是「应脱敏 ⟹ 纳入登记表」。
 KNOWN_PREFIX_CLASS_UNREGISTERED = [
-    "secretkey", "passwdvalue", "credentialid", "tokentype",
-    "secretstore", "authmethod", "pincode", "saltvalue",
+    "secretkey", "tokentype",
 ]
 
-# 旧新都不命中的键 (不构成泄漏), 但仍要在册 ⟹ 否则会被误读成「已登记却漏了」。
+# 旧新都不命中的键: ① 登记后**已无** (keyvalue 已进登记表 ⟹ 现已脱敏)。
 KNOWN_PREFIX_CLASS_INERT = [
-    "keyvalue",
 ]
 
 # --- 段尾规则专属语料 (真理 1440 函 MUT-I) ---
@@ -341,6 +351,8 @@ SEGMENT_TAIL_VARIANTS = [
     "myaccesstoken", "myapikey", "myauth", "myauthorization", "mybearer",
     "mycardnumber", "myclientsecret", "mycredential", "mycreditcard", "mycvv",
     "myoauthclientsecret", "mypassword", "mypasswd", "mypin", "myprivatekey",
+    "myauthmethod", "mycredentialid", "mykeyvalue", "mypasswdvalue",
+    "mypassworddb", "mypincode", "mysaltvalue", "mysecretstore",
     "myrefreshtoken", "mysalt", "mysecret", "myssn", "mytoken",
     # 真理 1440 函手挑的多词段形态
     "dbpassword", "userauth", "xpassword", "dbcredentials",
@@ -395,31 +407,45 @@ def test_new_matcher_never_redacts_less_than_old_substring_matcher():
 
 @pytest.mark.parametrize("key", KNOWN_PREFIX_CLASS_PROBE)
 def test_prefix_class_probe_is_registered(key):
-    """前缀类探针语料必须**在册** (真理 1215 §五(2): 12 条原始语料不入库 ⟹ 别人无法复现结论)。
+    """前缀类探针语料必须**在册** (真理 1215 §五(2): 原始语料不入库 ⟹ 别人无法复现结论)。
 
-    本断言把「已登记 2 条」与「暴露面 11 条」分开 ⟹ 杜绝「只登记 2 条 == 只剩 2 条」的误读。
+    本断言把「SC 已登记」/「已知边界待裁」/「仍待裁定」三类分开 ⟹ 杜绝「只登记 N 条 == 只剩 N 条」的误读。
     """
-    registered = (set(KNOWN_PREFIX_GAPS) | set(KNOWN_PREFIX_CLASS_UNREGISTERED)
-                 | set(KNOWN_PREFIX_CLASS_INERT))
+    registered = (set(KNOWN_PREFIX_CLASS_REGISTERED) | set(KNOWN_PREFIX_GAPS)
+                 | set(KNOWN_PREFIX_CLASS_UNREGISTERED) | set(KNOWN_PREFIX_CLASS_INERT))
     assert key in registered, (
         f"前缀类探针键 {key!r} 未登记 ⟹ 守卫对它无盲区保护, 别人无法复现该结论。"
-        "请补进 KNOWN_PREFIX_GAPS (已裁定放行) / KNOWN_PREFIX_CLASS_UNREGISTERED (已知未修)"
-        " / KNOWN_PREFIX_CLASS_INERT (旧新都不命中)"
+        "请补进 KNOWN_PREFIX_CLASS_REGISTERED (SC 已裁定纳入) / KNOWN_PREFIX_GAPS (已知边界待裁)"
+        " / KNOWN_PREFIX_CLASS_UNREGISTERED (待 SC 裁定) / KNOWN_PREFIX_CLASS_INERT (旧新都不命中)"
+    )
+
+
+@pytest.mark.parametrize("key", KNOWN_PREFIX_CLASS_REGISTERED)
+def test_prefix_class_registered_is_masked(key):
+    """SC ① 裁定纳入登记表的键**必须脱敏** ⟹ 登记表被摘掉/键名写错, 当场红。
+
+    SC 2026-10-25 19:55 函 §二①: 走「业务键名全量登记表」⟹ 这 8 条精确键名必须脱敏,
+    且**不得**误伤 author/spinning/secretary/pinterest/saltwater 那类业务键 (由差集守卫守)。
+    """
+    from src.gateway.audit import _sanitize_value
+    out = _sanitize_value("SUPERSECRET1234", key)
+    assert out != "SUPERSECRET1234", (
+        f"SC 已裁定登记的键 {key!r} 现在**没有**脱敏 ⟹ 登记表未生效 (或键名写错)"
     )
 
 
 @pytest.mark.parametrize("key", KNOWN_PREFIX_CLASS_UNREGISTERED)
 def test_prefix_class_unregistered_gap_is_still_open(key):
-    """未登记的前缀类暴露**必须仍然是「未脱敏」** ⟹ 任何变化当场可见。
+    """尚未被 SC 裁定的暴露**必须仍然是「未脱敏」** ⟹ 任何变化当场可见。
 
     两种变化都会红, 且含义不同:
-      - 变**成脱敏** ⟹ SC 已裁定纳入 ⟹ 该条应移出本组、移入 MUST_REDACT (本断言提示)
-      - 仍不脱敏但**结构变了** (如旧实现不再命中) ⟹ 暴露面构成变化 ⟹ 需重测并更新条数
+      - 变**成脱敏** ⟹ SC 已裁定纳入 ⟹ 该条应移出本组、移入 KNOWN_PREFIX_CLASS_REGISTERED
+      - 仍不脱敏但**结构变了**(如旧实现不再命中) ⟹ 暴露面构成变化 ⟹ 需重测并更新条数
     """
     from src.gateway.audit import _is_sensitive_key
     assert not _is_sensitive_key(key), (
-        f"前缀类键 {key!r} 现在被脱敏了 ⟹ SC 已裁定前缀类纳入, 请把它移出"
-        " KNOWN_PREFIX_CLASS_UNREGISTERED 并移入 MUST_REDACT, 同步放开差集守卫"
+        f"前缀类键 {key!r} 现在被脱敏了 ⟹ SC 已裁定纳入, 请把它移出"
+        " KNOWN_PREFIX_CLASS_UNREGISTERED 并移入 KNOWN_PREFIX_CLASS_REGISTERED"
     )
 
 
@@ -436,23 +462,26 @@ def test_prefix_class_exposure_surface_is_pinned():
     probe = set(KNOWN_PREFIX_CLASS_PROBE)
     not_redacted = {k for k in probe if not _is_sensitive_key(k)}
     divergence = {k for k in probe if old_impl(k) and not _is_sensitive_key(k)}
-    assert not_redacted == probe, (
-        f"前缀类探针的脱敏状态变了: 不再脱敏的少了 {sorted(probe - not_redacted)}"
+    assert not_redacted == {"tokenvalue", "secretkey", "tokentype"}, (
+        f"前缀类探针的脱敏状态变了: 仍未脱敏的 = {sorted(not_redacted)}"
     )
-    assert len(divergence) == 10, (
-        f"前缀类「旧脱敏/新不脱敏」的条数变了: {len(divergence)} (期望 10) "
+    assert len(divergence) == 3, (
+        f"前缀类「旧脱敏/新不脱敏」的条数变了: {len(divergence)} (期望 3) "
         f"实际 {sorted(divergence)}"
     )
     unregistered = divergence - set(KNOWN_PREFIX_GAPS)
     assert unregistered == set(KNOWN_PREFIX_CLASS_UNREGISTERED), (
         f"未登记暴露面构成变了: 实际 {sorted(unregistered)}"
     )
-    assert len(unregistered) == 8, (
-        f"未登记暴露面条数变了: {len(unregistered)} (期望 8)"
+    assert len(unregistered) == 2, (
+        f"未登记暴露面条数变了: {len(unregistered)} (期望 2)"
     )
-    inert = probe - divergence - set(KNOWN_PREFIX_GAPS)
-    assert inert == set(KNOWN_PREFIX_CLASS_INERT), (
-        f"旧新都不命中的键构成变了: 实际 {sorted(inert)}"
+    # SC ① 登记的 8 条 ⟹ 必须**已脱敏** (在探针里 ⟹ 不在 not_redacted)
+    assert probe & set(KNOWN_PREFIX_CLASS_REGISTERED) == set(KNOWN_PREFIX_CLASS_REGISTERED), (
+        f"登记表与探针语料不一致: {sorted(set(KNOWN_PREFIX_CLASS_REGISTERED) - probe)}"
+    )
+    assert not ((probe & set(KNOWN_PREFIX_CLASS_REGISTERED)) & not_redacted), (
+        f"登记表的键仍在未脱敏集合里: {sorted((probe & set(KNOWN_PREFIX_CLASS_REGISTERED)) & not_redacted)}"
     )
 
 
@@ -491,6 +520,71 @@ def test_segment_tail_corpus_covers_every_sensitive_word():
     assert not missing, (
         f"段尾层语料落后于敏感词表: 缺 {missing} ⟹ 补进 SEGMENT_TAIL_VARIANTS"
     )
+
+def test_strict_layer_blocks_unregistered_credential_like_value():
+    """★ 强制层 (SC 2026-10-25 19:55 函 §二②): 未登记的键 + 明文值 + 值像凭据 ⟹ 拒绝落盘。
+
+    目的: 将来出现第 9 个未知前缀类键时, 是「写不进去且报错」, 而不是「静默明文落盘」。
+    """
+    from src.gateway.audit import AuditLog, AuditAction
+
+    log = AuditLog(
+        action=AuditAction.TOOL_CALL,
+        params={"some_unregistered_key": "AKIA0123456789ABCDEF"},
+    )
+    try:
+        log.seal("0" * 64, strict=True)
+    except ValueError as exc:
+        assert "强制层" in str(exc), str(exc)
+        assert "some_unregistered_key" in str(exc), str(exc)
+    else:
+        raise AssertionError("强制层未拦截: 未登记的键 + 明文凭据值竟然被允许落盘")
+
+    # 违例记录**不进链**: prev_hash/hash 未被写入
+    assert log.hash == "", "被拦截的记录不应产生哈希"
+    assert log.prev_hash == "", "被拦截的记录不应绑定前驱哈希"
+
+
+def test_strict_layer_allows_registered_and_normal_values():
+    """强制层不得误拦: 已登记的键、以及普通业务值都必须放行。
+
+    SC 硬前提: 「不会误拦现有全部业务键」⟹ 靠这条断言 + 全量日志回放共同保证。
+    """
+    from src.gateway.audit import AuditLog, AuditAction, _sanitize_value
+
+    # ① 已登记的键: 值照样脱敏, 不该被强制层拦
+    masked = _sanitize_value("AKIA0123456789ABCDEF", "authmethod")
+    assert masked != "AKIA0123456789ABCDEF", "已登记的键应脱敏"
+
+    # ② 普通业务值: 短句/路径/URL/布尔 ⟹ 放行
+    for value in (
+        "正常业务描述, 含空格",
+        "/usr/local/bin/tool --flag",
+        "https://example.com/path?q=1",
+        "short",
+        12345,
+        True,
+        None,
+        {"a": 1},
+    ):
+        log = AuditLog(
+            action=AuditAction.TOOL_CALL,
+            params={"business_field": value},
+        )
+        log.seal("0" * 64, strict=True)  # 不应抛异常
+        assert log.hash != "", "放行的记录应正常产生哈希"
+
+
+def test_strict_layer_default_is_off_and_opt_in():
+    """强制层默认**关闭** (SC: 启用前须先过全量日志回放 0 拦截证明)。"""
+    from src.gateway.audit import AuditLog, AuditAction
+
+    log = AuditLog(
+        action=AuditAction.TOOL_CALL,
+        params={"some_unregistered_key": "AKIA0123456789ABCDEF"},
+    )
+    log.seal("0" * 64)  # 默认不 strict ⟹ 不抛异常
+    assert log.hash != "", "默认路径应正常密封"
 
 @pytest.mark.parametrize("key", MUST_REDACT)
 def test_sensitive_key_must_be_redacted(key):
