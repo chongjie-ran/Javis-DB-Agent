@@ -1098,6 +1098,41 @@ def test_strict_layer_still_blocks_credential_like_values_after_hostname_rule():
             blocked = True
         assert blocked, ("该值应被强制层拦下, 却被当成主机名放过: " + value)
 
+def test_hostname_rule_exemption_is_documented_and_pinned():
+    """★ 主机名规则的**豁免范围**必须写清并被钉住 (真显 1620 函 ③ 文档缺陷; 我独立复现成立)。
+
+    缺陷原文: 我的 _looks_like_hostname docstring 在**理由段**举例
+    correct.horse.battery.staple, 说它「会被当主机名放过 ⟹ 漏拦」⟹ 但那正是**理由本身**
+    所要求的规则 (末段 2-24 位纯字母) ⟹ 理由段与代价段自相矛盾 ⟹ 未来维护者会误判保护范围
+    (以为小写点分口令已被护住, 实际并未护住)。
+
+    本用例钉两件事:
+      ① 行为: 末段纯字母 2-24 ⟹ **放过** (豁免, 属既定取舍); 末段含大写 ⟹ **仍被拦**;
+         分界线就是「末段是否像 TLD」;
+      ② 文档: docstring 必须**点名**这个豁免例子 ⟹ 否则又被改回自相矛盾的写法。
+    """
+    from src.gateway.audit import _looks_like_credential, _looks_like_hostname
+
+    # ① 行为分界
+    assert _looks_like_hostname("correct.horse.battery.staple") is True
+    assert _looks_like_credential("correct.horse.battery.staple") is False, (
+        "末段 6 位纯字母落在 TLD 区间 ⟹ 属既定豁免 (代价段已写明)"
+    )
+    assert _looks_like_credential("correct.horse.battery.stapleX") is True, (
+        "末段含大写 ⟹ 不像 TLD ⟹ 仍须判凭据"
+    )
+    # 末段长度边界: 2-24 位纯字母放过, 25 位仍判凭据
+    assert _looks_like_credential("a.b." + "a" * 24) is False
+    assert _looks_like_credential("a.b." + "a" * 25) is True
+
+    # ② 文档必须点名豁免例子 (防再次写成自相矛盾)
+    doc = _looks_like_hostname.__doc__ or ""
+    assert "correct.horse.battery.staple" in doc, (
+        "docstring 必须点名被豁免的例子 ⟹ 否则理由段会再次与代价段矛盾"
+    )
+    assert "代价" in doc, "docstring 必须保留「代价」段 (写明保护范围)"
+
+
 def test_credential_fragment_inside_path_value_is_masked_on_disk():
     """★ 路径/URL 排除**不得**开出明文泄漏 (真理 1945/1950 函 P0 回归; 我独立复现)。
 
