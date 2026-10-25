@@ -969,11 +969,27 @@ def test_cap_trail_order_invariant_keeps_sensitive_original_hash():
     #   tests/unit 601 -> 3 failures
     # => 正确的不变式是: cap 先于 sanitize => 敏感键的原值长度/散列仍被留痕
     #
-    # ★ 顺序哨兵只有**两条** (真显 1525 函实测的 M1 敏感性对照):
-    #   顺序敏感 (M1 下必红): 本用例 + test_cap_trail_kept_bytes_on_disk_false_for_sensitive_key
+    # ★ 顺序哨兵**完整名单** (真显 1610 函四格矩阵 + 我独立复现, 逐条 JUnit XML 反查, 非人肉数):
+    #   6218f72 树上 M1 (交换 cap/sanitize 两行) 实测 **5 条**必红:
+    #     1) test_cap_trail_order_invariant_keeps_sensitive_original_hash   (本用例)
+    #     2) test_cap_trail_kept_bytes_on_disk_false_for_sensitive_key
+    #     3) test_cap_trail_records_original_length_even_for_sensitive_key   (既有)
+    #     4) test_cap_trail_key_matches_persisted_key[api_key]               (既有)
+    #     5) test_strict_layer_does_not_flag_audit_cap_trail                (既有, 非 trail 用例)
     #   顺序免疫 (M1 下仍绿): test_cap_trail_declares_pre_sanitize_stage (只断言 stage 字段存在)
     #                        test_cap_trail_kept_bytes_on_disk_true_for_plain_key (只管非敏感键)
-    # ⟹ 别以为 4 条 trail 用例都在守顺序 ⟹ 真正咬住顺序的是上面标出的两条。
+    # ⟹ 我 2005 函那份「5 failures 拆开」清单**写错了** (把两条绿的列进去, 又漏了两条红的) ⟹ 以本注释为准。
+    #
+    # ★ 四格矩阵 (真显 1610 函, 与我独立复现逐格一致):
+    #     1ec5809=2 / 2df8461b=1 / e23fd8a=2 / 6218f72=5
+    #   计数差异的根因 = 各 commit 树上**存在的相关用例数不同** (不是敏感度不同):
+    #     2df8461b 树只有 1 条相关用例 (records_original_length)              ⟹ 1
+    #     1ec5809 / e23fd8a 有 2 条 (加 key_matches_persisted)                ⟹ 2
+    #     69b4847 树有 3 条 (加 strict_layer_does_not_flag_audit_cap_trail)  ⟹ 未跑 MUT, 仅存在性检查
+    #     6218f72 树有 5 条 (加 kept_bytes_on_disk_false + order_invariant)   ⟹ 5
+    #
+    # ★ 每格必须带「注入成功证明」(改后逐行回读); 注入未生效即 fail-loud, **禁止静默产出 BASE 数字**。
+    #   工具: ~/.openclaw/workspace-shared/tools/mutation_matrix.py (注入失败 exit 2, 该格作废)
     import os
     import tempfile
     tmp = tempfile.mkdtemp()
