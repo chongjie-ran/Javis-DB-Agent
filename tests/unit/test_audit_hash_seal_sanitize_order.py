@@ -1133,6 +1133,50 @@ def test_hostname_rule_exemption_is_documented_and_pinned():
     assert "代价" in doc, "docstring 必须保留「代价」段 (写明保护范围)"
 
 
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="KNOWN GAP (真显 1650 函实测, 我独立复现成立): 路径/URL 内的**裸高熵 token** "
+           "(无已知厂商前缀) 未被片段规则覆盖 ⟹ 落盘仍是明文; 904f737 的 commit 标题"
+           "声称覆盖「路径/URL」⟹ 标题过度承诺, 已在 _mask_credential_fragments 的"
+           "「覆盖范围」段更正. 修好之后本用例会 XPASS 变红 ⟹ 请届时删掉 xfail 标记"
+           "并把断言改为「明文不得出现」."
+)
+def test_known_gap_bare_high_entropy_token_in_path_is_not_masked_yet():
+    """★ 已知缺口: 路径/URL 内的裸高熵 token 仍**明文落盘** (真显 1650 函; 我独立复现)。
+
+    本用例**故意断言缺口已修复** (即明文不得出现) ⟹ 故用 xfail(strict=True):
+      缺口仍在 ⟹ 断言失败 ⟹ 本用例 xfail (预期失败) ⟹ 套件**绿**;
+      缺口被修好 ⟹ 断言通过 ⟹ XPASS ⟹ strict=True 令套件**变红** ⟹ 提醒删 xfail 标记
+      并把断言改成正式断言。
+    ⟹ 目的是让缺口**在套件里可见且自报**, 而不是只活在函件里。
+    """
+    import os
+    import tempfile
+
+    from src.gateway.audit import AuditAction, AuditLogger
+
+    for key, value in (
+        ("path_last", "/tmp/AAAABBBBCCCCDDDDEEEEFFFFGGGG"),
+        ("url_pathseg", "https://x.com/AAAABBBBCCCCDDDDEEEEFFFFGGGG"),
+    ):
+        tmp = tempfile.mkdtemp()
+        p = os.path.join(tmp, "a.jsonl")
+        logger = AuditLogger(log_file=p, auto_load=False, strict=True)
+        logger.log_action(
+            AuditAction.AGENT_INVOKE,
+            user_id="u",
+            tool_name="t",
+            params={key: value},
+            result="ok",
+        )
+        body = open(p, encoding="utf-8").read()
+        assert value not in body, (
+            f"{key}: 明文仍在落盘里 ⟹ 已知缺口仍在 (这正是本用例预期的 xfail)"
+        )
+
+
 def test_credential_fragment_inside_path_value_is_masked_on_disk():
     """★ 路径/URL 排除**不得**开出明文泄漏 (真理 1945/1950 函 P0 回归; 我独立复现)。
 

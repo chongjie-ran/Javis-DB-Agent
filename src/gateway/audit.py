@@ -391,6 +391,21 @@ def _mask_credential_fragments(text: str) -> str:
     取舍: 只认**前缀** ⟹ 不误伤普通业务值 (无前缀的长串/散文本一律不动);
       但也意味着「无前缀的裸 token 嵌在路径里」不在本函数射程 ⟹
       那种仍由强制层按整串判据处理 (见 _looks_like_credential)。
+
+    ★★ 覆盖范围 (真显 1650 函实测, 我独立复现成立; 此前 904f737 的 commit 标题
+       「路径/URL 内的凭据片段按值脱敏」**过度承诺** ⟹ 以本段为准):
+      本函数**覆盖**: 值内出现**已知厂商前缀**的 token
+                    (sk- / ghp_ / AKIA / AIza / glpat- / xox- / npm_ ...)
+      本函数**不覆盖**: 无已知前缀的**裸高熵 token**, 例如
+                      /tmp/AAAABBBBCCCCDDDDEEEEFFFFGGGG
+                      https://x.com/AAAABBBBCCCCDDDDEEEEFFFFGGGG
+                      /Users/x/.ssh/id_rsa_AAAABBBBCCCCDDDD
+                    ⟹ 这类值**明文落盘** (已知缺口, 见测试
+                      test_known_gap_bare_high_entropy_token_in_path_is_not_masked_yet)
+      本函数也**不负责**按键名遮的那类 (键名本身敏感 ⟹ 走 _sanitize_value)。
+    ⟹ 为什么不用「逐段形状判据」补上: 我实测过 ⟹ 它会把**真实业务值**误遮
+      (诊断告警 performance_degradation -> 诊断告警 ***tion) ⟹ 形状与散文在
+      单下划线词组上**不可区分** (散文规则只认 >=2 个下划线) ⟹ 属 SC 的语义裁定范围。
     """
     if not isinstance(text, str) or not text:
         return text
