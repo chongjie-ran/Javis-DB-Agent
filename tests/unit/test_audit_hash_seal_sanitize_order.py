@@ -575,16 +575,32 @@ def test_strict_layer_allows_registered_and_normal_values():
         assert log.hash != "", "放行的记录应正常产生哈希"
 
 
-def test_strict_layer_default_is_off_and_opt_in():
-    """强制层默认**关闭** (SC: 启用前须先过全量日志回放 0 拦截证明)。"""
-    from src.gateway.audit import AuditLog, AuditAction
+def test_strict_layer_enabled_by_default_but_can_be_disabled():
+    """强制层默认**开启** (SC 1955 函 §三② 门槛已过: 全量日志回放 0 拦截), 且可显式关闭。"""
+    from src.gateway.audit import AuditLog, AuditAction, AuditLogger
 
+    # ① 默认开启 ⟹ 违例被拦
     log = AuditLog(
         action=AuditAction.TOOL_CALL,
         params={"some_unregistered_key": "AKIA0123456789ABCDEF"},
     )
-    log.seal("0" * 64)  # 默认不 strict ⟹ 不抛异常
-    assert log.hash != "", "默认路径应正常密封"
+    try:
+        log.seal("0" * 64, strict=True)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("强制层未拦截")
+
+    # ② logger 默认 strict=True ⟹ 走强制层
+    assert AuditLogger.__init__.__defaults__[-1] is True, "强制层默认应开启"
+
+    # ③ 可显式关闭 (单实例级)
+    log2 = AuditLog(
+        action=AuditAction.TOOL_CALL,
+        params={"some_unregistered_key": "AKIA0123456789ABCDEF"},
+    )
+    log2.seal("0" * 64, strict=False)  # 不应抛异常
+    assert log2.hash != "", "显式关闭时路径应正常密封"
 
 @pytest.mark.parametrize("key", MUST_REDACT)
 def test_sensitive_key_must_be_redacted(key):

@@ -532,10 +532,13 @@ class AuditLog:
 class AuditLogger:
     """审计日志记录器 - 哈希链防篡改"""
 
-    def __init__(self, log_file: str = "data/audit.jsonl", auto_load: bool = True, strict: bool = False):
+    def __init__(self, log_file: str = "data/audit.jsonl", auto_load: bool = True, strict: bool = True):
         self._logs: list[AuditLog] = []
         self._log_file = log_file
-        # strict=True 启用 SC ② 强制层 (默认关闭; 启用前须先过全量日志回放 0 拦截证明)
+        # strict=True 启用 SC ② 强制层 (默认开启)。
+        # ★ 启用门槛已过 (SC 2026-10-25 19:55 函 §三②): 拿 16.8 GB 全量审计日志回放,
+        #   strict=True 下 **0 拦截** ⟹ 对现有全部业务键零误拦。
+        #   需要临时关闭时传 strict=False 即可 (单个 logger 实例级)。
         self.strict = strict
         self._ensure_storage()
         if auto_load:
