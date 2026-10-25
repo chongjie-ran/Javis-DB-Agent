@@ -31,6 +31,22 @@ class AuditAction(Enum):
 GENESIS_HASH = "0" * 64
 
 
+# ---------------------------------------------------------------------------
+# 审计写入端体积上限（DEF-2026-1005）
+# ---------------------------------------------------------------------------
+# 背景：写入端此前对 params 没有任何长度上限，一次 tool.call 就能往不可变的
+# 哈希链审计文件里写 100 MiB。
+#   爆炸点 tests/v1.5/validation/test_cases_dfx.py:539
+#       huge_sql = "SELECT " + "a" * (100 * 1024 * 1024)
+#   实测后果：226 条超大记录 = 22.08 GiB
+#       (Javis-DB-Agent 15.63 GiB + zhenli 6.45 GiB)
+# 处置：单值上限 4 KB、单条落盘上限 64 KB；截断必须留痕（原长度 + sha256），
+#       否则「这条 SQL 有 100 MiB」这个事实会被一起抹掉，审计会变成盲的。
+MAX_PARAM_VALUE_BYTES = 4 * 1024
+MAX_RECORD_BYTES = 64 * 1024
+_MAX_CAP_DEPTH = 6
+
+
 def _mask_ip(ip: str) -> str:
     """脱敏IP地址（前两段）"""
     if not ip:
@@ -61,6 +77,134 @@ def _sanitize_value(value: Any, key: str) -> Any:
                 return "***" + value[-4:]
             return "***REDACTED***"
     return value
+
+
+def _sha256_hex(raw: bytes) -> str:
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _json_size(value: Any) -> int:
+    """估算任意值的 JSON 字节数（用于计量/排序）"""
+    try:
+        return len(json.dumps(value, ensure_ascii=False, default=str).encode("utf-8"))
+    except Exception:
+        return len(str(value).encode("utf-8"))
+
+
+def _truncate_text(text: str, max_bytes: int = MAX_PARAM_VALUE_BYTES):
+    """截断超大字符串并留痕。
+
+    返回 (新值, 留痕信息)。留痕 = 原字节数 + 原内容 sha256 + 实际保留字节数。
+    留痕写两份：值内嵌人可读标记 + metadata._audit_cap 机器可读。
+    """
+    raw = text.encode("utf-8", errors="surrogatepass")
+    if len(raw) <= max_bytes:
+        return text, None
+    digest = _sha256_hex(raw)
+    marker = f" ... <truncated, original_bytes={len(raw)}, sha256={digest}>"
+    budget = max(0, max_bytes - len(marker.encode("utf-8")))
+    head = raw[:budget].decode("utf-8", errors="ignore")
+    return head + marker, {
+        "original_bytes": len(raw),
+        "sha256": digest,
+        "kept_bytes": len(head.encode("utf-8")),
+    }
+
+
+def _cap_value(value: Any, depth: int = 0):
+    """递归截断容器里的超大字符串叶子。返回 (新值, 留痕信息)。"""
+    if isinstance(value, str):
+        return _truncate_text(value)
+    if depth >= _MAX_CAP_DEPTH:
+        return value, None
+    if isinstance(value, dict):
+        trail = {}
+        out = {}
+        for key, item in value.items():
+            new_item, info = _cap_value(item, depth + 1)
+            out[key] = new_item
+            if info:
+                trail[str(key)] = info
+        return out, (trail or None)
+    if isinstance(value, (list, tuple)):
+        trail = {}
+        out = []
+        for idx, item in enumerate(value):
+            new_item, info = _cap_value(item, depth + 1)
+            out.append(new_item)
+            if info:
+                trail[str(idx)] = info
+        return (out if isinstance(value, list) else tuple(out)), (trail or None)
+    return value, None
+
+
+def _record_size(log: "AuditLog") -> int:
+    """估算整条记录落盘后的字节数（用未脱敏版本估算：脱敏只会变小）"""
+    try:
+        return len(json.dumps(log.to_dict(), ensure_ascii=False, default=str).encode("utf-8"))
+    except Exception:
+        return 0
+
+
+def _cap_record(log: "AuditLog") -> dict:
+    """落盘前给整条记录封顶（DEF-2026-1005）。
+
+    1. 单值封顶：字符串叶子截断到 4 KB，值内嵌留痕标记（original_bytes + sha256）
+    2. 记录封顶：仍超 64 KB 时，按体积从大到小丢弃 params 键，并留痕
+    3. 机器可读留痕写进 metadata._audit_cap
+
+    必须在 seal() 之前调用：哈希链覆盖的就是落盘内容，顺序反了链会自断。
+    """
+    trail = {"values": {}, "dropped_keys": []}
+
+    params = log.params
+    if isinstance(params, dict):
+        for key in list(params.keys()):
+            new_value, info = _cap_value(params[key])
+            if info:
+                params[key] = new_value
+                trail["values"][f"params.{key}"] = info
+
+    metadata = log.metadata
+    if not isinstance(metadata, dict):
+        metadata = {}
+        log.metadata = metadata
+    for key in list(metadata.keys()):
+        if key == "_audit_cap":
+            continue
+        new_value, info = _cap_value(metadata[key])
+        if info:
+            metadata[key] = new_value
+            trail["values"][f"metadata.{key}"] = info
+
+    for field_name in ("error_message", "result"):
+        current = getattr(log, field_name, None)
+        if isinstance(current, str):
+            new_value, info = _truncate_text(current)
+            if info:
+                setattr(log, field_name, new_value)
+                trail["values"][field_name] = info
+
+    if trail["values"] or trail["dropped_keys"]:
+        metadata["_audit_cap"] = trail
+
+    # 记录级封顶：params 仍把记录撑爆时，丢最大的键（并留痕）
+    size = _record_size(log)
+    if size > MAX_RECORD_BYTES and isinstance(params, dict) and params:
+        ordered = sorted(params.keys(), key=lambda k: _json_size(params[k]), reverse=True)
+        for key in ordered:
+            if size <= MAX_RECORD_BYTES:
+                break
+            value = params.pop(key)
+            raw = json.dumps(value, ensure_ascii=False, default=str).encode("utf-8")
+            trail["dropped_keys"].append({
+                "key": key,
+                "original_bytes": len(raw),
+                "sha256": _sha256_hex(raw),
+            })
+            size = _record_size(log)
+    trail["record_bytes_after_cap"] = size
+    return trail
 
 
 def _sanitize_audit_record(record: dict) -> dict:
@@ -212,6 +356,8 @@ class AuditLogger:
     def log(self, log: AuditLog) -> str:
         """记录日志（自动密封哈希链）"""
         prev_hash = self._logs[-1].hash if self._logs else GENESIS_HASH
+        # DEF-2026-1005: 落盘前体积上限（截断 + 留痕），必须在 seal() 之前
+        _cap_record(log)
         log.seal(prev_hash)
         self._logs.append(log)
         self._persist(log)
