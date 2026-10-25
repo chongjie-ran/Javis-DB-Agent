@@ -73,8 +73,11 @@ def _key_segments(key: str) -> list[str]:
     分词边界：`_` / `-` / `.` 分隔符 + camelCase 大小写边界。
     "api_key" -> ["api", "key"]；"apiKey" -> ["api", "key"]；
     "x-api-key" -> ["x", "api", "key"]；"userPassword" -> ["user", "password"]。
+
+    非字符串键（如 int / bool / None）先转成其 json 落盘形态，
+    避免在此处抛 TypeError（旧的子串实现在 `key.lower()` 处同样会抛）。
     """
-    s = re.sub(r"[_\-.]+", " ", key)
+    s = re.sub(r"[_\-.]+", " ", _json_key(key))
     s = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", s)
     return [x.lower() for x in s.split() if x]
 
@@ -283,6 +286,50 @@ def _sanitize_audit_record(record: dict) -> dict:
     return record
 
 
+def _json_key(key: Any) -> str:
+    """把 dict 的键转成 `json.dumps` 落盘时使用的字符串形态。
+
+    规则与 json 一致: str 原样; True->"true"; False->"false"; None->"null";
+    int/float -> 其十进制字面量 ("1" / "2.5" / "Infinity")。
+    """
+    if isinstance(key, str):
+        return key
+    if key is True:
+        return "true"
+    if key is False:
+        return "false"
+    if key is None:
+        return "null"
+    if isinstance(key, (int, float)):
+        return json.dumps(key)
+    return str(key)
+
+
+def _normalize_json_keys(value: Any) -> Any:
+    """把嵌套 dict 的键统一成 json 落盘后的字符串形态（DEF-2026-1006）。
+
+    目的：让**内存对象**与**重载后的对象**形态完全一致 ⟹
+    「被哈希的内容」==「被落盘的内容」在**键层面**也不会分叉。
+
+    不做这一步时的两类分叉/崩溃（真理特别自问点名要答）：
+      1. 键冲突：params = {1: "a", "1": "b"} ⟹ json 落盘产生**重复键**
+         "1" ⟹ 重载时 json.loads 只保留最后一个 ⟹ 重算哈希 != 落盘 hash ⟹ 链断。
+      2. 混合类型键：params = {1: "a", "b": 2} ⟹ `json.dumps(sort_keys=True)`
+         抛 TypeError（int 与 str 不可比较）⟹ 密封即崩。
+    归一化后：键全是字符串 ⟹ 冲突按「后者覆盖前者」（与 json 落盘行为一致）⟹
+    重载对象与内存对象逐字段相等 ⟹ 链自洽。
+    """
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for k, v in value.items():
+            out[_json_key(k)] = _normalize_json_keys(v)
+        return out
+    if isinstance(value, (list, tuple)):
+        # tuple 落盘后即为 list ⟹ 内存侧也转成 list，保证与重载对象同形态
+        return [_normalize_json_keys(v) for v in value]
+    return value
+
+
 def _sanitize_audit_log_inplace(log: "AuditLog") -> None:
     """就地脱敏 AuditLog 对象的四个来源字段（DEF-2026-1006 P1）。
 
@@ -298,7 +345,7 @@ def _sanitize_audit_log_inplace(log: "AuditLog") -> None:
     幂等性：脱敏重复调用结果稳定（真理 4 轮实测），故 `_persist()` 内部的
     二次脱敏是幂等空操作，可原样保留。
     """
-    sanitized = _sanitize_audit_record(log.to_dict())
+    sanitized = _sanitize_audit_record(_normalize_json_keys(log.to_dict()))
     for field_name in ("params", "metadata", "ip_address", "error_message"):
         if field_name in sanitized:
             setattr(log, field_name, sanitized[field_name])

@@ -88,6 +88,45 @@ def test_chain_valid_when_metadata_contains_token():
     assert ok, f"metadata 含 token 的记录不应被判篡改, 实际: {err} @ {idx}"
 
 
+def test_chain_valid_when_error_message_contains_token():
+    """★ 用例 D：error_message 含 token ⟹ 链必须仍有效。
+
+    派单函验收标准 1 的用例 D。error_message 是四个脱敏来源之一，
+    其脱敏走正则替换（`token=xxx` -> `token=***REDACTED***`）⟹ 同样会改值 ⟹ 同样触发本缺陷。
+    """
+    logger = _write_and_reload([{"error_message": "token=abcdef12345678"}])
+    ok, err, idx = logger.verify_chain()
+    assert ok, f"error_message 含 token 的记录不应被判篡改, 实际: {err} @ {idx}"
+
+
+def test_sensitive_and_benign_params_are_redacted_and_kept_at_record_level():
+    """★ 用例 F（记录级）：params 里的敏感键必须被脱敏，正常业务键必须保持原样。
+
+    派单函验收标准 1 的用例 F。注意这是**记录级**断言（不只测 `_sanitize_value` 单元），
+    覆盖「落盘后仍然是脱敏值 / 仍然是原值」。
+    """
+    tmp = tempfile.mkdtemp()
+    path = os.path.join(tmp, "audit.jsonl")
+    logger = AuditLogger(log_file=path, auto_load=False)
+    logger.log_action(
+        AuditAction.TOOL_CALL, user_id="u", tool_name="t",
+        params={
+            "author": "X", "spinning": "X", "secretary": "X",
+            "api_key": "SECRETVALUE1234",
+        },
+    )
+    rec = _read_lines(path)[0]
+    for benign in ("author", "spinning", "secretary"):
+        assert rec["params"][benign] == "X", (
+            f"params[{benign!r}] 不得被脱敏（子串包含误伤 ⟹ 静默数据损坏），实际 {rec['params'][benign]!r}"
+        )
+    assert rec["params"]["api_key"] != "SECRETVALUE1234", "params['api_key'] 必须被脱敏"
+    # 脱敏后链必须仍有效
+    reloaded = AuditLogger(log_file=path, auto_load=True)
+    ok, err, idx = reloaded.verify_chain()
+    assert ok, f"脱敏后链应有效, 实际: {err} @ {idx}"
+
+
 def test_sensitive_key_matching_is_not_substring():
     """P2：敏感键判定不能是子串包含 ⟹ `author` / `spinning` / `secretary` 不得被脱敏。
 
@@ -253,3 +292,68 @@ def test_cap_trail_records_original_length_even_for_sensitive_key():
     assert cap["values"]["params.api_key"]["original_bytes"] == len(payload), (
         "留痕的 original_bytes 不是原始长度 ⟹ 留痕记的是脱敏后长度"
     )
+
+
+# ---------------------------------------------------------------------------
+# 真理特别自问：有没有办法让「落盘内容」与「被哈希内容」再次分叉？
+#   （例如攻击者构造 params 内特殊键名）
+# ---------------------------------------------------------------------------
+
+def test_non_string_params_key_does_not_break_chain():
+    """非字符串键（int / bool / None）不得让写入崩溃，也不得让链分叉。
+
+    旧实现的两个问题（本修复一并消除）：
+      * `_sanitize_value` 对 int 键抛 AttributeError（旧: `key.lower()`）
+        ⟹ 崩溃发生在 `_persist()` 内，即 **seal() 与 _logs.append() 之后**
+        ⟹ 内存链多一条、磁盘没有 ⟹ **内存/落盘链分叉**；
+      * 混合类型键 {1: "a", "b": 2} 在 `json.dumps(sort_keys=True)` 处抛 TypeError。
+    现已归一化为 json 落盘形态的字符串键 ⟹ 写入成功且链自洽。
+    """
+    for label, params in [
+        ("int 键", {1: "a"}),
+        ("bool 键", {True: "a"}),
+        ("None 键", {None: "a"}),
+        ("int+str 混合键", {1: "a", "b": 2}),
+    ]:
+        tmp = tempfile.mkdtemp()
+        path = os.path.join(tmp, "audit.jsonl")
+        logger = AuditLogger(log_file=path, auto_load=False)
+        logger.log_action(AuditAction.TOOL_CALL, user_id="u", tool_name="t", params=params)
+
+        lines = _read_lines(path)
+        assert len(lines) == 1, f"{label}: 应落盘 1 行，实际 {len(lines)}"
+        for line in lines:
+            assert _recompute_hash(line) == line["hash"], (
+                f"{label}: 落盘内容重算哈希 != 落盘 hash（键形态未归一化 ⟹ 链会分叉）"
+            )
+        reloaded = AuditLogger(log_file=path, auto_load=True)
+        ok, err, idx = reloaded.verify_chain()
+        assert ok, f"{label}: 链应有效, 实际: {err} @ {idx}"
+        # 内存链与落盘链必须同长度（旧实现在这里会分叉）
+        assert len(logger._logs) == len(reloaded._logs), (
+            f"{label}: 内存链 {len(logger._logs)} 条 != 重载链 {len(reloaded._logs)} 条 ⟹ 链分叉"
+        )
+
+
+def test_colliding_params_keys_do_not_diverge():
+    """键冲突（int 1 与 str "1" 同时存在）不得造成「落盘 ≠ 被哈希」。
+
+    冲突时 json 落盘会产生**重复键** "1" ⟹ 若不归一化，重载时 json.loads 只保留最后一个
+    ⟹ 重算哈希 != 落盘 hash ⟹ **未被篡改的记录被判篡改**。
+    归一化后冲突按「后者覆盖前者」（与 json 落盘行为一致）⟹ 链自洽。
+    """
+    tmp = tempfile.mkdtemp()
+    path = os.path.join(tmp, "audit.jsonl")
+    logger = AuditLogger(log_file=path, auto_load=False)
+    logger.log_action(AuditAction.TOOL_CALL, user_id="u", tool_name="t",
+                      params={1: "a", "1": "b"})
+
+    lines = _read_lines(path)
+    assert len(lines) == 1
+    line = lines[0]
+    assert _recompute_hash(line) == line["hash"], (
+        "键冲突导致落盘内容重算哈希 != 落盘 hash ⟹ 链分叉"
+    )
+    reloaded = AuditLogger(log_file=path, auto_load=True)
+    ok, err, idx = reloaded.verify_chain()
+    assert ok, f"键冲突时链应有效, 实际: {err} @ {idx}"
