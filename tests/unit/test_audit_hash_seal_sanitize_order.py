@@ -451,3 +451,31 @@ def test_colliding_params_keys_do_not_diverge():
     reloaded = AuditLogger(log_file=path, auto_load=True)
     ok, err, idx = reloaded.verify_chain()
     assert ok, f"键冲突时链应有效, 实际: {err} @ {idx}"
+
+
+@pytest.mark.parametrize("key", [True, False, None, 1, 2.5, "api_key", "plain"])
+def test_cap_trail_key_matches_persisted_key(key):
+    """cap 留痕的 key 必须与落盘 key 一致（审计按留痕查得到落盘记录）.
+
+    根因: _cap_record 跑在键归一化之前 ⟹ bool/None 键的留痕记 params.True / params.None,
+    而落盘是 params.true / params.null。不影响哈希链，但纯留痕可追溯性会断。
+    """
+    import json
+    import os
+    import tempfile
+
+    from src.gateway.audit import AuditAction, AuditLogger
+
+    tmp = tempfile.mkdtemp()
+    path = os.path.join(tmp, "audit.jsonl")
+    logger = AuditLogger(log_file=path, auto_load=False)
+    logger.log_action(
+        AuditAction.TOOL_CALL, user_id="u", tool_name="t", params={key: "X" * 9000}
+    )
+    rec = json.loads(
+        [ln for ln in open(path, encoding="utf-8") if ln.strip()][0]
+    )
+    trail = rec.get("metadata", {}).get("_audit_cap", {}).get("values", {})
+    derived = sorted(k.split(".", 1)[1] for k in trail)
+    persisted = sorted(rec["params"].keys())
+    assert derived == persisted, "cap trail key mismatch"

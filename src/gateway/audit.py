@@ -243,7 +243,7 @@ def _cap_record(log: "AuditLog") -> dict:
             new_value, info = _cap_value(params[key])
             if info:
                 params[key] = new_value
-                trail["values"][f"params.{key}"] = info
+                trail["values"][f"params.{_json_key(key)}"] = info
 
     metadata = log.metadata
     if not isinstance(metadata, dict):
@@ -255,7 +255,7 @@ def _cap_record(log: "AuditLog") -> dict:
         new_value, info = _cap_value(metadata[key])
         if info:
             metadata[key] = new_value
-            trail["values"][f"metadata.{key}"] = info
+            trail["values"][f"metadata.{_json_key(key)}"] = info
 
     for field_name in ("error_message", "result"):
         current = getattr(log, field_name, None)
@@ -278,7 +278,7 @@ def _cap_record(log: "AuditLog") -> dict:
             value = params.pop(key)
             raw = json.dumps(value, ensure_ascii=False, default=str).encode("utf-8")
             trail["dropped_keys"].append({
-                "key": key,
+                "key": _json_key(key),
                 "original_bytes": len(raw),
                 "sha256": _sha256_hex(raw),
             })
